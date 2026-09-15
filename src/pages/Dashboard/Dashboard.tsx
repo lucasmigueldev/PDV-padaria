@@ -13,13 +13,16 @@ import {
   UserRound,
   Wallet,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import './Dashborad.css'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
-    window.location.href = '/login'
+    navigate('/login', { replace: true })
   }
 
   return (
