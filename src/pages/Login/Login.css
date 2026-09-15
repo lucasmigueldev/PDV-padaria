@@ -1,0 +1,189 @@
+/* Página inteira */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: #f1f5fb;
+}
+
+
+/* Card principal */
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 42px 34px 38px;
+  box-shadow: 0 12px 35px rgba(30, 50, 80, 0.08);
+}
+
+
+/* Cabeçalho */
+
+.login-header {
+  text-align: center;
+  margin-bottom: 38px;
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #263449;
+}
+
+.login-header p {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+
+/* Formulário */
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+
+/* Grupo de cada campo */
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+}
+
+
+/* Área do input */
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.input-wrapper input {
+  width: 100%;
+  height: 52px;
+  box-sizing: border-box;
+
+  padding: 0 44px 0 42px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  font-size: 13px;
+  color: #334155;
+
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-wrapper input::placeholder {
+  color: #94a3b8;
+}
+
+.input-wrapper input:focus {
+  border-color: #8ba5df;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+
+/* Ícone do campo */
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+
+/* Botão de mostrar senha */
+
+.password-toggle {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: transparent;
+
+  padding: 0;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: #64748b;
+}
+
+
+/* Botão Entrar */
+
+.login-button {
+  width: 100%;
+  height: 52px;
+
+  margin-top: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #8da7e3;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.login-button:hover {
+  background: #7896dc;
+}
+
+.login-button:active {
+  transform: scale(0.99);
+}
+
+
+/* Responsividade */
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 36px 24px 32px;
+  }
+
+  .login-header {
+    margin-bottom: 32px;
+  }
+}
