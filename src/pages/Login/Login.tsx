@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import './Login.css'
 
 const Login = () => {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -15,6 +17,8 @@ const Login = () => {
     if (username === 'ADM' && password === '12345') {
       setErrorMessage('Login realizado com sucesso.')
       console.log('Usuário logado:', username)
+      sessionStorage.setItem('isAuthenticated', 'true')
+      navigate('/dashboard', { replace: true })
       return
     }
 
