@@ -254,3 +254,73 @@
     padding: 22px;
   }
 }
+
+/* CARDS E PAINÉIS */
+
+.dashboard-content .rounded-2xl {
+  padding: 30px;
+  border-radius: 18px;
+
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.dashboard-content .rounded-2xl:hover {
+  box-shadow: 0 8px 22px rgb(15 23 42 / 7%);
+}
+
+/* Mais espaço entre os elementos internos dos cards */
+
+.dashboard-content .rounded-2xl > * + * {
+  margin-top: 24px;
+}
+
+/* Títulos dos cards */
+
+.dashboard-content .rounded-2xl h3 {
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* Textos dos cards */
+
+.dashboard-content .rounded-2xl p {
+  line-height: 1.7;
+}
+
+/* Espaçamento entre linhas e informações */
+
+.dashboard-content .rounded-2xl .space-y-4 > * + * {
+  margin-top: 22px;
+}
+
+/* Espaçamento interno dos itens de pagamento ou resumo */
+
+.dashboard-content .rounded-2xl .flex {
+  gap: 16px;
+}
+
+/* Barras de progresso */
+
+.dashboard-content .h-2 {
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 999px;
+}
+
+.dashboard-content .h-2 > div {
+  min-width: 4px;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 650px) {
+  .dashboard-content .rounded-2xl {
+    padding: 24px;
+  }
+
+  .dashboard-content .rounded-2xl > * + * {
+    margin-top: 20px;
+  }
+}
