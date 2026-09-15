@@ -167,8 +167,21 @@
   transition: background 0.2s, transform 0.2s;
 }
 
+.login-button.is-ready {
+  background: #4f6fc5;
+}
+
 .login-button:hover {
   background: #7896dc;
+}
+
+.login-button.is-ready:hover {
+  background: #3f5faf;
+}
+
+.login-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .login-button:active {
