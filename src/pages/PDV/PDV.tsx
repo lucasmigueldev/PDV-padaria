@@ -51,12 +51,28 @@ export default function PDV() {
             return
         }
 
-        setItems((currentItems) => {
-            const existingItem = currentItems.find((item) => item.barcode === product.barcode)
+        if (product.stock <= 0) {
+            setErrorMessage('Produto sem estoque.')
+            barcodeInputRef.current?.focus()
+            return
+        }
 
-            if (existingItem) {
+        const existingItem = items.find((item) => item.barcode === product.barcode)
+
+        if (existingItem && existingItem.quantity >= product.stock) {
+            setErrorMessage('Limite de estoque atingido.')
+            barcodeInputRef.current?.focus()
+            return
+        }
+
+        setItems((currentItems) => {
+            const currentItem = currentItems.find((item) => item.barcode === product.barcode)
+
+            if (currentItem) {
                 return currentItems.map((item) =>
-                    item.barcode === product.barcode ? { ...item, quantity: item.quantity + 1 } : item,
+                    item.barcode === product.barcode
+                        ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
+                        : item,
                 )
             }
 
@@ -67,11 +83,25 @@ export default function PDV() {
     }
 
     function updateQuantity(id: string, amount: number) {
-        setItems((currentItems) =>
-            currentItems.map((item) =>
-                item.id === id ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item,
-            ),
-        )
+        const currentItem = items.find((item) => item.id === id)
+        const catalogProduct = getProducts().find((product) => product.id === id)
+        const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
+
+        if (amount > 0 && currentItem && currentItem.quantity >= stock) {
+            setErrorMessage('Limite de estoque atingido.')
+            barcodeInputRef.current?.focus()
+            return
+        }
+
+        setItems((currentItems) => currentItems.map((item) => {
+            if (item.id !== id) return item
+
+            const nextQuantity = amount > 0
+                ? Math.min(item.quantity + amount, stock)
+                : Math.max(1, item.quantity + amount)
+
+            return { ...item, quantity: nextQuantity }
+        }))
         barcodeInputRef.current?.focus()
     }
 
@@ -224,6 +254,7 @@ export default function PDV() {
                                                                 type="button"
                                                                 className="pdv-quantity-button"
                                                                 onClick={() => updateQuantity(item.id, 1)}
+                                                                disabled={item.quantity >= item.stock}
                                                                 aria-label={`Aumentar quantidade de ${item.name}`}
                                                                 title="Aumentar quantidade"
                                                             >
