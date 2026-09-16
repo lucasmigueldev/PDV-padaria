@@ -1,0 +1,276 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+    BarChart3,
+    Calculator,
+    LogOut,
+    Minus,
+    Package,
+    Plus,
+    Receipt,
+    Settings,
+    ShoppingCart,
+    Trash2,
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+
+import { getProducts } from '../../data/products'
+import type { SaleItem } from '../../types/Product'
+import '../Dashboard/Dashborad.css'
+import './PDV.css'
+
+const currency = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+})
+
+export default function PDV() {
+    const navigate = useNavigate()
+    const barcodeInputRef = useRef<HTMLInputElement>(null)
+    const [barcode, setBarcode] = useState('')
+    const [items, setItems] = useState<SaleItem[]>([])
+    const [errorMessage, setErrorMessage] = useState('')
+
+    useEffect(() => {
+        barcodeInputRef.current?.focus()
+    }, [])
+
+    function handleLogout() {
+        sessionStorage.removeItem('isAuthenticated')
+        navigate('/login', { replace: true })
+    }
+
+    function addProduct(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        setErrorMessage('')
+        const normalizedBarcode = barcode.trim()
+        const product = getProducts().find((item) => item.barcode.trim() === normalizedBarcode)
+
+        if (!product) {
+            setErrorMessage('Produto não encontrado.')
+            barcodeInputRef.current?.focus()
+            return
+        }
+
+        setItems((currentItems) => {
+            const existingItem = currentItems.find((item) => item.barcode === product.barcode)
+
+            if (existingItem) {
+                return currentItems.map((item) =>
+                    item.barcode === product.barcode ? { ...item, quantity: item.quantity + 1 } : item,
+                )
+            }
+
+            return [...currentItems, { ...product, quantity: 1 }]
+        })
+        setBarcode('')
+        barcodeInputRef.current?.focus()
+    }
+
+    function updateQuantity(id: string, amount: number) {
+        setItems((currentItems) =>
+            currentItems.map((item) =>
+                item.id === id ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item,
+            ),
+        )
+        barcodeInputRef.current?.focus()
+    }
+
+    function removeProduct(id: string) {
+        setItems((currentItems) => currentItems.filter((item) => item.id !== id))
+    }
+
+    const totalItems = items.reduce((total, item) => total + item.quantity, 0)
+    const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+
+    return (
+        <div className="dashboard-layout flex min-h-screen">
+            <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
+                <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
+                    <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
+                        <ShoppingCart size={22} />
+                    </div>
+                    <div>
+                        <strong>Padaria PDV</strong>
+                        <span>Sistema de vendas</span>
+                    </div>
+                </div>
+
+                <nav className="sidebar-menu flex flex-col gap-2">
+                    <a href="/dashboard" className="sidebar-link">
+                        <BarChart3 size={19} />
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/pdv" className="sidebar-link active">
+                        <ShoppingCart size={19} />
+                        <span>Caixa</span>
+                    </a>
+                    <a href="#" className="sidebar-link">
+                        <Calculator size={19} />
+                        <span>Fechamento</span>
+                    </a>
+                    <a href="/produtos" className="sidebar-link">
+                        <Package size={19} />
+                        <span>Produtos</span>
+                    </a>
+                    <a href="#" className="sidebar-link">
+                        <BarChart3 size={19} />
+                        <span>Relatórios</span>
+                    </a>
+                </nav>
+
+                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
+                    <a href="#" className="sidebar-link">
+                        <Settings size={19} />
+                        <span>Configurações</span>
+                    </a>
+                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
+                        <LogOut size={19} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
+            <main className="dashboard-main ml-64 min-h-screen flex-1">
+                <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
+                    <div>
+                        <span className="header-overline">OPERAÇÃO DE VENDAS</span>
+                        <h1>PDV</h1>
+                        <p>Registre os produtos e finalize a venda do cliente.</p>
+                    </div>
+                    <div className="header-user flex items-center gap-3">
+                        <div className="user-avatar">A</div>
+                        <div>
+                            <strong>Administrador</strong>
+                            <span>Usuário do sistema</span>
+                        </div>
+                    </div>
+                </header>
+
+                <section className="dashboard-content pdv-content p-10">
+                    <form className="pdv-add-product" onSubmit={addProduct}>
+                        <div className="pdv-section-heading">
+                            <div>
+                                <h2>Adicionar produto</h2>
+                                <p>Use o código de barras para incluir um item na venda.</p>
+                            </div>
+                            <Receipt size={21} aria-hidden="true" />
+                        </div>
+                        <div className="pdv-product-form">
+                            <label htmlFor="barcode">Código de barras</label>
+                            <div className="pdv-product-fields">
+                                <input
+                                    ref={barcodeInputRef}
+                                    id="barcode"
+                                    value={barcode}
+                                    onChange={(event) => setBarcode(event.target.value)}
+                                    placeholder="Digite ou bip o código de barras"
+                                    autoComplete="off"
+                                />
+                                <button type="submit" className="pdv-primary-button">
+                                    <Plus size={18} />
+                                    Adicionar produto
+                                </button>
+                            </div>
+                            {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
+                        </div>
+                    </form>
+
+                    <div className="pdv-sale-grid">
+                        <section className="pdv-sale-panel">
+                            <div className="pdv-section-heading">
+                                <div>
+                                    <h2>Itens da venda</h2>
+                                    <p>{totalItems === 1 ? '1 item adicionado' : `${totalItems} itens adicionados`}</p>
+                                </div>
+                            </div>
+
+                            {items.length === 0 ? (
+                                <div className="pdv-empty-state">
+                                    <ShoppingCart size={28} />
+                                    <strong>Nenhum produto adicionado</strong>
+                                    <span>Informe um código de barras acima para começar a venda.</span>
+                                </div>
+                            ) : (
+                                <div className="pdv-table-wrapper">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Produto</th>
+                                                <th>Código</th>
+                                                <th>Quantidade</th>
+                                                <th>Preço unitário</th>
+                                                <th>Subtotal</th>
+                                                <th><span className="sr-only">Ação</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {items.map((item) => (
+                                                <tr key={item.id}>
+                                                    <td className="pdv-product-name">{item.name}</td>
+                                                    <td>{item.barcode}</td>
+                                                    <td>
+                                                        <div className="pdv-quantity-controls">
+                                                            <button
+                                                                type="button"
+                                                                className="pdv-quantity-button"
+                                                                onClick={() => updateQuantity(item.id, -1)}
+                                                                aria-label={`Diminuir quantidade de ${item.name}`}
+                                                                title="Diminuir quantidade"
+                                                            >
+                                                                <Minus size={14} />
+                                                            </button>
+                                                            <span>{item.quantity}</span>
+                                                            <button
+                                                                type="button"
+                                                                className="pdv-quantity-button"
+                                                                onClick={() => updateQuantity(item.id, 1)}
+                                                                aria-label={`Aumentar quantidade de ${item.name}`}
+                                                                title="Aumentar quantidade"
+                                                            >
+                                                                <Plus size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td>{currency.format(item.price)}</td>
+                                                    <td>{currency.format(item.quantity * item.price)}</td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            className="pdv-remove-button"
+                                                            onClick={() => removeProduct(item.id)}
+                                                            aria-label={`Remover ${item.name}`}
+                                                            title="Remover item"
+                                                        >
+                                                            <Trash2 size={17} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </section>
+
+                        <aside className="pdv-summary">
+                            <div className="pdv-section-heading">
+                                <div>
+                                    <h2>Resumo da venda</h2>
+                                    <p>Confira os valores antes de finalizar.</p>
+                                </div>
+                            </div>
+                            <div className="pdv-summary-lines">
+                                <div><span>Quantidade total de itens</span><strong>{totalItems}</strong></div>
+                                <div><span>Subtotal</span><strong>{currency.format(total)}</strong></div>
+                            </div>
+                            <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
+                            <button type="button" className="pdv-finish-button" disabled={items.length === 0}>
+                                Finalizar venda
+                            </button>
+                        </aside>
+                    </div>
+                </section>
+            </main>
+        </div>
+    )
+}
