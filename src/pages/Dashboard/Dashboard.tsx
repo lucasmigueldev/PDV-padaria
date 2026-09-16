@@ -45,7 +45,7 @@ export default function Dashboard() {
             <span>Dashboard</span>
           </a>
 
-          <a href="#" className="sidebar-link">
+          <a href="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
             <span>Caixa</span>
           </a>
@@ -55,7 +55,7 @@ export default function Dashboard() {
             <span>Fechamento</span>
           </a>
 
-          <a href="#" className="sidebar-link">
+          <a href="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
           </a>
