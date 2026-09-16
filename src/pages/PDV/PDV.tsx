@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
     BarChart3,
+    Banknote,
     Calculator,
+    CreditCard,
     LogOut,
     Minus,
     Package,
     Plus,
+    QrCode,
     Receipt,
     Settings,
     ShoppingCart,
     Trash2,
+    X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -23,16 +27,35 @@ const currency = new Intl.NumberFormat('pt-BR', {
     currency: 'BRL',
 })
 
+type PaymentMethod = 'cash' | 'pix' | 'card'
+
 export default function PDV() {
     const navigate = useNavigate()
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const [barcode, setBarcode] = useState('')
     const [items, setItems] = useState<SaleItem[]>([])
     const [errorMessage, setErrorMessage] = useState('')
+    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
+    const [checkoutMessage, setCheckoutMessage] = useState('')
+    const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
 
     useEffect(() => {
         barcodeInputRef.current?.focus()
     }, [])
+
+    useEffect(() => {
+        if (!isCheckoutOpen) return
+
+        closeCheckoutButtonRef.current?.focus()
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') setIsCheckoutOpen(false)
+        }
+
+        document.addEventListener('keydown', handleEscape)
+        return () => document.removeEventListener('keydown', handleEscape)
+    }, [isCheckoutOpen])
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -107,6 +130,28 @@ export default function PDV() {
 
     function removeProduct(id: string) {
         setItems((currentItems) => currentItems.filter((item) => item.id !== id))
+    }
+
+    function openCheckout() {
+        if (items.length === 0) return
+
+        setPaymentMethod(null)
+        setCheckoutMessage('')
+        setIsCheckoutOpen(true)
+    }
+
+    function closeCheckout() {
+        setIsCheckoutOpen(false)
+        setCheckoutMessage('')
+    }
+
+    function continueCheckout() {
+        if (!paymentMethod) {
+            setCheckoutMessage('Selecione uma forma de pagamento para continuar.')
+            return
+        }
+
+        setCheckoutMessage('Forma de pagamento selecionada. A confirmação da venda será implementada em uma próxima etapa.')
     }
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
@@ -295,13 +340,102 @@ export default function PDV() {
                                 <div><span>Subtotal</span><strong>{currency.format(total)}</strong></div>
                             </div>
                             <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
-                            <button type="button" className="pdv-finish-button" disabled={items.length === 0}>
+                            <button
+                                type="button"
+                                className="pdv-finish-button"
+                                disabled={items.length === 0}
+                                onClick={openCheckout}
+                            >
                                 Finalizar venda
                             </button>
                         </aside>
                     </div>
                 </section>
             </main>
+
+            {isCheckoutOpen && (
+                <div className="pdv-checkout-overlay" onClick={closeCheckout}>
+                    <div
+                        className="pdv-checkout-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="pdv-checkout-title"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="pdv-checkout-header">
+                            <div>
+                                <span className="pdv-checkout-overline">RESUMO DA VENDA</span>
+                                <h2 id="pdv-checkout-title">Finalizar venda</h2>
+                            </div>
+                            <button
+                                ref={closeCheckoutButtonRef}
+                                type="button"
+                                className="pdv-checkout-close"
+                                onClick={closeCheckout}
+                                aria-label="Fechar finalização da venda"
+                                title="Fechar"
+                            >
+                                <X size={19} />
+                            </button>
+                        </div>
+
+                        <div className="pdv-checkout-total">
+                            <span>Total da venda</span>
+                            <strong>{currency.format(total)}</strong>
+                        </div>
+
+                        <div className="pdv-payment-section">
+                            <div>
+                                <h3>Forma de pagamento</h3>
+                                <p>Selecione como o cliente deseja pagar.</p>
+                            </div>
+                            <div className="pdv-payment-options" role="radiogroup" aria-label="Forma de pagamento">
+                                <button
+                                    type="button"
+                                    className={`pdv-payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
+                                    onClick={() => { setPaymentMethod('cash'); setCheckoutMessage('') }}
+                                    role="radio"
+                                    aria-checked={paymentMethod === 'cash'}
+                                >
+                                    <Banknote size={20} />
+                                    <span>Dinheiro</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`pdv-payment-option ${paymentMethod === 'pix' ? 'selected' : ''}`}
+                                    onClick={() => { setPaymentMethod('pix'); setCheckoutMessage('') }}
+                                    role="radio"
+                                    aria-checked={paymentMethod === 'pix'}
+                                >
+                                    <QrCode size={20} />
+                                    <span>PIX</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`pdv-payment-option ${paymentMethod === 'card' ? 'selected' : ''}`}
+                                    onClick={() => { setPaymentMethod('card'); setCheckoutMessage('') }}
+                                    role="radio"
+                                    aria-checked={paymentMethod === 'card'}
+                                >
+                                    <CreditCard size={20} />
+                                    <span>Cartão</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {checkoutMessage && <p className="pdv-checkout-message" role="alert">{checkoutMessage}</p>}
+
+                        <div className="pdv-checkout-actions">
+                            <button type="button" className="pdv-checkout-cancel" onClick={closeCheckout}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="pdv-checkout-continue" onClick={continueCheckout}>
+                                Continuar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
