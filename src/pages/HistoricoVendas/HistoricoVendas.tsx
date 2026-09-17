@@ -8,12 +8,15 @@ import {
     Package,
     Settings,
     ShoppingCart,
+    X,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getSales } from '../../data/sales'
-import type { PaymentMethod } from '../../types/Sale'
+import type { PaymentMethod, Sale } from '../../types/Sale'
 import '../Dashboard/Dashborad.css'
+import './HistoricoVendas.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -34,10 +37,29 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 export default function HistoricoVendas() {
     const navigate = useNavigate()
     const sales = getSales()
+    const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+    const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+
+    useEffect(() => {
+        if (!selectedSale) return
+
+        closeDetailsButtonRef.current?.focus()
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') setSelectedSale(null)
+        }
+
+        window.addEventListener('keydown', handleEscape)
+        return () => window.removeEventListener('keydown', handleEscape)
+    }, [selectedSale])
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
         navigate('/login', { replace: true })
+    }
+
+    function openSaleDetails(sale: Sale) {
+        setSelectedSale(sale)
     }
 
     return (
@@ -104,7 +126,20 @@ export default function HistoricoVendas() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {sales.map((sale) => (
-                                            <tr key={sale.id} className="text-slate-700">
+                                            <tr
+                                                key={sale.id}
+                                                className="cursor-pointer text-slate-700 transition-colors hover:bg-slate-50 focus-within:bg-slate-50"
+                                                onClick={() => openSaleDetails(sale)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault()
+                                                        openSaleDetails(sale)
+                                                    }
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-label={`Visualizar detalhes da venda ${sale.id}`}
+                                            >
                                                 <td className="whitespace-nowrap px-6 py-4">{dateTime.format(new Date(sale.date))}</td>
                                                 <td className="px-6 py-4 font-medium text-slate-900">{sale.id}</td>
                                                 <td className="px-6 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
@@ -124,6 +159,113 @@ export default function HistoricoVendas() {
                     </section>
                 </section>
             </main>
+
+            {selectedSale && (
+                <div
+                    className="sales-details-overlay"
+                    onClick={() => setSelectedSale(null)}
+                >
+                    <div
+                        className="sales-details-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="sale-details-title"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="sales-details-header">
+                            <div>
+                                <span className="sales-details-overline">Histórico de vendas</span>
+                                <h2 id="sale-details-title">Detalhes da venda</h2>
+                                <p className="sales-details-id">{selectedSale.id}</p>
+                            </div>
+                            <button
+                                ref={closeDetailsButtonRef}
+                                type="button"
+                                className="sales-details-close"
+                                onClick={() => setSelectedSale(null)}
+                                aria-label="Fechar detalhes da venda"
+                                title="Fechar"
+                            >
+                                <X size={19} />
+                            </button>
+                        </div>
+
+                        <dl className="sales-details-summary">
+                            <div className="sales-details-summary-card">
+                                <dt>Data e hora</dt>
+                                <dd>{dateTime.format(new Date(selectedSale.date))}</dd>
+                            </div>
+                            <div className="sales-details-summary-card">
+                                <dt>Forma de pagamento</dt>
+                                <dd>{paymentMethodLabels[selectedSale.paymentMethod]}</dd>
+                            </div>
+                            <div className="sales-details-summary-card">
+                                <dt>ID da venda</dt>
+                                <dd className="sales-details-summary-id">{selectedSale.id}</dd>
+                            </div>
+                        </dl>
+
+                        <div className="sales-details-products">
+                            <div className="sales-details-section-header">
+                                <h3>Produtos vendidos</h3>
+                                <p>Itens registrados nesta venda</p>
+                            </div>
+                            <div className="sales-details-products-scroll">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th>Código de barras</th>
+                                            <th>Quantidade</th>
+                                            <th>Preço unitário</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedSale.items.map((item) => (
+                                            <tr key={`${item.productId}-${item.barcode}`}>
+                                                <td className="sales-details-product-name">{item.name}</td>
+                                                <td className="sales-details-barcode">{item.barcode}</td>
+                                                <td className="sales-details-quantity">{item.quantity}</td>
+                                                <td className="sales-details-money">{currency.format(item.price)}</td>
+                                                <td className="sales-details-money sales-details-subtotal">{currency.format(item.subtotal)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {selectedSale.paymentMethod === 'cash' && (
+                            <dl className="sales-details-payment">
+                                <div>
+                                    <dt>Valor recebido</dt>
+                                    <dd>{currency.format(selectedSale.receivedAmount ?? 0)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Troco</dt>
+                                    <dd>{currency.format(selectedSale.change ?? 0)}</dd>
+                                </div>
+                            </dl>
+                        )}
+
+                        <div className="sales-details-total">
+                            <span>Total da venda</span>
+                            <strong>{currency.format(selectedSale.total)}</strong>
+                        </div>
+
+                        <div className="sales-details-footer">
+                            <button
+                                type="button"
+                                className="sales-details-footer-button"
+                                onClick={() => setSelectedSale(null)}
+                            >
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
