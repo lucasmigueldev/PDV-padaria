@@ -1,0 +1,77 @@
+.fechamento-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 1100px;
+}
+
+.fechamento-cash-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgb(15 23 42 / 6%);
+}
+
+.fechamento-cash-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #eef2f7;
+    padding: 24px 28px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.fechamento-cash-icon {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.fechamento-cash-card-body {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+    padding: 36px 28px 40px;
+}
+
+.fechamento-cash-card-body h2 {
+    color: #111827;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.fechamento-cash-card-body p {
+    max-width: 480px;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.fechamento-cash-card-body > strong {
+    color: #047857;
+    font-size: 36px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .fechamento-cash-card-body {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .fechamento-cash-card-body > strong {
+        font-size: 28px;
+    }
+}

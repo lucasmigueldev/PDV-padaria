@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard/Dashboard'
 import PDV from './pages/PDV/PDV'
 import Produtos from './pages/Produtos/Produtos'
 import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
+import Fechamento from './pages/Fechamento/Fechamento'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
@@ -60,6 +61,16 @@ function App() {
           element={
             <ProtectedRoute>
               <HistoricoVendas />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Resumo do fechamento protegido */}
+        <Route
+          path="/fechamento"
+          element={
+            <ProtectedRoute>
+              <Fechamento />
             </ProtectedRoute>
           }
         />
