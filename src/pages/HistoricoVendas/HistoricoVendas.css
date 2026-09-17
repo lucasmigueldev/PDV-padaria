@@ -496,6 +496,34 @@
     color: #94a3b8;
 }
 
+.sales-history-export-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 112px;
+    padding: 10px 16px;
+    border: 1px solid #2563eb;
+    border-radius: 9px;
+    background: #2563eb;
+    color: #ffffff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.sales-history-export-button:hover:not(:disabled) {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+}
+
+.sales-history-export-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .sales-history-summary-grid {
     display: grid;
     grid-template-columns: 1.25fr 1.5fr repeat(3, 1fr);
@@ -678,6 +706,15 @@
 
     .sales-history-summary {
         padding: 20px;
+    }
+
+    .sales-history-summary-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .sales-history-export-button {
+        width: 100%;
     }
 
     .sales-history-summary-grid {

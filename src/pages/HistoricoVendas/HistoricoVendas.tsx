@@ -5,6 +5,7 @@ import {
     Clock3,
     CreditCard,
     DollarSign,
+    FileDown,
     History,
     LayoutDashboard,
     LogOut,
@@ -15,6 +16,7 @@ import {
     X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 
 import { getSales } from '../../data/sales'
@@ -154,6 +156,141 @@ export default function HistoricoVendas() {
 
     function openSaleDetails(sale: Sale) {
         setSelectedSale(sale)
+    }
+
+    function exportSales() {
+        if (sortedSales.length === 0) return
+
+        const documentPdf = new jsPDF({ unit: 'pt', format: 'a4' })
+        const pageWidth = documentPdf.internal.pageSize.getWidth()
+        const pageHeight = documentPdf.internal.pageSize.getHeight()
+        const margin = 40
+        const contentWidth = pageWidth - margin * 2
+        let cursorY = margin
+
+        const addPage = () => {
+            documentPdf.addPage()
+            cursorY = margin
+        }
+
+        const ensureSpace = (height: number) => {
+            if (cursorY + height > pageHeight - margin) addPage()
+        }
+
+        const formatDateInput = (value: string) => value
+            ? value.split('-').reverse().join('/')
+            : 'Todos os períodos'
+
+        const reportDate = dateTime.format(new Date())
+        const generatedAt = new Date().toISOString().slice(0, 10)
+
+        documentPdf.setFillColor('#2563eb')
+        documentPdf.rect(0, 0, pageWidth, 9, 'F')
+        documentPdf.setTextColor('#111827')
+        documentPdf.setFontSize(22)
+        documentPdf.setFont('helvetica', 'bold')
+        documentPdf.text('Histórico de Vendas', margin, cursorY + 10)
+        cursorY += 32
+        documentPdf.setFont('helvetica', 'normal')
+        documentPdf.setFontSize(10)
+        documentPdf.setTextColor('#64748b')
+        documentPdf.text(`Relatório gerado em ${reportDate}`, margin, cursorY)
+        cursorY += 28
+
+        documentPdf.setFillColor('#f8fafc')
+        documentPdf.setDrawColor('#e2e8f0')
+        documentPdf.roundedRect(margin, cursorY, contentWidth, 82, 8, 8, 'FD')
+        cursorY += 20
+        documentPdf.setFont('helvetica', 'bold')
+        documentPdf.setFontSize(10)
+        documentPdf.setTextColor('#1e293b')
+        documentPdf.text('Filtros aplicados', margin + 16, cursorY)
+        cursorY += 16
+        documentPdf.setFont('helvetica', 'normal')
+        documentPdf.setFontSize(9)
+        documentPdf.setTextColor('#475569')
+        documentPdf.text(`Período: ${formatDateInput(startDate)} a ${formatDateInput(endDate)}`, margin + 16, cursorY)
+        cursorY += 13
+        documentPdf.text(`Forma de pagamento: ${paymentFilter === 'all' ? 'Todas' : paymentMethodLabels[paymentFilter]}`, margin + 16, cursorY)
+        cursorY += 13
+        documentPdf.text(`Busca: ${search.trim() || 'Nenhuma'}`, margin + 16, cursorY)
+        cursorY += 30
+
+        documentPdf.setFont('helvetica', 'bold')
+        documentPdf.setFontSize(10)
+        documentPdf.setTextColor('#1e293b')
+        documentPdf.text('Resumo', margin, cursorY)
+        cursorY += 16
+        documentPdf.setFont('helvetica', 'normal')
+        documentPdf.setFontSize(9)
+        documentPdf.setTextColor('#475569')
+        documentPdf.text(`Vendas: ${filteredSales.length}   |   Total: ${currency.format(filteredSalesSummary.total)}`, margin, cursorY)
+        cursorY += 13
+        documentPdf.text(`Dinheiro: ${filteredSalesSummary.cash}   |   PIX: ${filteredSalesSummary.pix}   |   Cartão: ${filteredSalesSummary.card}`, margin, cursorY)
+        cursorY += 28
+
+        sortedSales.forEach((sale) => {
+            ensureSpace(120)
+            documentPdf.setFillColor('#eff6ff')
+            documentPdf.setDrawColor('#bfdbfe')
+            documentPdf.roundedRect(margin, cursorY, contentWidth, 42, 7, 7, 'FD')
+            documentPdf.setFont('helvetica', 'bold')
+            documentPdf.setFontSize(10)
+            documentPdf.setTextColor('#1e3a8a')
+            documentPdf.text(`Venda ${sale.id}`, margin + 14, cursorY + 17)
+            documentPdf.setFont('helvetica', 'normal')
+            documentPdf.setFontSize(9)
+            documentPdf.setTextColor('#475569')
+            documentPdf.text(dateTime.format(new Date(sale.date)), margin + 14, cursorY + 32)
+            documentPdf.text(paymentMethodLabels[sale.paymentMethod], pageWidth - margin - 14, cursorY + 24, { align: 'right' })
+            cursorY += 58
+
+            documentPdf.setFont('helvetica', 'bold')
+            documentPdf.setFontSize(8)
+            documentPdf.setTextColor('#64748b')
+            documentPdf.text('PRODUTO', margin, cursorY)
+            documentPdf.text('QTD.', margin + 270, cursorY, { align: 'right' })
+            documentPdf.text('UNITÁRIO', margin + 365, cursorY, { align: 'right' })
+            documentPdf.text('SUBTOTAL', pageWidth - margin, cursorY, { align: 'right' })
+            cursorY += 13
+
+            sale.items.forEach((item) => {
+                const productLines = documentPdf.splitTextToSize(`${item.name} | Cód. ${item.barcode}`, 235) as string[]
+                const rowHeight = Math.max(24, productLines.length * 11 + 10)
+                ensureSpace(rowHeight + 4)
+                documentPdf.setDrawColor('#e2e8f0')
+                documentPdf.line(margin, cursorY - 4, pageWidth - margin, cursorY - 4)
+                documentPdf.setFont('helvetica', 'normal')
+                documentPdf.setFontSize(9)
+                documentPdf.setTextColor('#334155')
+                documentPdf.text(productLines, margin, cursorY + 8)
+                documentPdf.text(String(item.quantity), margin + 270, cursorY + 8, { align: 'right' })
+                documentPdf.text(currency.format(item.price), margin + 365, cursorY + 8, { align: 'right' })
+                documentPdf.text(currency.format(item.subtotal), pageWidth - margin, cursorY + 8, { align: 'right' })
+                cursorY += rowHeight
+            })
+
+            ensureSpace(30)
+            documentPdf.setFont('helvetica', 'bold')
+            documentPdf.setFontSize(10)
+            documentPdf.setTextColor('#1e293b')
+            documentPdf.text('Total da venda', margin + 365, cursorY + 14, { align: 'right' })
+            documentPdf.setTextColor('#1d4ed8')
+            documentPdf.text(currency.format(sale.total), pageWidth - margin, cursorY + 14, { align: 'right' })
+            cursorY += 36
+        })
+
+        ensureSpace(38)
+        documentPdf.setDrawColor('#bfdbfe')
+        documentPdf.line(margin, cursorY, pageWidth - margin, cursorY)
+        cursorY += 22
+        documentPdf.setFont('helvetica', 'bold')
+        documentPdf.setFontSize(13)
+        documentPdf.setTextColor('#1e293b')
+        documentPdf.text('Total geral das vendas exportadas', margin, cursorY)
+        documentPdf.setTextColor('#1d4ed8')
+        documentPdf.text(currency.format(filteredSalesSummary.total), pageWidth - margin, cursorY, { align: 'right' })
+        documentPdf.save(`historico-vendas-${generatedAt}.pdf`)
     }
 
     return (
@@ -307,7 +444,15 @@ export default function HistoricoVendas() {
                                 <span>Resumo dos resultados</span>
                                 <p>Valores correspondentes às vendas exibidas.</p>
                             </div>
-                            <DollarSign size={20} aria-hidden="true" />
+                            <button
+                                type="button"
+                                className="sales-history-export-button"
+                                onClick={exportSales}
+                                disabled={sortedSales.length === 0}
+                            >
+                                <FileDown size={17} aria-hidden="true" />
+                                Exportar PDF
+                            </button>
                         </div>
                         <div className="sales-history-summary-grid">
                             <div className="sales-history-summary-card sales-history-summary-card-highlight">
