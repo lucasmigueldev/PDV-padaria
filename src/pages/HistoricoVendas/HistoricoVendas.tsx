@@ -38,6 +38,8 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     card: 'Cartão',
 }
 
+const SALES_PER_PAGE = 10
+
 function validateDateInput(value: string, today: Date): string | null {
     if (!value) return null
 
@@ -74,6 +76,7 @@ export default function HistoricoVendas() {
     const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'highest' | 'lowest'>('recent')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const today = new Date()
@@ -125,6 +128,11 @@ export default function HistoricoVendas() {
         const dateDifference = new Date(secondSale.date).getTime() - new Date(firstSale.date).getTime()
         return sortOrder === 'recent' ? dateDifference : -dateDifference
     })
+    const totalPages = Math.ceil(sortedSales.length / SALES_PER_PAGE)
+    const paginatedSales = sortedSales.slice(
+        (currentPage - 1) * SALES_PER_PAGE,
+        currentPage * SALES_PER_PAGE,
+    )
 
     useEffect(() => {
         if (!selectedSale) return
@@ -198,7 +206,10 @@ export default function HistoricoVendas() {
                                 id="sales-history-search-input"
                                 type="search"
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
+                                onChange={(event) => {
+                                    setSearch(event.target.value)
+                                    setCurrentPage(1)
+                                }}
                                 placeholder="Buscar por ID, produto ou código de barras"
                             />
                         </div>
@@ -208,7 +219,10 @@ export default function HistoricoVendas() {
                             <select
                                 id="sales-history-payment-filter"
                                 value={paymentFilter}
-                                onChange={(event) => setPaymentFilter(event.target.value as PaymentMethod | 'all')}
+                                onChange={(event) => {
+                                    setPaymentFilter(event.target.value as PaymentMethod | 'all')
+                                    setCurrentPage(1)
+                                }}
                             >
                                 <option value="all">Todas</option>
                                 <option value="cash">Dinheiro</option>
@@ -222,7 +236,10 @@ export default function HistoricoVendas() {
                             <select
                                 id="sales-history-sort-order"
                                 value={sortOrder}
-                                onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}
+                                onChange={(event) => {
+                                    setSortOrder(event.target.value as typeof sortOrder)
+                                    setCurrentPage(1)
+                                }}
                             >
                                 <option value="recent">Mais recentes primeiro</option>
                                 <option value="oldest">Mais antigas primeiro</option>
@@ -242,7 +259,10 @@ export default function HistoricoVendas() {
                                     max={todayInputValue}
                                     aria-invalid={Boolean(startDateError)}
                                     aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => setStartDate(event.target.value)}
+                                    onChange={(event) => {
+                                        setStartDate(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
                                 />
                             </div>
                             <div className="sales-history-date-field">
@@ -255,7 +275,10 @@ export default function HistoricoVendas() {
                                     max={todayInputValue}
                                     aria-invalid={Boolean(endDateError)}
                                     aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => setEndDate(event.target.value)}
+                                    onChange={(event) => {
+                                        setEndDate(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
                                 />
                             </div>
                             <button
@@ -264,6 +287,7 @@ export default function HistoricoVendas() {
                                 onClick={() => {
                                     setStartDate('')
                                     setEndDate('')
+                                    setCurrentPage(1)
                                 }}
                                 disabled={!startDate && !endDate}
                             >
@@ -324,8 +348,9 @@ export default function HistoricoVendas() {
                         </div>
 
                         {sales.length > 0 && filteredSales.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[640px] text-left text-sm">
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[640px] text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
                                             <th className="px-6 py-4 font-semibold">Data e hora</th>
@@ -335,7 +360,7 @@ export default function HistoricoVendas() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {sortedSales.map((sale) => (
+                                        {paginatedSales.map((sale) => (
                                             <tr
                                                 key={sale.id}
                                                 className="cursor-pointer text-slate-700 transition-colors hover:bg-slate-50 focus-within:bg-slate-50"
@@ -357,8 +382,28 @@ export default function HistoricoVendas() {
                                             </tr>
                                         ))}
                                     </tbody>
-                                </table>
-                            </div>
+                                    </table>
+                                </div>
+                                {totalPages > 1 && (
+                                    <div className="sales-history-pagination">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Anterior
+                                        </button>
+                                        <span>Página {currentPage} de {totalPages}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            Próxima
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : sales.length === 0 ? (
                             <div className="p-12 text-center">
                                 <History className="mx-auto mb-4 text-slate-300" size={32} aria-hidden="true" />
