@@ -4,6 +4,17 @@
 	gap: 24px;
 }
 
+.pdv-success-message {
+	margin: 0;
+	border: 1px solid #bbf7d0;
+	border-radius: 9px;
+	padding: 12px 14px;
+	background: #f0fdf4;
+	color: #15803d;
+	font-size: 13px;
+	font-weight: 600;
+}
+
 .pdv-add-product,
 .pdv-sale-panel,
 .pdv-summary {
@@ -401,6 +412,150 @@
 	color: #1d4ed8;
 }
 
+.pdv-cash-section {
+	margin-top: 22px;
+}
+
+.pdv-cash-section label {
+	display: block;
+	margin-bottom: 8px;
+	color: #374151;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.pdv-cash-input-wrapper {
+	display: flex;
+	align-items: center;
+	border: 1px solid #d1d5db;
+	border-radius: 9px;
+	background: #ffffff;
+	color: #6b7280;
+	font-size: 14px;
+	font-weight: 600;
+	overflow: hidden;
+}
+
+.pdv-cash-input-wrapper:focus-within {
+	border-color: #2563eb;
+	box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.pdv-cash-input-wrapper > span {
+	padding-left: 14px;
+}
+
+.pdv-cash-input-wrapper input {
+	width: 100%;
+	border: 0;
+	padding: 12px 14px 12px 8px;
+	color: #111827;
+	font: inherit;
+	font-weight: 500;
+	outline: none;
+}
+
+.pdv-cash-error,
+.pdv-cash-change {
+	margin-top: 9px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.pdv-cash-error {
+	color: #dc2626;
+}
+
+.pdv-cash-change {
+	color: #15803d;
+}
+
+.pdv-pix-section {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-top: 22px;
+	border: 1px solid #bfdbfe;
+	border-radius: 10px;
+	padding: 16px;
+	background: #eff6ff;
+}
+
+.pdv-pix-icon {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 10px;
+	background: #dbeafe;
+	color: #1d4ed8;
+}
+
+.pdv-pix-content h3 {
+	color: #1e3a8a;
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.pdv-pix-content p {
+	margin-top: 4px;
+	color: #475569;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.pdv-pix-content strong {
+	display: block;
+	margin-top: 9px;
+	color: #1d4ed8;
+	font-size: 20px;
+}
+
+.pdv-card-section {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-top: 22px;
+	border: 1px solid #bfdbfe;
+	border-radius: 10px;
+	padding: 16px;
+	background: #eff6ff;
+}
+
+.pdv-card-icon {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 10px;
+	background: #dbeafe;
+	color: #1d4ed8;
+}
+
+.pdv-card-content h3 {
+	color: #1e3a8a;
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.pdv-card-content p {
+	margin-top: 4px;
+	color: #475569;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.pdv-card-content strong {
+	display: block;
+	margin-top: 9px;
+	color: #1d4ed8;
+	font-size: 20px;
+}
+
 .pdv-checkout-message {
 	margin-top: 14px;
 	color: #2563eb;
@@ -443,6 +598,11 @@
 
 .pdv-checkout-continue:hover {
 	background: #1d4ed8;
+}
+
+.pdv-checkout-continue:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
 }
 
 .pdv-checkout-close:focus-visible,

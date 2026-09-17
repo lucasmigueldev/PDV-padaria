@@ -17,8 +17,10 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getProducts } from '../../data/products'
+import { decreaseStock, getProducts } from '../../data/products'
+import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
+import type { PaymentMethod, Sale } from '../../types/Sale'
 import '../Dashboard/Dashborad.css'
 import './PDV.css'
 
@@ -27,7 +29,20 @@ const currency = new Intl.NumberFormat('pt-BR', {
     currency: 'BRL',
 })
 
-type PaymentMethod = 'cash' | 'pix' | 'card'
+const moneyInputPattern = /^\d*(?:[,.]\d{0,2})?$/
+
+function parseMoneyToCents(value: string): number | null {
+    if (!value || !moneyInputPattern.test(value)) return null
+
+    const normalizedValue = value.replace(',', '.')
+    const [wholePart, decimalPart = ''] = normalizedValue.split('.')
+
+    if (!wholePart && !decimalPart) return null
+
+    const cents = Number(wholePart || '0') * 100 + Number(decimalPart.padEnd(2, '0'))
+
+    return Number.isSafeInteger(cents) ? cents : null
+}
 
 export default function PDV() {
     const navigate = useNavigate()
@@ -35,10 +50,15 @@ export default function PDV() {
     const [barcode, setBarcode] = useState('')
     const [items, setItems] = useState<SaleItem[]>([])
     const [errorMessage, setErrorMessage] = useState('')
+    const [saleFeedback, setSaleFeedback] = useState('')
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
+    const [receivedValue, setReceivedValue] = useState('')
     const [checkoutMessage, setCheckoutMessage] = useState('')
+    const [isRegisteringSale, setIsRegisteringSale] = useState(false)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
+    const receivedValueInputRef = useRef<HTMLInputElement>(null)
+    const isRegisteringSaleRef = useRef(false)
 
     useEffect(() => {
         barcodeInputRef.current?.focus()
@@ -50,12 +70,18 @@ export default function PDV() {
         closeCheckoutButtonRef.current?.focus()
 
         function handleEscape(event: KeyboardEvent) {
-            if (event.key === 'Escape') setIsCheckoutOpen(false)
+            if (event.key === 'Escape') closeCheckout()
         }
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
     }, [isCheckoutOpen])
+
+    useEffect(() => {
+        if (isCheckoutOpen && paymentMethod === 'cash') {
+            receivedValueInputRef.current?.focus()
+        }
+    }, [isCheckoutOpen, paymentMethod])
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -65,6 +91,7 @@ export default function PDV() {
     function addProduct(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setErrorMessage('')
+        setSaleFeedback('')
         const normalizedBarcode = barcode.trim()
         const product = getProducts().find((item) => item.barcode.trim() === normalizedBarcode)
 
@@ -136,26 +163,96 @@ export default function PDV() {
         if (items.length === 0) return
 
         setPaymentMethod(null)
+        setReceivedValue('')
         setCheckoutMessage('')
         setIsCheckoutOpen(true)
     }
 
     function closeCheckout() {
         setIsCheckoutOpen(false)
+        setPaymentMethod(null)
+        setReceivedValue('')
         setCheckoutMessage('')
     }
 
+    function selectPaymentMethod(method: PaymentMethod) {
+        setPaymentMethod(method)
+        setReceivedValue('')
+        setCheckoutMessage('')
+    }
+
+    const totalItems = items.reduce((total, item) => total + item.quantity, 0)
+    const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    const totalInCents = Math.round(total * 100)
+    const receivedInCents = parseMoneyToCents(receivedValue)
+    const isCashPaymentValid = paymentMethod === 'cash'
+        && receivedInCents !== null
+        && receivedInCents >= totalInCents
+    const cashValidationMessage = paymentMethod !== 'cash' || !receivedValue
+        ? ''
+        : receivedInCents === null
+            ? 'Informe um valor válido.'
+            : receivedInCents < totalInCents
+                ? `Valor insuficiente. Falta ${currency.format((totalInCents - receivedInCents) / 100)}.`
+                : `Troco: ${currency.format((receivedInCents - totalInCents) / 100)}`
+
     function continueCheckout() {
+        if (isRegisteringSaleRef.current) return
+
+        if (items.length === 0) {
+            setCheckoutMessage('Adicione pelo menos um produto para concluir a venda.')
+            return
+        }
+
         if (!paymentMethod) {
             setCheckoutMessage('Selecione uma forma de pagamento para continuar.')
             return
         }
 
-        setCheckoutMessage('Forma de pagamento selecionada. A confirmação da venda será implementada em uma próxima etapa.')
-    }
+        if (paymentMethod === 'cash' && !isCashPaymentValid) return
 
-    const totalItems = items.reduce((total, item) => total + item.quantity, 0)
-    const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+        const sale: Sale = {
+            id: crypto.randomUUID(),
+            date: new Date().toISOString(),
+            items: items.map((item) => ({
+                productId: item.id,
+                name: item.name,
+                barcode: item.barcode,
+                price: item.price,
+                quantity: item.quantity,
+                subtotal: item.quantity * item.price,
+            })),
+            total,
+            paymentMethod,
+            ...(paymentMethod === 'cash' && receivedInCents !== null
+                ? {
+                    receivedAmount: receivedInCents / 100,
+                    change: (receivedInCents - totalInCents) / 100,
+                }
+                : {}),
+        }
+
+        isRegisteringSaleRef.current = true
+        setIsRegisteringSale(true)
+
+        try {
+            saveSale(sale)
+            decreaseStock(sale.items)
+            setItems([])
+            closeCheckout()
+            setSaleFeedback('Venda concluída com sucesso.')
+        } catch {
+            try {
+                deleteSale(sale.id)
+            } catch {
+                // Keep the original error feedback when rollback also fails.
+            }
+            setCheckoutMessage('Não foi possível registrar a venda. Tente novamente.')
+        } finally {
+            isRegisteringSaleRef.current = false
+            setIsRegisteringSale(false)
+        }
+    }
 
     return (
         <div className="dashboard-layout flex min-h-screen">
@@ -222,6 +319,8 @@ export default function PDV() {
                 </header>
 
                 <section className="dashboard-content pdv-content p-10">
+                    {saleFeedback && <p className="pdv-success-message" role="status">{saleFeedback}</p>}
+
                     <form className="pdv-add-product" onSubmit={addProduct}>
                         <div className="pdv-section-heading">
                             <div>
@@ -393,7 +492,7 @@ export default function PDV() {
                                 <button
                                     type="button"
                                     className={`pdv-payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
-                                    onClick={() => { setPaymentMethod('cash'); setCheckoutMessage('') }}
+                                    onClick={() => selectPaymentMethod('cash')}
                                     role="radio"
                                     aria-checked={paymentMethod === 'cash'}
                                 >
@@ -403,7 +502,7 @@ export default function PDV() {
                                 <button
                                     type="button"
                                     className={`pdv-payment-option ${paymentMethod === 'pix' ? 'selected' : ''}`}
-                                    onClick={() => { setPaymentMethod('pix'); setCheckoutMessage('') }}
+                                    onClick={() => selectPaymentMethod('pix')}
                                     role="radio"
                                     aria-checked={paymentMethod === 'pix'}
                                 >
@@ -413,7 +512,7 @@ export default function PDV() {
                                 <button
                                     type="button"
                                     className={`pdv-payment-option ${paymentMethod === 'card' ? 'selected' : ''}`}
-                                    onClick={() => { setPaymentMethod('card'); setCheckoutMessage('') }}
+                                    onClick={() => selectPaymentMethod('card')}
                                     role="radio"
                                     aria-checked={paymentMethod === 'card'}
                                 >
@@ -423,14 +522,83 @@ export default function PDV() {
                             </div>
                         </div>
 
+                        {paymentMethod === 'cash' && (
+                            <div className="pdv-cash-section">
+                                <label htmlFor="received-value">Valor recebido</label>
+                                <div className="pdv-cash-input-wrapper">
+                                    <span>R$</span>
+                                    <input
+                                        ref={receivedValueInputRef}
+                                        id="received-value"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={receivedValue}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value
+
+                                            if (moneyInputPattern.test(nextValue)) {
+                                                setReceivedValue(nextValue)
+                                                setCheckoutMessage('')
+                                            }
+                                        }}
+                                        placeholder="0,00"
+                                        autoComplete="off"
+                                        aria-describedby={cashValidationMessage ? 'cash-validation-message' : undefined}
+                                    />
+                                </div>
+                                {cashValidationMessage && (
+                                    <p
+                                        id="cash-validation-message"
+                                        className={receivedInCents !== null && receivedInCents >= totalInCents
+                                            ? 'pdv-cash-change'
+                                            : 'pdv-cash-error'}
+                                        role="status"
+                                    >
+                                        {cashValidationMessage}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {paymentMethod === 'pix' && (
+                            <div className="pdv-pix-section" aria-label="Pagamento via PIX">
+                                <div className="pdv-pix-icon" aria-hidden="true">
+                                    <QrCode size={26} />
+                                </div>
+                                <div className="pdv-pix-content">
+                                    <h3>Pagamento via PIX</h3>
+                                    <p>Realize o pagamento via PIX no valor total da venda.</p>
+                                    <strong>{currency.format(total)}</strong>
+                                </div>
+                            </div>
+                        )}
+
+                        {paymentMethod === 'card' && (
+                            <div className="pdv-card-section" aria-label="Pagamento com Cartão">
+                                <div className="pdv-card-icon" aria-hidden="true">
+                                    <CreditCard size={26} />
+                                </div>
+                                <div className="pdv-card-content">
+                                    <h3>Pagamento com Cartão</h3>
+                                    <p>Pagamento será realizado por cartão.</p>
+                                    <strong>{currency.format(total)}</strong>
+                                </div>
+                            </div>
+                        )}
+
                         {checkoutMessage && <p className="pdv-checkout-message" role="alert">{checkoutMessage}</p>}
 
                         <div className="pdv-checkout-actions">
                             <button type="button" className="pdv-checkout-cancel" onClick={closeCheckout}>
                                 Cancelar
                             </button>
-                            <button type="button" className="pdv-checkout-continue" onClick={continueCheckout}>
-                                Continuar
+                            <button
+                                type="button"
+                                className="pdv-checkout-continue"
+                                onClick={continueCheckout}
+                                disabled={isRegisteringSale || (paymentMethod === 'cash' && !isCashPaymentValid)}
+                            >
+                                {isRegisteringSale ? 'Registrando...' : 'Continuar'}
                             </button>
                         </div>
                     </div>

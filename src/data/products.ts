@@ -1,4 +1,5 @@
 import type { Product } from '../types/Product'
+import type { SaleItemSnapshot } from '../types/Sale'
 
 const STORAGE_KEY = 'padaria-pdv-products'
 
@@ -135,4 +136,32 @@ export function deleteProduct(id: string): void {
         products.splice(productIndex, 1)
         persistProducts()
     }
+}
+
+export function decreaseStock(items: SaleItemSnapshot[]): void {
+    const currentProducts = getProducts()
+    const quantitiesByProduct = new Map<string, number>()
+
+    items.forEach((item) => {
+        quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity)
+    })
+
+    const updatedProducts = currentProducts.map((product) => {
+        const quantity = quantitiesByProduct.get(product.id) ?? 0
+
+        if (quantity > product.stock) {
+            throw new Error('INSUFFICIENT_STOCK')
+        }
+
+        return quantity > 0 ? { ...product, stock: product.stock - quantity } : product
+    })
+
+    for (const productId of quantitiesByProduct.keys()) {
+        if (!currentProducts.some((product) => product.id === productId)) {
+            throw new Error('PRODUCT_NOT_FOUND')
+        }
+    }
+
+    products.splice(0, products.length, ...updatedProducts)
+    persistProducts()
 }
