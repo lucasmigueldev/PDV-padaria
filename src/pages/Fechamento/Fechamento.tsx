@@ -84,6 +84,11 @@ export default function Fechamento() {
         : 0
     const initialAmountInCents = cashRegister ? toCents(cashRegister.initialAmount) : 0
     const expectedCashInCents = initialAmountInCents + cashSalesTotalInCents
+    const countedCash = parseMoneyInput(countedCashInput)
+    const countedCashInCents = countedCash === null ? null : toCents(countedCash)
+    const differenceInCents = countedCashInCents === null
+        ? null
+        : countedCashInCents - expectedCashInCents
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -270,6 +275,25 @@ export default function Fechamento() {
                                     />
                                 </div>
                                 <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
+                            </div>
+                            <div className={`fechamento-difference ${differenceInCents === null ? 'pending' : differenceInCents === 0 ? 'balanced' : differenceInCents > 0 ? 'surplus' : 'shortage'}`}>
+                                <span className="fechamento-difference-label">Diferença</span>
+                                {differenceInCents === null ? (
+                                    <p>Informe o valor contado para conferir o caixa.</p>
+                                ) : (
+                                    <>
+                                        <strong>
+                                            {differenceInCents === 0 && 'Caixa conferido'}
+                                            {differenceInCents > 0 && 'Caixa com sobra'}
+                                            {differenceInCents < 0 && 'Caixa com falta'}
+                                        </strong>
+                                        <b>
+                                            {differenceInCents > 0 && '+ '}
+                                            {differenceInCents < 0 && '- '}
+                                            {currency.format(Math.abs(differenceInCents) / 100)}
+                                        </b>
+                                    </>
+                                )}
                             </div>
                         </section>
                     )}
