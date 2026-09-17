@@ -1,7 +1,10 @@
 import {
     BarChart3,
+    Banknote,
     Calculator,
     Clock3,
+    CreditCard,
+    DollarSign,
     History,
     LayoutDashboard,
     LogOut,
@@ -109,6 +112,11 @@ export default function HistoricoVendas() {
 
         return matchesPayment && matchesDate && matchesSearch
     })
+    const filteredSalesSummary = filteredSales.reduce((summary, sale) => {
+        summary.total += sale.total
+        summary[sale.paymentMethod] += 1
+        return summary
+    }, { total: 0, cash: 0, pix: 0, card: 0 })
 
     useEffect(() => {
         if (!selectedSale) return
@@ -246,6 +254,43 @@ export default function HistoricoVendas() {
                             )}
                         </div>
                     </div>
+
+                    <section className="sales-history-summary" aria-label="Resumo das vendas filtradas">
+                        <div className="sales-history-summary-heading">
+                            <div>
+                                <span>Resumo dos resultados</span>
+                                <p>Valores correspondentes às vendas exibidas.</p>
+                            </div>
+                            <DollarSign size={20} aria-hidden="true" />
+                        </div>
+                        <div className="sales-history-summary-grid">
+                            <div className="sales-history-summary-card sales-history-summary-card-highlight">
+                                <div className="sales-history-summary-icon"><Clock3 size={18} aria-hidden="true" /></div>
+                                <span>Vendas encontradas</span>
+                                <strong>{filteredSales.length}</strong>
+                            </div>
+                            <div className="sales-history-summary-card sales-history-summary-card-total">
+                                <div className="sales-history-summary-icon"><DollarSign size={18} aria-hidden="true" /></div>
+                                <span>Valor total</span>
+                                <strong>{currency.format(filteredSalesSummary.total)}</strong>
+                            </div>
+                            <div className="sales-history-summary-card">
+                                <div className="sales-history-summary-icon"><Banknote size={18} aria-hidden="true" /></div>
+                                <span>Dinheiro</span>
+                                <strong>{filteredSalesSummary.cash}</strong>
+                            </div>
+                            <div className="sales-history-summary-card">
+                                <div className="sales-history-summary-icon"><DollarSign size={18} aria-hidden="true" /></div>
+                                <span>PIX</span>
+                                <strong>{filteredSalesSummary.pix}</strong>
+                            </div>
+                            <div className="sales-history-summary-card">
+                                <div className="sales-history-summary-icon"><CreditCard size={18} aria-hidden="true" /></div>
+                                <span>Cartão</span>
+                                <strong>{filteredSalesSummary.card}</strong>
+                            </div>
+                        </div>
+                    </section>
 
                     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-100 p-6">

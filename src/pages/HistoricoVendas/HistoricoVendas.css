@@ -463,6 +463,96 @@
     font-weight: 600;
 }
 
+.sales-history-summary {
+    margin-bottom: 24px;
+    padding: 24px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.sales-history-summary-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.sales-history-summary-heading span {
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.sales-history-summary-heading p {
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.sales-history-summary-heading > svg {
+    color: #94a3b8;
+}
+
+.sales-history-summary-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 1.5fr repeat(3, 1fr);
+    gap: 12px;
+}
+
+.sales-history-summary-card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.sales-history-summary-card-highlight {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+
+.sales-history-summary-card-total {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+}
+
+.sales-history-summary-icon {
+    display: flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #64748b;
+}
+
+.sales-history-summary-card span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sales-history-summary-card strong {
+    display: block;
+    margin-top: 7px;
+    color: #1e293b;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.sales-history-summary-card-total strong {
+    color: #4338ca;
+    font-size: 19px;
+}
+
 .sales-history-empty-search {
     display: flex;
     min-height: 220px;
@@ -546,6 +636,14 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    .sales-history-summary {
+        padding: 20px;
+    }
+
+    .sales-history-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .sales-history-clear-dates {
         grid-column: 1 / -1;
         width: 100%;
@@ -558,5 +656,11 @@
 
     .sales-history-filter {
         margin-bottom: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .sales-history-summary-grid {
+        grid-template-columns: 1fr;
     }
 }
