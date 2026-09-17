@@ -58,11 +58,68 @@ function getClosureStatus(difference: number): string {
     return 'Caixa com falta'
 }
 
+function validateDateInput(value: string, today: Date): string | null {
+    if (!value) return null
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    if (!match) return 'Informe uma data válida com ano de 4 dígitos.'
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    const currentYear = today.getFullYear()
+
+    if (year !== currentYear) {
+        return `O ano deve ser o ano atual (${currentYear}).`
+    }
+
+    const date = new Date(year, month - 1, day)
+    const isValidCalendarDate = date.getFullYear() === year
+        && date.getMonth() === month - 1
+        && date.getDate() === day
+
+    if (!isValidCalendarDate) return 'Informe uma data de calendário válida.'
+
+    const todayStart = new Date(currentYear, today.getMonth(), today.getDate())
+    if (date > todayStart) return 'A data não pode ser futura.'
+
+    return null
+}
+
 export default function HistoricoFechamentos() {
     const navigate = useNavigate()
     const closures = [...getCashClosures()].sort(sortByMostRecent)
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
     const [selectedClosure, setSelectedClosure] = useState<CashClosure | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const todayInputValue = [
+        currentYear,
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+    ].join('-')
+    const minimumDate = `${currentYear}-01-01`
+    const startDateError = validateDateInput(startDate, today)
+    const endDateError = validateDateInput(endDate, today)
+    const startTimestamp = startDate
+        ? new Date(`${startDate}T00:00:00`).getTime()
+        : null
+    const endTimestamp = endDate
+        ? new Date(`${endDate}T23:59:59.999`).getTime()
+        : null
+    const hasInvalidDateRange = !startDateError && !endDateError &&
+        startTimestamp !== null && endTimestamp !== null && startTimestamp > endTimestamp
+    const dateError = startDateError || endDateError || (hasInvalidDateRange
+        ? 'A data inicial não pode ser posterior à data final.'
+        : null)
+    const filteredClosures = closures.filter((closure) => {
+        const closureTimestamp = new Date(closure.closedAt).getTime()
+        const matchesStartDate = !startDate || !!startDateError || closureTimestamp >= (startTimestamp ?? 0)
+        const matchesEndDate = !endDate || !!endDateError || closureTimestamp <= (endTimestamp ?? 0)
+        return !hasInvalidDateRange && matchesStartDate && matchesEndDate
+    })
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -159,15 +216,65 @@ export default function HistoricoFechamentos() {
                 </header>
 
                 <section className="dashboard-content fechamento-history-content p-10">
+                    <div className="fechamento-history-date-filter">
+                        <div className="fechamento-history-date-field">
+                            <label htmlFor="fechamento-history-start-date">Data inicial</label>
+                            <input
+                                id="fechamento-history-start-date"
+                                type="date"
+                                value={startDate}
+                                min={minimumDate}
+                                max={todayInputValue}
+                                aria-invalid={Boolean(startDateError)}
+                                aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
+                                onChange={(event) => setStartDate(event.target.value)}
+                            />
+                        </div>
+                        <div className="fechamento-history-date-field">
+                            <label htmlFor="fechamento-history-end-date">Data final</label>
+                            <input
+                                id="fechamento-history-end-date"
+                                type="date"
+                                value={endDate}
+                                min={minimumDate}
+                                max={todayInputValue}
+                                aria-invalid={Boolean(endDateError)}
+                                aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
+                                onChange={(event) => setEndDate(event.target.value)}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            className="fechamento-history-clear-dates"
+                            onClick={() => {
+                                setStartDate('')
+                                setEndDate('')
+                            }}
+                            disabled={!startDate && !endDate}
+                        >
+                            Limpar datas
+                        </button>
+                        {dateError && (
+                            <p id="fechamento-history-date-error" className="fechamento-history-date-error" role="alert">
+                                {dateError}
+                            </p>
+                        )}
+                    </div>
                     {closures.length === 0 ? (
                         <section className="fechamento-history-empty">
                             <History size={28} />
                             <h2>Histórico de fechamentos</h2>
                             <p>Nenhum caixa foi fechado ainda.</p>
                         </section>
+                    ) : filteredClosures.length === 0 ? (
+                        <section className="fechamento-history-empty">
+                            <History size={28} />
+                            <h2>Nenhum fechamento encontrado</h2>
+                            <p>Nenhum fechamento corresponde ao período selecionado.</p>
+                        </section>
                     ) : (
                         <section className="fechamento-history-list" aria-label="Lista de caixas fechados">
-                            {closures.map((closure) => (
+                            {filteredClosures.map((closure) => (
                                 <article
                                     className="fechamento-history-card"
                                     key={closure.id}
