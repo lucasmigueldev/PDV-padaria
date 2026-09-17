@@ -7,7 +7,9 @@ import {
     Package,
     Settings,
     ShoppingCart,
+    X,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getCashClosures } from '../../data/cashClosures'
@@ -36,6 +38,10 @@ function formatTime(date: string): string {
     return timeFormatter.format(new Date(date))
 }
 
+function formatDateTime(date: string): string {
+    return `${formatDate(date)} às ${formatTime(date)}`
+}
+
 function formatDifference(value: number): string {
     if (value > 0) return `+ ${currency.format(value)}`
     if (value < 0) return `- ${currency.format(Math.abs(value))}`
@@ -46,14 +52,39 @@ function sortByMostRecent(firstClosure: CashClosure, secondClosure: CashClosure)
     return new Date(secondClosure.closedAt).getTime() - new Date(firstClosure.closedAt).getTime()
 }
 
+function getClosureStatus(difference: number): string {
+    if (difference === 0) return 'Caixa conferido'
+    if (difference > 0) return 'Caixa com sobra'
+    return 'Caixa com falta'
+}
+
 export default function HistoricoFechamentos() {
     const navigate = useNavigate()
     const closures = [...getCashClosures()].sort(sortByMostRecent)
+    const [selectedClosure, setSelectedClosure] = useState<CashClosure | null>(null)
+    const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
         navigate('/login', { replace: true })
     }
+
+    function closeDetails() {
+        setSelectedClosure(null)
+    }
+
+    useEffect(() => {
+        if (!selectedClosure) return
+
+        closeDetailsButtonRef.current?.focus()
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') closeDetails()
+        }
+
+        document.addEventListener('keydown', handleEscape)
+        return () => document.removeEventListener('keydown', handleEscape)
+    }, [selectedClosure])
 
     return (
         <div className="dashboard-layout flex min-h-screen">
@@ -137,7 +168,19 @@ export default function HistoricoFechamentos() {
                     ) : (
                         <section className="fechamento-history-list" aria-label="Lista de caixas fechados">
                             {closures.map((closure) => (
-                                <article className="fechamento-history-card" key={closure.id}>
+                                <article
+                                    className="fechamento-history-card"
+                                    key={closure.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setSelectedClosure(closure)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault()
+                                            setSelectedClosure(closure)
+                                        }
+                                    }}
+                                >
                                     <div className="fechamento-history-card-header">
                                         <div>
                                             <span>Fechamento</span>
@@ -180,6 +223,84 @@ export default function HistoricoFechamentos() {
                     )}
                 </section>
             </main>
+
+            {selectedClosure && (
+                <div
+                    className="fechamento-details-overlay"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) closeDetails()
+                    }}
+                >
+                    <section
+                        className="fechamento-details-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="fechamento-details-title"
+                    >
+                        <div className="fechamento-details-header">
+                            <div>
+                                <span className="fechamento-details-overline">DETALHES DO FECHAMENTO</span>
+                                <h2 id="fechamento-details-title">Caixa fechado</h2>
+                            </div>
+                            <button
+                                ref={closeDetailsButtonRef}
+                                type="button"
+                                className="fechamento-details-close"
+                                onClick={closeDetails}
+                                aria-label="Fechar detalhes"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="fechamento-details-body">
+                            <div className="fechamento-details-status">
+                                <span>Situação do caixa</span>
+                                <strong className={selectedClosure.differenceAmount === 0 ? 'balanced' : selectedClosure.differenceAmount > 0 ? 'surplus' : 'shortage'}>
+                                    {getClosureStatus(selectedClosure.differenceAmount)}
+                                </strong>
+                            </div>
+                            <dl className="fechamento-details-grid">
+                                <div>
+                                    <dt>Data e hora de abertura</dt>
+                                    <dd>{formatDateTime(selectedClosure.openedAt)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Data e hora de fechamento</dt>
+                                    <dd>{formatDateTime(selectedClosure.closedAt)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Valor inicial</dt>
+                                    <dd>{currency.format(selectedClosure.initialAmount)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Vendas em dinheiro</dt>
+                                    <dd>{currency.format(selectedClosure.cashSalesAmount)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Valor esperado</dt>
+                                    <dd>{currency.format(selectedClosure.expectedAmount)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Valor contado</dt>
+                                    <dd>{currency.format(selectedClosure.countedAmount)}</dd>
+                                </div>
+                                <div className="fechamento-details-difference">
+                                    <dt>Diferença</dt>
+                                    <dd className={selectedClosure.differenceAmount === 0 ? 'balanced' : selectedClosure.differenceAmount > 0 ? 'surplus' : 'shortage'}>
+                                        {formatDifference(selectedClosure.differenceAmount)}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div className="fechamento-details-footer">
+                            <button type="button" className="fechamento-details-footer-button" onClick={closeDetails}>
+                                Fechar
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
         </div>
     )
 }

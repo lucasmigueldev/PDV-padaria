@@ -41,6 +41,16 @@
     background: #ffffff;
     box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
     overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.fechamento-history-card:hover,
+.fechamento-history-card:focus-visible {
+    border-color: #93c5fd;
+    box-shadow: 0 8px 24px rgb(15 23 42 / 10%);
+    outline: none;
+    transform: translateY(-1px);
 }
 
 .fechamento-history-card-header {
@@ -126,6 +136,164 @@
     color: #c2410c;
 }
 
+.fechamento-details-overlay {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgb(15 23 42 / 58%);
+    backdrop-filter: blur(2px);
+}
+
+.fechamento-details-modal {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border: 1px solid #dbe2ea;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 24px 70px rgb(15 23 42 / 22%);
+}
+
+.fechamento-details-header,
+.fechamento-details-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 28px;
+}
+
+.fechamento-details-header {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.fechamento-details-overline {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.fechamento-details-header h2 {
+    margin-top: 8px;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.fechamento-details-close {
+    display: inline-flex;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dbe2ea;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.fechamento-details-close:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.fechamento-details-close:focus-visible,
+.fechamento-details-footer-button:focus-visible {
+    outline: 3px solid rgb(37 99 235 / 25%);
+    outline-offset: 2px;
+}
+
+.fechamento-details-body {
+    padding: 28px;
+}
+
+.fechamento-details-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-radius: 12px;
+    padding: 18px 20px;
+    background: #f8fafc;
+}
+
+.fechamento-details-status span,
+.fechamento-details-grid dt {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.fechamento-details-status strong {
+    font-size: 16px;
+}
+
+.fechamento-details-status strong.balanced,
+.fechamento-details-difference dd.balanced {
+    color: #15803d;
+}
+
+.fechamento-details-status strong.surplus,
+.fechamento-details-difference dd.surplus {
+    color: #1d4ed8;
+}
+
+.fechamento-details-status strong.shortage,
+.fechamento-details-difference dd.shortage {
+    color: #c2410c;
+}
+
+.fechamento-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
+    margin: 24px 0 0;
+}
+
+.fechamento-details-grid > div {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 18px 0;
+}
+
+.fechamento-details-grid dd {
+    margin-top: 8px;
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.fechamento-details-footer {
+    justify-content: flex-end;
+    border-top: 1px solid #e5e7eb;
+}
+
+.fechamento-details-footer-button {
+    min-width: 100px;
+    padding: 11px 20px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #334155;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.fechamento-details-footer-button:hover {
+    background: #f8fafc;
+}
+
 @media (max-width: 900px) {
     .fechamento-history-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -185,5 +353,21 @@
 
     .fechamento-history-grid > div:last-child {
         border-bottom: 0;
+    }
+
+    .fechamento-details-header,
+    .fechamento-details-body,
+    .fechamento-details-footer {
+        padding: 20px;
+    }
+
+    .fechamento-details-status,
+    .fechamento-details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fechamento-details-status {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
