@@ -309,7 +309,7 @@ export default function HistoricoVendas() {
                 <nav className="sidebar-menu flex flex-col gap-2">
                     <a href="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>
                     <a href="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></a>
-                    <a href="#" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>
+                    <a href="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>
                     <a href="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></a>
                     <a href="/historico-vendas" className="sidebar-link active"><History size={19} /><span>Histórico de Vendas</span></a>
                     <a href="#" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>

@@ -51,7 +51,7 @@ export default function Dashboard() {
             <span>Caixa</span>
           </a>
 
-          <a href="#" className="sidebar-link">
+          <a href="/fechamento" className="sidebar-link">
             <Calculator size={19} />
             <span>Fechamento</span>
           </a>
