@@ -136,6 +136,52 @@
     font-size: 16px;
 }
 
+.fechamento-cash-movement {
+    grid-column: 2 / -1;
+    border-top: 1px solid #eef2f7;
+    padding-top: 24px;
+}
+
+.fechamento-cash-movement h3 {
+    color: #111827;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.fechamento-cash-movement-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.fechamento-cash-movement-row span {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.fechamento-cash-movement-row strong {
+    color: #334155;
+    font-size: 15px;
+}
+
+.fechamento-cash-movement-row.total {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.fechamento-cash-movement-row.total span,
+.fechamento-cash-movement-row.total strong {
+    color: #047857;
+    font-weight: 800;
+}
+
+.fechamento-cash-movement-row.total strong {
+    font-size: 20px;
+}
+
 .fechamento-modal-overlay {
     position: fixed;
     z-index: 1000;
@@ -267,6 +313,10 @@
         grid-column: 1 / -1;
         flex-direction: column;
         gap: 18px;
+    }
+
+    .fechamento-cash-movement {
+        grid-column: 1 / -1;
     }
 
     .fechamento-modal-header,

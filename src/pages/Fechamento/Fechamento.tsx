@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
+import { getSales } from '../../data/sales'
 import '../Dashboard/Dashborad.css'
 import './Fechamento.css'
 
@@ -52,6 +53,10 @@ function parseMoneyInput(value: string): number | null {
     return Number.isSafeInteger(cents) ? cents / 100 : null
 }
 
+function toCents(value: number): number {
+    return Math.round(value * 100)
+}
+
 function formatOpeningDate(openedAt: string): { date: string; time: string } {
     const openedDate = new Date(openedAt)
 
@@ -70,6 +75,14 @@ export default function Fechamento() {
     const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => getOpenCashRegister())
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
+    const cashSalesTotalInCents = cashRegister
+        ? getSales()
+            .filter((sale) => sale.paymentMethod === 'cash')
+            .filter((sale) => new Date(sale.date).getTime() >= new Date(cashRegister.openedAt).getTime())
+            .reduce((total, sale) => total + toCents(sale.total), 0)
+        : 0
+    const initialAmountInCents = cashRegister ? toCents(cashRegister.initialAmount) : 0
+    const expectedCashInCents = initialAmountInCents + cashSalesTotalInCents
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -215,6 +228,21 @@ export default function Fechamento() {
                                 <div>
                                     <span>Valor inicial</span>
                                     <strong>{currency.format(cashRegister.initialAmount)}</strong>
+                                </div>
+                            </div>
+                            <div className="fechamento-cash-movement">
+                                <h3>Movimentação em dinheiro</h3>
+                                <div className="fechamento-cash-movement-row">
+                                    <span>Valor inicial</span>
+                                    <strong>{currency.format(initialAmountInCents / 100)}</strong>
+                                </div>
+                                <div className="fechamento-cash-movement-row">
+                                    <span>Vendas em dinheiro</span>
+                                    <strong>{currency.format(cashSalesTotalInCents / 100)}</strong>
+                                </div>
+                                <div className="fechamento-cash-movement-row total">
+                                    <span>Valor esperado</span>
+                                    <strong>{currency.format(expectedCashInCents / 100)}</strong>
                                 </div>
                             </div>
                         </section>
