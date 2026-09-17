@@ -306,6 +306,77 @@
     background: #f8fafc;
 }
 
+.sales-history-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 0 16px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #64748b;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.sales-history-search label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.sales-history-search input {
+    width: 100%;
+    min-width: 0;
+    padding: 15px 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+}
+
+.sales-history-search input::placeholder {
+    color: #94a3b8;
+}
+
+.sales-history-search:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.sales-history-empty-search {
+    display: flex;
+    min-height: 220px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.sales-history-empty-search svg {
+    margin-bottom: 14px;
+    color: #cbd5e1;
+}
+
+.sales-history-empty-search p {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.sales-history-empty-search span {
+    margin-top: 6px;
+    font-size: 13px;
+}
+
 @media (max-width: 720px) {
     .sales-details-overlay {
         padding: 12px;
@@ -351,5 +422,9 @@
         gap: 10px;
         margin-top: 32px;
         padding: 22px;
+    }
+
+    .sales-history-search {
+        margin-bottom: 18px;
     }
 }

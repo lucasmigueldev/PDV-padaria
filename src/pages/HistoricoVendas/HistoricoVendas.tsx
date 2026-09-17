@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     LogOut,
     Package,
+    Search,
     Settings,
     ShoppingCart,
     X,
@@ -37,8 +38,19 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 export default function HistoricoVendas() {
     const navigate = useNavigate()
     const sales = getSales()
+    const [search, setSearch] = useState('')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+    const normalizedSearch = search.trim().toLocaleLowerCase()
+    const filteredSales = normalizedSearch
+        ? sales.filter((sale) =>
+            sale.id.toLocaleLowerCase().includes(normalizedSearch) ||
+            sale.items.some((item) =>
+                item.name.toLocaleLowerCase().includes(normalizedSearch) ||
+                item.barcode.toLocaleLowerCase().includes(normalizedSearch),
+            ),
+        )
+        : sales
 
     useEffect(() => {
         if (!selectedSale) return
@@ -104,16 +116,28 @@ export default function HistoricoVendas() {
                 </header>
 
                 <section className="dashboard-content p-10">
+                    <div className="sales-history-search">
+                        <Search size={19} aria-hidden="true" />
+                        <label htmlFor="sales-history-search-input">Buscar vendas</label>
+                        <input
+                            id="sales-history-search-input"
+                            type="search"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Buscar por ID, produto ou código de barras"
+                        />
+                    </div>
+
                     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-100 p-6">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-900">Vendas registradas</h2>
-                                <p className="mt-1 text-sm text-slate-500">{sales.length} venda(s) encontrada(s)</p>
+                                <p className="mt-1 text-sm text-slate-500">{filteredSales.length} venda(s) encontrada(s)</p>
                             </div>
                             <Clock3 className="text-slate-400" size={21} aria-hidden="true" />
                         </div>
 
-                        {sales.length > 0 ? (
+                        {sales.length > 0 && filteredSales.length > 0 ? (
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[640px] text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -125,7 +149,7 @@ export default function HistoricoVendas() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {sales.map((sale) => (
+                                        {filteredSales.map((sale) => (
                                             <tr
                                                 key={sale.id}
                                                 className="cursor-pointer text-slate-700 transition-colors hover:bg-slate-50 focus-within:bg-slate-50"
@@ -149,11 +173,17 @@ export default function HistoricoVendas() {
                                     </tbody>
                                 </table>
                             </div>
-                        ) : (
+                        ) : sales.length === 0 ? (
                             <div className="p-12 text-center">
                                 <History className="mx-auto mb-4 text-slate-300" size={32} aria-hidden="true" />
                                 <p className="font-medium text-slate-700">Ainda não existem vendas registradas.</p>
                                 <p className="mt-1 text-sm text-slate-500">As vendas concluídas no caixa aparecerão aqui.</p>
+                            </div>
+                        ) : (
+                            <div className="sales-history-empty-search">
+                                <Search size={30} aria-hidden="true" />
+                                <p>Nenhuma venda encontrada.</p>
+                                <span>Tente buscar por outro ID, produto ou código de barras.</span>
                             </div>
                         )}
                     </section>
