@@ -5,75 +5,205 @@
     max-width: 1100px;
 }
 
-.fechamento-cash-card {
+.fechamento-status-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px;
     border: 1px solid #e5e7eb;
     border-radius: 18px;
+    padding: 32px;
     background: #ffffff;
     box-shadow: 0 12px 30px rgb(15 23 42 / 6%);
 }
 
-.fechamento-cash-card-header {
+.fechamento-status-card.fechado {
+    border-color: #fed7aa;
+}
+
+.fechamento-status-card.aberto {
+    border-color: #bbf7d0;
+}
+
+.fechamento-status-icon {
     display: flex;
+    width: 54px;
+    height: 54px;
     align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid #eef2f7;
-    padding: 24px 28px;
-    color: #475569;
-    font-size: 13px;
+    justify-content: center;
+    border-radius: 14px;
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.fechamento-status-card.fechado .fechamento-status-icon {
+    background: #fff7ed;
+    color: #ea580c;
+}
+
+.fechamento-status-label,
+.fechamento-opened-details span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
-.fechamento-cash-icon {
-    display: flex;
-    width: 44px;
-    height: 44px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    background: #ecfdf5;
-    color: #059669;
-}
-
-.fechamento-cash-card-body {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 32px;
-    padding: 36px 28px 40px;
-}
-
-.fechamento-cash-card-body h2 {
+.fechamento-status-card h2 {
+    margin-top: 7px;
     color: #111827;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
 }
 
-.fechamento-cash-card-body p {
-    max-width: 480px;
+.fechamento-status-card p {
     margin-top: 8px;
     color: #64748b;
     font-size: 14px;
     line-height: 1.5;
 }
 
-.fechamento-cash-card-body > strong {
-    color: #047857;
-    font-size: 36px;
-    font-weight: 800;
-    white-space: nowrap;
+.fechamento-primary-button,
+.fechamento-secondary-button,
+.fechamento-modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    font: inherit;
+    cursor: pointer;
 }
 
-.fechamento-counted-cash {
+.fechamento-primary-button,
+.fechamento-secondary-button {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.fechamento-primary-button {
+    border: 0;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.fechamento-primary-button:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.fechamento-primary-button:disabled {
+    background: #bfdbfe;
+    cursor: not-allowed;
+}
+
+.fechamento-secondary-button {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+}
+
+.fechamento-secondary-button:hover {
+    background: #f8fafc;
+}
+
+.fechamento-primary-button:focus-visible,
+.fechamento-secondary-button:focus-visible,
+.fechamento-modal-close:focus-visible,
+.fechamento-counted-cash-input:focus-within {
+    outline: 3px solid rgb(37 99 235 / 18%);
+    outline-offset: 2px;
+}
+
+.fechamento-opened-heading {
+    align-self: start;
+}
+
+.fechamento-opened-details {
+    display: flex;
+    grid-column: 2 / -1;
+    gap: 48px;
     border-top: 1px solid #eef2f7;
+    padding-top: 20px;
+}
+
+.fechamento-opened-details strong {
+    display: block;
+    margin-top: 7px;
+    color: #111827;
+    font-size: 16px;
+}
+
+.fechamento-modal-overlay {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgb(15 23 42 / 58%);
+    backdrop-filter: blur(2px);
+}
+
+.fechamento-modal {
+    width: min(520px, 100%);
+    border: 1px solid #dbe2ea;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 24px 70px rgb(15 23 42 / 22%);
+}
+
+.fechamento-modal-header,
+.fechamento-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 28px;
+}
+
+.fechamento-modal-header {
+    border-bottom: 1px solid #eef2f7;
+}
+
+.fechamento-modal-overline {
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.fechamento-modal-header h2 {
+    margin-top: 7px;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.fechamento-modal-close {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #dbe2ea;
+    background: #ffffff;
+    color: #64748b;
+}
+
+.fechamento-modal-close:hover {
+    background: #f8fafc;
+    color: #111827;
+}
+
+.fechamento-modal-body {
     padding: 28px;
 }
 
-.fechamento-counted-cash label {
+.fechamento-modal-body label {
     display: block;
-    color: #111827;
-    font-size: 16px;
+    color: #374151;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -111,19 +241,37 @@
     font-size: 16px;
 }
 
-.fechamento-counted-cash > p {
+.fechamento-modal-body p {
     margin-top: 8px;
     color: #64748b;
     font-size: 13px;
 }
 
+.fechamento-modal-footer {
+    justify-content: flex-end;
+    border-top: 1px solid #eef2f7;
+}
+
 @media (max-width: 700px) {
-    .fechamento-cash-card-body {
-        align-items: flex-start;
-        flex-direction: column;
+    .fechamento-status-card {
+        grid-template-columns: auto 1fr;
+        align-items: start;
     }
 
-    .fechamento-cash-card-body > strong {
-        font-size: 28px;
+    .fechamento-status-card .fechamento-primary-button {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .fechamento-opened-details {
+        grid-column: 1 / -1;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .fechamento-modal-header,
+    .fechamento-modal-footer,
+    .fechamento-modal-body {
+        padding: 20px;
     }
 }

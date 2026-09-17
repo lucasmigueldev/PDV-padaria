@@ -8,11 +8,12 @@ import {
     Package,
     Settings,
     ShoppingCart,
+    X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getSales } from '../../data/sales'
+import { getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
 import '../Dashboard/Dashborad.css'
 import './Fechamento.css'
 
@@ -20,10 +21,6 @@ const currency = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
 })
-
-function getDateKey(date: Date): string {
-    return [date.getFullYear(), date.getMonth(), date.getDate()].join('-')
-}
 
 function formatMoneyInput(value: string): string {
     if (!value) return ''
@@ -37,28 +34,82 @@ function formatMoneyInput(value: string): string {
         : `${formattedInteger},${decimalPart.slice(0, 2)}`
 }
 
+function parseMoneyInput(value: string): number | null {
+    if (!value) return null
+
+    const isValidFormat = /^\d+(,\d{1,2})?$/.test(value)
+        || /^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(value)
+    if (!isValidFormat) return null
+
+    const normalizedValue = value.replace(/\./g, '')
+    const [integerPart, decimalPart] = normalizedValue.split(',')
+
+    if (!/^\d+$/.test(integerPart) || (decimalPart !== undefined && !/^\d{1,2}$/.test(decimalPart))) {
+        return null
+    }
+
+    const cents = Number(integerPart) * 100 + Number((decimalPart ?? '').padEnd(2, '0'))
+    return Number.isSafeInteger(cents) ? cents / 100 : null
+}
+
+function formatOpeningDate(openedAt: string): { date: string; time: string } {
+    const openedDate = new Date(openedAt)
+
+    const date = new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+    }).format(openedDate)
+    const time = new Intl.DateTimeFormat('pt-BR', {
+        timeStyle: 'short',
+    }).format(openedDate)
+
+    return { date, time }
+}
+
 export default function Fechamento() {
     const navigate = useNavigate()
-    const [countedCash, setCountedCash] = useState('')
-    const todayKey = getDateKey(new Date())
-    const expectedCash = getSales()
-        .filter((sale) => getDateKey(new Date(sale.date)) === todayKey)
-        .filter((sale) => sale.paymentMethod === 'cash')
-        .reduce((total, sale) => total + sale.total, 0)
+    const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => getOpenCashRegister())
+    const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
+    const [initialAmountInput, setInitialAmountInput] = useState('')
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
         navigate('/login', { replace: true })
     }
 
-    function handleCountedCashChange(value: string) {
+    function closeOpeningModal() {
+        setIsOpeningModalOpen(false)
+        setInitialAmountInput('')
+    }
+
+    function handleInitialAmountChange(value: string) {
         if (!/^[\d.,]*$/.test(value) || (value.match(/,/g) ?? []).length > 1) return
 
         const decimalPart = value.split(',')[1]
         if (decimalPart && decimalPart.length > 2) return
 
-        setCountedCash(value)
+        setInitialAmountInput(value)
     }
+
+    function handleOpenCash() {
+        const initialAmount = parseMoneyInput(initialAmountInput)
+        if (initialAmount === null || cashRegister) return
+
+        setCashRegister(openCashRegister(initialAmount))
+        closeOpeningModal()
+    }
+
+    useEffect(() => {
+        if (!isOpeningModalOpen) return
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') closeOpeningModal()
+        }
+
+        document.addEventListener('keydown', handleEscape)
+        return () => document.removeEventListener('keydown', handleEscape)
+    }, [isOpeningModalOpen])
+
+    const initialAmount = parseMoneyInput(initialAmountInput)
 
     return (
         <div className="dashboard-layout flex min-h-screen">
@@ -116,8 +167,8 @@ export default function Fechamento() {
                 <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
                     <div>
                         <span className="header-overline">FECHAMENTO</span>
-                        <h1>Resumo do movimento</h1>
-                        <p>Confira as vendas realizadas hoje por forma de pagamento.</p>
+                        <h1>Abertura de caixa</h1>
+                        <p>Inicie a sessão do caixa antes de realizar a conferência.</p>
                     </div>
                     <div className="header-user flex items-center gap-3">
                         <div className="user-avatar">A</div>
@@ -129,39 +180,89 @@ export default function Fechamento() {
                 </header>
 
                 <section className="dashboard-content fechamento-content p-10">
-                    <section className="fechamento-cash-card">
-                        <div className="fechamento-cash-card-header">
-                            <div className="fechamento-cash-icon">
-                                <Banknote size={24} />
+                    {!cashRegister ? (
+                        <section className="fechamento-status-card fechado">
+                            <div className="fechamento-status-icon">
+                                <Banknote size={26} />
                             </div>
-                            <span>Conferência de caixa</span>
-                        </div>
-                        <div className="fechamento-cash-card-body">
                             <div>
-                                <h2>Valor esperado em dinheiro</h2>
-                                <p>Valor calculado com base nas vendas em dinheiro registradas hoje.</p>
+                                <span className="fechamento-status-label">Status do caixa</span>
+                                <h2>Caixa fechado</h2>
+                                <p>Informe o valor inicial para iniciar uma nova sessão de caixa.</p>
                             </div>
-                            <strong>{currency.format(expectedCash)}</strong>
+                            <button type="button" className="fechamento-primary-button" onClick={() => setIsOpeningModalOpen(true)}>
+                                Abrir caixa
+                            </button>
+                        </section>
+                    ) : (
+                        <section className="fechamento-status-card aberto">
+                            <div className="fechamento-status-icon">
+                                <Banknote size={26} />
+                            </div>
+                            <div className="fechamento-opened-heading">
+                                <span className="fechamento-status-label">Status do caixa</span>
+                                <h2>Caixa aberto</h2>
+                            </div>
+                            <div className="fechamento-opened-details">
+                                <div>
+                                    <span>Data de abertura</span>
+                                    <strong>{formatOpeningDate(cashRegister.openedAt).date}</strong>
+                                </div>
+                                <div>
+                                    <span>Hora de abertura</span>
+                                    <strong>{formatOpeningDate(cashRegister.openedAt).time}</strong>
+                                </div>
+                                <div>
+                                    <span>Valor inicial</span>
+                                    <strong>{currency.format(cashRegister.initialAmount)}</strong>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+                </section>
+            </main>
+
+            {isOpeningModalOpen && !cashRegister && (
+                <div className="fechamento-modal-overlay" role="presentation" onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) closeOpeningModal()
+                }}>
+                    <section className="fechamento-modal" role="dialog" aria-modal="true" aria-labelledby="opening-modal-title">
+                        <div className="fechamento-modal-header">
+                            <div>
+                                <span className="fechamento-modal-overline">NOVA SESSÃO</span>
+                                <h2 id="opening-modal-title">Abrir caixa</h2>
+                            </div>
+                            <button type="button" className="fechamento-modal-close" onClick={closeOpeningModal} aria-label="Fechar janela">
+                                <X size={20} />
+                            </button>
                         </div>
-                        <div className="fechamento-counted-cash">
-                            <label htmlFor="counted-cash">Valor contado</label>
+                        <div className="fechamento-modal-body">
+                            <label htmlFor="initial-amount">Valor inicial do caixa</label>
                             <div className="fechamento-counted-cash-input">
                                 <span>R$</span>
                                 <input
-                                    id="counted-cash"
+                                    id="initial-amount"
                                     type="text"
                                     inputMode="decimal"
-                                    value={countedCash}
-                                    onChange={(event) => handleCountedCashChange(event.target.value)}
-                                    onBlur={() => setCountedCash(formatMoneyInput(countedCash))}
-                                    aria-describedby="counted-cash-description"
+                                    value={initialAmountInput}
+                                    onChange={(event) => handleInitialAmountChange(event.target.value)}
+                                    onBlur={() => setInitialAmountInput(formatMoneyInput(initialAmountInput))}
+                                    autoFocus
                                 />
                             </div>
-                            <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
+                            <p>O valor e a data de abertura serão registrados nesta sessão.</p>
+                        </div>
+                        <div className="fechamento-modal-footer">
+                            <button type="button" className="fechamento-secondary-button" onClick={closeOpeningModal}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="fechamento-primary-button" onClick={handleOpenCash} disabled={initialAmount === null}>
+                                Abrir caixa
+                            </button>
                         </div>
                     </section>
-                </section>
-            </main>
+                </div>
+            )}
         </div>
     )
 }
