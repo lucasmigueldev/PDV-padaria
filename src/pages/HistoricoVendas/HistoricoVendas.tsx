@@ -496,7 +496,7 @@ export default function HistoricoVendas() {
                         {sales.length > 0 && filteredSales.length > 0 ? (
                             <>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[640px] text-left text-sm">
+                                    <table className="w-full min-w-160 text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
                                             <th className="px-6 py-4 font-semibold">Data e hora</th>
