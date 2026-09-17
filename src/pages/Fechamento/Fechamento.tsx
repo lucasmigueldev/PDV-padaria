@@ -10,10 +10,11 @@ import {
     ShoppingCart,
     X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
+import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
+import { saveCashClosure } from '../../data/cashClosures'
 import { getSales } from '../../data/sales'
 import '../Dashboard/Dashborad.css'
 import './Fechamento.css'
@@ -57,6 +58,21 @@ function toCents(value: number): number {
     return Math.round(value * 100)
 }
 
+function calculateCashMovement(cashRegister: CashRegister) {
+    const openedAtTimestamp = new Date(cashRegister.openedAt).getTime()
+    const cashSalesAmountInCents = getSales()
+        .filter((sale) => sale.paymentMethod === 'cash')
+        .filter((sale) => new Date(sale.date).getTime() >= openedAtTimestamp)
+        .reduce((total, sale) => total + toCents(sale.total), 0)
+    const initialAmountInCents = toCents(cashRegister.initialAmount)
+
+    return {
+        cashSalesAmountInCents,
+        initialAmountInCents,
+        expectedAmountInCents: initialAmountInCents + cashSalesAmountInCents,
+    }
+}
+
 function formatOpeningDate(openedAt: string): { date: string; time: string } {
     const openedDate = new Date(openedAt)
 
@@ -76,19 +92,16 @@ export default function Fechamento() {
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
     const [countedCashInput, setCountedCashInput] = useState('')
-    const cashSalesTotalInCents = cashRegister
-        ? getSales()
-            .filter((sale) => sale.paymentMethod === 'cash')
-            .filter((sale) => new Date(sale.date).getTime() >= new Date(cashRegister.openedAt).getTime())
-            .reduce((total, sale) => total + toCents(sale.total), 0)
-        : 0
-    const initialAmountInCents = cashRegister ? toCents(cashRegister.initialAmount) : 0
-    const expectedCashInCents = initialAmountInCents + cashSalesTotalInCents
+    const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
+    const [isClosing, setIsClosing] = useState(false)
+    const [closeError, setCloseError] = useState('')
+    const isClosingRef = useRef(false)
+    const cashMovement = cashRegister ? calculateCashMovement(cashRegister) : null
     const countedCash = parseMoneyInput(countedCashInput)
     const countedCashInCents = countedCash === null ? null : toCents(countedCash)
     const differenceInCents = countedCashInCents === null
         ? null
-        : countedCashInCents - expectedCashInCents
+        : countedCashInCents - (cashMovement?.expectedAmountInCents ?? 0)
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -126,16 +139,87 @@ export default function Fechamento() {
         closeOpeningModal()
     }
 
+    function handleRequestClose() {
+        if (countedCash === null) {
+            setCloseError('Informe um valor contado válido antes de fechar o caixa.')
+            return
+        }
+
+        setCloseError('')
+        setIsCloseModalOpen(true)
+    }
+
+    function closeClosingModal() {
+        if (isClosing) return
+
+        setIsCloseModalOpen(false)
+        setCloseError('')
+    }
+
+    function handleConfirmClose() {
+        if (isClosingRef.current || !cashRegister) return
+
+        const countedAmount = parseMoneyInput(countedCashInput)
+        if (countedAmount === null) {
+            setCloseError('Informe um valor contado válido antes de fechar o caixa.')
+            return
+        }
+
+        const currentCashRegister = getOpenCashRegister()
+        if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
+            setCloseError('O caixa aberto não está mais disponível para fechamento.')
+            return
+        }
+
+        isClosingRef.current = true
+        setIsClosing(true)
+        setCloseError('')
+
+        try {
+            const currentCashMovement = calculateCashMovement(currentCashRegister)
+            const countedAmountInCents = toCents(countedAmount)
+            const closedAt = new Date().toISOString()
+
+            saveCashClosure({
+                id: currentCashRegister.id,
+                openedAt: currentCashRegister.openedAt,
+                initialAmount: currentCashRegister.initialAmount,
+                closedAt,
+                countedAmount: countedAmountInCents / 100,
+                expectedAmount: currentCashMovement.expectedAmountInCents / 100,
+                differenceAmount: (countedAmountInCents - currentCashMovement.expectedAmountInCents) / 100,
+                cashSalesAmount: currentCashMovement.cashSalesAmountInCents / 100,
+            })
+            clearOpenCashRegister()
+            setCashRegister(null)
+            setCountedCashInput('')
+            setIsCloseModalOpen(false)
+        } catch (error) {
+            setCloseError(error instanceof Error ? error.message : 'Não foi possível fechar o caixa.')
+        } finally {
+            isClosingRef.current = false
+            setIsClosing(false)
+        }
+    }
+
     useEffect(() => {
-        if (!isOpeningModalOpen) return
+        if (!isOpeningModalOpen && !isCloseModalOpen) return
 
         function handleEscape(event: KeyboardEvent) {
-            if (event.key === 'Escape') closeOpeningModal()
+            if (event.key !== 'Escape') return
+            if (isOpeningModalOpen) {
+                setIsOpeningModalOpen(false)
+                setInitialAmountInput('')
+            }
+            if (isCloseModalOpen && !isClosing) {
+                setIsCloseModalOpen(false)
+                setCloseError('')
+            }
         }
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
-    }, [isOpeningModalOpen])
+    }, [isOpeningModalOpen, isCloseModalOpen, isClosing])
 
     const initialAmount = parseMoneyInput(initialAmountInput)
 
@@ -231,6 +315,9 @@ export default function Fechamento() {
                                 <span className="fechamento-status-label">Status do caixa</span>
                                 <h2>Caixa aberto</h2>
                             </div>
+                            <button type="button" className="fechamento-danger-button" onClick={handleRequestClose}>
+                                Fechar caixa
+                            </button>
                             <div className="fechamento-opened-details">
                                 <div>
                                     <span>Data de abertura</span>
@@ -242,22 +329,22 @@ export default function Fechamento() {
                                 </div>
                                 <div>
                                     <span>Valor inicial</span>
-                                    <strong>{currency.format(cashRegister.initialAmount)}</strong>
+                                    <strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong>
                                 </div>
                             </div>
                             <div className="fechamento-cash-movement">
                                 <h3>Movimentação em dinheiro</h3>
                                 <div className="fechamento-cash-movement-row">
                                     <span>Valor inicial</span>
-                                    <strong>{currency.format(initialAmountInCents / 100)}</strong>
+                                    <strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong>
                                 </div>
                                 <div className="fechamento-cash-movement-row">
                                     <span>Vendas em dinheiro</span>
-                                    <strong>{currency.format(cashSalesTotalInCents / 100)}</strong>
+                                    <strong>{currency.format((cashMovement?.cashSalesAmountInCents ?? 0) / 100)}</strong>
                                 </div>
                                 <div className="fechamento-cash-movement-row total">
                                     <span>Valor esperado</span>
-                                    <strong>{currency.format(expectedCashInCents / 100)}</strong>
+                                    <strong>{currency.format((cashMovement?.expectedAmountInCents ?? 0) / 100)}</strong>
                                 </div>
                             </div>
                             <div className="fechamento-counted-cash">
@@ -295,6 +382,9 @@ export default function Fechamento() {
                                     </>
                                 )}
                             </div>
+                            {closeError && !isCloseModalOpen && (
+                                <p className="fechamento-close-error">{closeError}</p>
+                            )}
                         </section>
                     )}
                 </section>
@@ -336,6 +426,42 @@ export default function Fechamento() {
                             </button>
                             <button type="button" className="fechamento-primary-button" onClick={handleOpenCash} disabled={initialAmount === null}>
                                 Abrir caixa
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            {isCloseModalOpen && cashRegister && cashMovement && countedCashInCents !== null && (
+                <div className="fechamento-modal-overlay" role="presentation" onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) closeClosingModal()
+                }}>
+                    <section className="fechamento-modal" role="dialog" aria-modal="true" aria-labelledby="close-modal-title">
+                        <div className="fechamento-modal-header">
+                            <div>
+                                <span className="fechamento-modal-overline">CONFIRMAÇÃO</span>
+                                <h2 id="close-modal-title">Fechar caixa?</h2>
+                            </div>
+                            <button type="button" className="fechamento-modal-close" onClick={closeClosingModal} disabled={isClosing} aria-label="Fechar janela">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="fechamento-modal-body">
+                            <div className="fechamento-close-summary">
+                                <div><span>Valor inicial</span><strong>{currency.format(cashMovement.initialAmountInCents / 100)}</strong></div>
+                                <div><span>Vendas em dinheiro</span><strong>{currency.format(cashMovement.cashSalesAmountInCents / 100)}</strong></div>
+                                <div><span>Valor esperado</span><strong>{currency.format(cashMovement.expectedAmountInCents / 100)}</strong></div>
+                                <div><span>Valor contado</span><strong>{currency.format(countedCashInCents / 100)}</strong></div>
+                                <div><span>Diferença</span><strong>{differenceInCents !== null && differenceInCents > 0 ? '+ ' : differenceInCents !== null && differenceInCents < 0 ? '- ' : ''}{currency.format(Math.abs(differenceInCents ?? 0) / 100)}</strong></div>
+                            </div>
+                            {closeError && <p className="fechamento-close-error">{closeError}</p>}
+                        </div>
+                        <div className="fechamento-modal-footer">
+                            <button type="button" className="fechamento-secondary-button" onClick={closeClosingModal} disabled={isClosing}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="fechamento-danger-button" onClick={handleConfirmClose} disabled={isClosing}>
+                                {isClosing ? 'Fechando...' : 'Confirmar fechamento'}
                             </button>
                         </div>
                     </section>

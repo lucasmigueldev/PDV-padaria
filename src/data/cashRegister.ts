@@ -39,3 +39,7 @@ export function openCashRegister(initialAmount: number): CashRegister {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cashRegister))
     return cashRegister
 }
+
+export function clearOpenCashRegister(): void {
+    localStorage.removeItem(STORAGE_KEY)
+}

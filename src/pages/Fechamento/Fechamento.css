@@ -67,6 +67,7 @@
 
 .fechamento-primary-button,
 .fechamento-secondary-button,
+.fechamento-danger-button,
 .fechamento-modal-close {
     display: inline-flex;
     align-items: center;
@@ -77,7 +78,8 @@
 }
 
 .fechamento-primary-button,
-.fechamento-secondary-button {
+.fechamento-secondary-button,
+.fechamento-danger-button {
     min-height: 44px;
     padding: 0 18px;
     font-size: 14px;
@@ -107,6 +109,23 @@
 
 .fechamento-secondary-button:hover {
     background: #f8fafc;
+}
+
+.fechamento-danger-button {
+    border: 0;
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.fechamento-danger-button:hover:not(:disabled) {
+    background: #b91c1c;
+}
+
+.fechamento-danger-button:disabled,
+.fechamento-secondary-button:disabled,
+.fechamento-modal-close:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .fechamento-primary-button:focus-visible,
@@ -400,6 +419,42 @@
     font-size: 13px;
 }
 
+.fechamento-close-summary {
+    display: grid;
+    gap: 16px;
+}
+
+.fechamento-close-summary > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 12px;
+}
+
+.fechamento-close-summary span {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.fechamento-close-summary strong {
+    color: #111827;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.fechamento-close-error {
+    margin-top: 16px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .fechamento-modal-footer {
     justify-content: flex-end;
     border-top: 1px solid #eef2f7;
@@ -411,7 +466,8 @@
         align-items: start;
     }
 
-    .fechamento-status-card .fechamento-primary-button {
+    .fechamento-status-card .fechamento-primary-button,
+    .fechamento-status-card .fechamento-danger-button {
         grid-column: 1 / -1;
         width: 100%;
     }
