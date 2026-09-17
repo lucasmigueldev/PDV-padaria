@@ -4,6 +4,7 @@ import {
     Banknote,
     Calculator,
     CreditCard,
+    History,
     LogOut,
     Minus,
     Package,
@@ -283,6 +284,10 @@ export default function PDV() {
                     <a href="/produtos" className="sidebar-link">
                         <Package size={19} />
                         <span>Produtos</span>
+                    </a>
+                    <a href="/historico-vendas" className="sidebar-link">
+                        <History size={19} />
+                        <span>Histórico de Vendas</span>
                     </a>
                     <a href="#" className="sidebar-link">
                         <BarChart3 size={19} />

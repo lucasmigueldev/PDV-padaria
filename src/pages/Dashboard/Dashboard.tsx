@@ -5,6 +5,7 @@ import {
   CreditCard,
   DollarSign,
   Clock3,
+  History,
   LayoutDashboard,
   LogOut,
   Package,
@@ -58,6 +59,11 @@ export default function Dashboard() {
           <a href="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
+          </a>
+
+          <a href="/historico-vendas" className="sidebar-link">
+            <History size={19} />
+            <span>Histórico de Vendas</span>
           </a>
 
           <a href="#" className="sidebar-link">

@@ -4,6 +4,7 @@ import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
 import PDV from './pages/PDV/PDV'
 import Produtos from './pages/Produtos/Produtos'
+import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
@@ -49,6 +50,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Produtos />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Histórico de vendas protegido */}
+        <Route
+          path="/historico-vendas"
+          element={
+            <ProtectedRoute>
+              <HistoricoVendas />
             </ProtectedRoute>
           }
         />

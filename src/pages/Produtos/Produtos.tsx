@@ -4,6 +4,7 @@ import {
     BarChart3,
     Calculator,
     Edit3,
+    History,
     LayoutDashboard,
     LogOut,
     Package,
@@ -201,6 +202,7 @@ export default function Produtos() {
                     <a href="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></a>
                     <a href="#" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>
                     <a href="/produtos" className="sidebar-link active"><Package size={19} /><span>Produtos</span></a>
+                    <a href="/historico-vendas" className="sidebar-link"><History size={19} /><span>Histórico de Vendas</span></a>
                     <a href="#" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>
                 </nav>
                 <div className="sidebar-bottom mt-auto flex flex-col gap-2">
