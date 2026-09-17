@@ -71,6 +71,7 @@ export default function HistoricoVendas() {
     const sales = getSales()
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
+    const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'highest' | 'lowest'>('recent')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
@@ -117,6 +118,13 @@ export default function HistoricoVendas() {
         summary[sale.paymentMethod] += 1
         return summary
     }, { total: 0, cash: 0, pix: 0, card: 0 })
+    const sortedSales = [...filteredSales].sort((firstSale, secondSale) => {
+        if (sortOrder === 'highest') return secondSale.total - firstSale.total
+        if (sortOrder === 'lowest') return firstSale.total - secondSale.total
+
+        const dateDifference = new Date(secondSale.date).getTime() - new Date(firstSale.date).getTime()
+        return sortOrder === 'recent' ? dateDifference : -dateDifference
+    })
 
     useEffect(() => {
         if (!selectedSale) return
@@ -206,6 +214,20 @@ export default function HistoricoVendas() {
                                 <option value="cash">Dinheiro</option>
                                 <option value="pix">PIX</option>
                                 <option value="card">Cartão</option>
+                            </select>
+                        </div>
+
+                        <div className="sales-history-filter">
+                            <label htmlFor="sales-history-sort-order">Ordenar por</label>
+                            <select
+                                id="sales-history-sort-order"
+                                value={sortOrder}
+                                onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}
+                            >
+                                <option value="recent">Mais recentes primeiro</option>
+                                <option value="oldest">Mais antigas primeiro</option>
+                                <option value="highest">Maior valor</option>
+                                <option value="lowest">Menor valor</option>
                             </select>
                         </div>
 
@@ -313,7 +335,7 @@ export default function HistoricoVendas() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {filteredSales.map((sale) => (
+                                        {sortedSales.map((sale) => (
                                             <tr
                                                 key={sale.id}
                                                 className="cursor-pointer text-slate-700 transition-colors hover:bg-slate-50 focus-within:bg-slate-50"

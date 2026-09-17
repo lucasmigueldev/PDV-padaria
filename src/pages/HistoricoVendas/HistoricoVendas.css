@@ -308,7 +308,7 @@
 
 .sales-history-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 230px;
+    grid-template-columns: minmax(0, 1fr) 230px 230px;
     gap: 16px;
     margin-bottom: 24px;
 }
