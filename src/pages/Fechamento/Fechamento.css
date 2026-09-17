@@ -182,6 +182,59 @@
     font-size: 20px;
 }
 
+.fechamento-counted-cash {
+    grid-column: 2 / -1;
+    border-top: 1px solid #eef2f7;
+    padding-top: 24px;
+}
+
+.fechamento-counted-cash label {
+    display: block;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.fechamento-counted-cash-input {
+    display: flex;
+    align-items: center;
+    max-width: 360px;
+    margin-top: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #64748b;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fechamento-counted-cash-input:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.fechamento-counted-cash-input span {
+    padding-left: 14px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.fechamento-counted-cash-input input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    padding: 12px 14px 12px 8px;
+    background: transparent;
+    color: #111827;
+    font: inherit;
+    font-size: 16px;
+}
+
+.fechamento-counted-cash > p {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+}
+
 .fechamento-modal-overlay {
     position: fixed;
     z-index: 1000;
@@ -316,6 +369,10 @@
     }
 
     .fechamento-cash-movement {
+        grid-column: 1 / -1;
+    }
+
+    .fechamento-counted-cash {
         grid-column: 1 / -1;
     }
 

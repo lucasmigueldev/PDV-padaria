@@ -75,6 +75,7 @@ export default function Fechamento() {
     const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => getOpenCashRegister())
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
+    const [countedCashInput, setCountedCashInput] = useState('')
     const cashSalesTotalInCents = cashRegister
         ? getSales()
             .filter((sale) => sale.paymentMethod === 'cash')
@@ -101,6 +102,15 @@ export default function Fechamento() {
         if (decimalPart && decimalPart.length > 2) return
 
         setInitialAmountInput(value)
+    }
+
+    function handleCountedCashChange(value: string) {
+        if (!/^[\d.,]*$/.test(value) || (value.match(/,/g) ?? []).length > 1) return
+
+        const decimalPart = value.split(',')[1]
+        if (decimalPart && decimalPart.length > 2) return
+
+        setCountedCashInput(value)
     }
 
     function handleOpenCash() {
@@ -244,6 +254,22 @@ export default function Fechamento() {
                                     <span>Valor esperado</span>
                                     <strong>{currency.format(expectedCashInCents / 100)}</strong>
                                 </div>
+                            </div>
+                            <div className="fechamento-counted-cash">
+                                <label htmlFor="counted-cash">Valor contado</label>
+                                <div className="fechamento-counted-cash-input">
+                                    <span>R$</span>
+                                    <input
+                                        id="counted-cash"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={countedCashInput}
+                                        onChange={(event) => handleCountedCashChange(event.target.value)}
+                                        onBlur={() => setCountedCashInput(formatMoneyInput(countedCashInput))}
+                                        aria-describedby="counted-cash-description"
+                                    />
+                                </div>
+                                <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
                             </div>
                         </section>
                     )}
