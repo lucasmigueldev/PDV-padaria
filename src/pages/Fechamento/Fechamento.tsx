@@ -9,6 +9,7 @@ import {
     Settings,
     ShoppingCart,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getSales } from '../../data/sales'
@@ -24,8 +25,21 @@ function getDateKey(date: Date): string {
     return [date.getFullYear(), date.getMonth(), date.getDate()].join('-')
 }
 
+function formatMoneyInput(value: string): string {
+    if (!value) return ''
+
+    const [integerPart, decimalPart] = value.replace(/\./g, '').split(',')
+    const normalizedInteger = integerPart.replace(/^0+(?=\d)/, '') || '0'
+    const formattedInteger = Number(normalizedInteger).toLocaleString('pt-BR')
+
+    return decimalPart === undefined
+        ? formattedInteger
+        : `${formattedInteger},${decimalPart.slice(0, 2)}`
+}
+
 export default function Fechamento() {
     const navigate = useNavigate()
+    const [countedCash, setCountedCash] = useState('')
     const todayKey = getDateKey(new Date())
     const expectedCash = getSales()
         .filter((sale) => getDateKey(new Date(sale.date)) === todayKey)
@@ -35,6 +49,15 @@ export default function Fechamento() {
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
         navigate('/login', { replace: true })
+    }
+
+    function handleCountedCashChange(value: string) {
+        if (!/^[\d.,]*$/.test(value) || (value.match(/,/g) ?? []).length > 1) return
+
+        const decimalPart = value.split(',')[1]
+        if (decimalPart && decimalPart.length > 2) return
+
+        setCountedCash(value)
     }
 
     return (
@@ -119,6 +142,22 @@ export default function Fechamento() {
                                 <p>Valor calculado com base nas vendas em dinheiro registradas hoje.</p>
                             </div>
                             <strong>{currency.format(expectedCash)}</strong>
+                        </div>
+                        <div className="fechamento-counted-cash">
+                            <label htmlFor="counted-cash">Valor contado</label>
+                            <div className="fechamento-counted-cash-input">
+                                <span>R$</span>
+                                <input
+                                    id="counted-cash"
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={countedCash}
+                                    onChange={(event) => handleCountedCashChange(event.target.value)}
+                                    onBlur={() => setCountedCash(formatMoneyInput(countedCash))}
+                                    aria-describedby="counted-cash-description"
+                                />
+                            </div>
+                            <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
                         </div>
                     </section>
                 </section>
