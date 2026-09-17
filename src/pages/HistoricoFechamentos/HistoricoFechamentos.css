@@ -1,0 +1,189 @@
+.fechamento-history-content {
+    max-width: 1200px;
+}
+
+.fechamento-history-empty {
+    display: flex;
+    min-height: 260px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #94a3b8;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+    text-align: center;
+}
+
+.fechamento-history-empty h2 {
+    margin-top: 16px;
+    color: #334155;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.fechamento-history-empty p {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.fechamento-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.fechamento-history-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+    overflow: hidden;
+}
+
+.fechamento-history-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 22px 26px;
+    background: #f8fafc;
+}
+
+.fechamento-history-card-header span,
+.fechamento-history-grid span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.fechamento-history-card-header h2 {
+    margin-top: 6px;
+    color: #1e293b;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.fechamento-history-closed-time {
+    text-align: right;
+}
+
+.fechamento-history-closed-time strong {
+    display: block;
+    margin-top: 6px;
+    color: #1d4ed8;
+    font-size: 18px;
+}
+
+.fechamento-history-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    padding: 4px 26px;
+}
+
+.fechamento-history-grid > div {
+    min-width: 0;
+    padding: 18px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.fechamento-history-grid > div:nth-child(3n + 1) {
+    padding-left: 0;
+}
+
+.fechamento-history-grid > div:nth-child(3n) {
+    padding-right: 0;
+}
+
+.fechamento-history-grid > div:nth-last-child(-n + 3) {
+    border-bottom: 0;
+}
+
+.fechamento-history-grid strong {
+    display: block;
+    margin-top: 7px;
+    color: #334155;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.fechamento-history-difference.balanced strong {
+    color: #15803d;
+}
+
+.fechamento-history-difference.surplus strong {
+    color: #1d4ed8;
+}
+
+.fechamento-history-difference.shortage strong {
+    color: #c2410c;
+}
+
+@media (max-width: 900px) {
+    .fechamento-history-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fechamento-history-grid > div:nth-child(3n + 1),
+    .fechamento-history-grid > div:nth-child(3n) {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .fechamento-history-grid > div:nth-child(2n + 1) {
+        padding-left: 0;
+    }
+
+    .fechamento-history-grid > div:nth-child(2n) {
+        padding-right: 0;
+    }
+
+    .fechamento-history-grid > div:nth-last-child(-n + 3) {
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .fechamento-history-grid > div:nth-last-child(-n + 2) {
+        border-bottom: 0;
+    }
+}
+
+@media (max-width: 620px) {
+    .fechamento-history-card-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .fechamento-history-closed-time {
+        text-align: left;
+    }
+
+    .fechamento-history-grid {
+        grid-template-columns: 1fr;
+        padding: 4px 20px;
+    }
+
+    .fechamento-history-grid > div,
+    .fechamento-history-grid > div:nth-child(3n + 1),
+    .fechamento-history-grid > div:nth-child(3n),
+    .fechamento-history-grid > div:nth-child(2n + 1),
+    .fechamento-history-grid > div:nth-child(2n) {
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .fechamento-history-grid > div:nth-last-child(-n + 2) {
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .fechamento-history-grid > div:last-child {
+        border-bottom: 0;
+    }
+}

@@ -6,6 +6,7 @@ import PDV from './pages/PDV/PDV'
 import Produtos from './pages/Produtos/Produtos'
 import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
 import Fechamento from './pages/Fechamento/Fechamento'
+import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
@@ -71,6 +72,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Fechamento />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Histórico de fechamentos protegido */}
+        <Route
+          path="/historico-fechamentos"
+          element={
+            <ProtectedRoute>
+              <HistoricoFechamentos />
             </ProtectedRoute>
           }
         />

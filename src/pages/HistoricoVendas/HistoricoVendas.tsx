@@ -312,6 +312,7 @@ export default function HistoricoVendas() {
                     <a href="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>
                     <a href="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></a>
                     <a href="/historico-vendas" className="sidebar-link active"><History size={19} /><span>Histórico de Vendas</span></a>
+                    <a href="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></a>
                     <a href="#" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>
                 </nav>
 

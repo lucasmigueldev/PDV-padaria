@@ -257,6 +257,10 @@ export default function Fechamento() {
                         <History size={19} />
                         <span>Histórico de Vendas</span>
                     </a>
+                    <a href="/historico-fechamentos" className="sidebar-link">
+                        <History size={19} />
+                        <span>Histórico de Fechamentos</span>
+                    </a>
                     <a href="#" className="sidebar-link">
                         <BarChart3 size={19} />
                         <span>Relatórios</span>
