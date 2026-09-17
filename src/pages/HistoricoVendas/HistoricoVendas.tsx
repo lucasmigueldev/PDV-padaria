@@ -35,16 +35,71 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     card: 'Cartão',
 }
 
+function validateDateInput(value: string, today: Date): string | null {
+    if (!value) return null
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    if (!match) return 'Informe uma data válida com ano de 4 dígitos.'
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    const currentYear = today.getFullYear()
+
+    if (year !== currentYear) {
+        return `O ano deve ser o ano atual (${currentYear}).`
+    }
+
+    const date = new Date(year, month - 1, day)
+    const isValidCalendarDate = date.getFullYear() === year
+        && date.getMonth() === month - 1
+        && date.getDate() === day
+
+    if (!isValidCalendarDate) return 'Informe uma data de calendário válida.'
+
+    const todayStart = new Date(currentYear, today.getMonth(), today.getDate())
+    if (date > todayStart) return 'A data não pode ser futura.'
+
+    return null
+}
+
 export default function HistoricoVendas() {
     const navigate = useNavigate()
     const sales = getSales()
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const todayInputValue = [
+        currentYear,
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+    ].join('-')
+    const minimumDate = `${currentYear}-01-01`
     const normalizedSearch = search.trim().toLocaleLowerCase()
+    const startDateError = validateDateInput(startDate, today)
+    const endDateError = validateDateInput(endDate, today)
+    const startTimestamp = startDate
+        ? new Date(`${startDate}T00:00:00`).getTime()
+        : null
+    const endTimestamp = endDate
+        ? new Date(`${endDate}T23:59:59.999`).getTime()
+        : null
+    const hasInvalidDateRange = !startDateError && !endDateError &&
+        startTimestamp !== null && endTimestamp !== null && startTimestamp > endTimestamp
+    const dateError = startDateError || endDateError || (hasInvalidDateRange
+        ? 'A data inicial não pode ser posterior à data final.'
+        : null)
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
+        const saleTimestamp = new Date(sale.date).getTime()
+        const matchesStartDate = !startDate || !!startDateError || saleTimestamp >= (startTimestamp ?? 0)
+        const matchesEndDate = !endDate || !!endDateError || saleTimestamp <= (endTimestamp ?? 0)
+        const matchesDate = !hasInvalidDateRange && matchesStartDate && matchesEndDate
         const matchesSearch = !normalizedSearch ||
             sale.id.toLocaleLowerCase().includes(normalizedSearch) ||
             sale.items.some((item) =>
@@ -52,7 +107,7 @@ export default function HistoricoVendas() {
                 item.barcode.toLocaleLowerCase().includes(normalizedSearch),
             )
 
-        return matchesPayment && matchesSearch
+        return matchesPayment && matchesDate && matchesSearch
     })
 
     useEffect(() => {
@@ -144,6 +199,51 @@ export default function HistoricoVendas() {
                                 <option value="pix">PIX</option>
                                 <option value="card">Cartão</option>
                             </select>
+                        </div>
+
+                        <div className="sales-history-date-filter">
+                            <div className="sales-history-date-field">
+                                <label htmlFor="sales-history-start-date">Data inicial</label>
+                                <input
+                                    id="sales-history-start-date"
+                                    type="date"
+                                    value={startDate}
+                                    min={minimumDate}
+                                    max={todayInputValue}
+                                    aria-invalid={Boolean(startDateError)}
+                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                    onChange={(event) => setStartDate(event.target.value)}
+                                />
+                            </div>
+                            <div className="sales-history-date-field">
+                                <label htmlFor="sales-history-end-date">Data final</label>
+                                <input
+                                    id="sales-history-end-date"
+                                    type="date"
+                                    value={endDate}
+                                    min={minimumDate}
+                                    max={todayInputValue}
+                                    aria-invalid={Boolean(endDateError)}
+                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                    onChange={(event) => setEndDate(event.target.value)}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                className="sales-history-clear-dates"
+                                onClick={() => {
+                                    setStartDate('')
+                                    setEndDate('')
+                                }}
+                                disabled={!startDate && !endDate}
+                            >
+                                Limpar datas
+                            </button>
+                            {dateError && (
+                                <p id="sales-history-date-error" className="sales-history-date-error" role="alert">
+                                    {dateError}
+                                </p>
+                            )}
                         </div>
                     </div>
 

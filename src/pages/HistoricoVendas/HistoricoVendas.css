@@ -389,6 +389,80 @@
     box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
 }
 
+.sales-history-date-filter {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.sales-history-date-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.sales-history-date-field label {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.sales-history-date-field input {
+    width: 100%;
+    min-width: 0;
+    padding: 13px 14px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    outline: 0;
+    background: #ffffff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.sales-history-date-field input:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.sales-history-clear-dates {
+    min-height: 46px;
+    padding: 0 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #475569;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.sales-history-clear-dates:hover:not(:disabled) {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.sales-history-clear-dates:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.sales-history-date-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .sales-history-empty-search {
     display: flex;
     min-height: 220px;
@@ -466,6 +540,15 @@
     .sales-history-toolbar {
         grid-template-columns: 1fr;
         gap: 12px;
+    }
+
+    .sales-history-date-filter {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sales-history-clear-dates {
+        grid-column: 1 / -1;
+        width: 100%;
     }
 
     .sales-history-search,
