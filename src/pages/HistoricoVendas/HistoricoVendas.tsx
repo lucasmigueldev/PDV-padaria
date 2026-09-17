@@ -39,18 +39,21 @@ export default function HistoricoVendas() {
     const navigate = useNavigate()
     const sales = getSales()
     const [search, setSearch] = useState('')
+    const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const normalizedSearch = search.trim().toLocaleLowerCase()
-    const filteredSales = normalizedSearch
-        ? sales.filter((sale) =>
+    const filteredSales = sales.filter((sale) => {
+        const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
+        const matchesSearch = !normalizedSearch ||
             sale.id.toLocaleLowerCase().includes(normalizedSearch) ||
             sale.items.some((item) =>
                 item.name.toLocaleLowerCase().includes(normalizedSearch) ||
                 item.barcode.toLocaleLowerCase().includes(normalizedSearch),
-            ),
-        )
-        : sales
+            )
+
+        return matchesPayment && matchesSearch
+    })
 
     useEffect(() => {
         if (!selectedSale) return
@@ -116,16 +119,32 @@ export default function HistoricoVendas() {
                 </header>
 
                 <section className="dashboard-content p-10">
-                    <div className="sales-history-search">
-                        <Search size={19} aria-hidden="true" />
-                        <label htmlFor="sales-history-search-input">Buscar vendas</label>
-                        <input
-                            id="sales-history-search-input"
-                            type="search"
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Buscar por ID, produto ou código de barras"
-                        />
+                    <div className="sales-history-toolbar">
+                        <div className="sales-history-search">
+                            <Search size={19} aria-hidden="true" />
+                            <label htmlFor="sales-history-search-input">Buscar vendas</label>
+                            <input
+                                id="sales-history-search-input"
+                                type="search"
+                                value={search}
+                                onChange={(event) => setSearch(event.target.value)}
+                                placeholder="Buscar por ID, produto ou código de barras"
+                            />
+                        </div>
+
+                        <div className="sales-history-filter">
+                            <label htmlFor="sales-history-payment-filter">Forma de pagamento</label>
+                            <select
+                                id="sales-history-payment-filter"
+                                value={paymentFilter}
+                                onChange={(event) => setPaymentFilter(event.target.value as PaymentMethod | 'all')}
+                            >
+                                <option value="all">Todas</option>
+                                <option value="cash">Dinheiro</option>
+                                <option value="pix">PIX</option>
+                                <option value="card">Cartão</option>
+                            </select>
+                        </div>
                     </div>
 
                     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

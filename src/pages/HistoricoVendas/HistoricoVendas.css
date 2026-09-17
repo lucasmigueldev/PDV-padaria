@@ -306,7 +306,15 @@
     background: #f8fafc;
 }
 
-.sales-history-search {
+.sales-history-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 230px;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.sales-history-search,
+.sales-history-filter {
     position: relative;
     display: flex;
     align-items: center;
@@ -318,6 +326,11 @@
     background: #ffffff;
     color: #64748b;
     box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.sales-history-filter {
+    gap: 10px;
+    padding: 0 14px;
 }
 
 .sales-history-search label {
@@ -346,6 +359,32 @@
 }
 
 .sales-history-search:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.sales-history-filter label {
+    flex-shrink: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sales-history-filter select {
+    min-width: 0;
+    flex: 1;
+    padding: 15px 0;
+    border: 0;
+    outline: 0;
+    background: #ffffff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.sales-history-filter:focus-within {
     border-color: #93c5fd;
     box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
 }
@@ -424,7 +463,17 @@
         padding: 22px;
     }
 
-    .sales-history-search {
+    .sales-history-toolbar {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .sales-history-search,
+    .sales-history-filter {
         margin-bottom: 18px;
+    }
+
+    .sales-history-filter {
+        margin-bottom: 0;
     }
 }
