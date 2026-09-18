@@ -15,7 +15,9 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { getProducts } from '../../data/products'
 import { getSales } from '../../data/sales'
+import type { Product } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import '../Dashboard/Dashborad.css'
 import './Relatorios.css'
@@ -105,6 +107,11 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
   )
 }
 
+type StockProduct = {
+  product: Product
+  originalIndex: number
+}
+
 export default function Relatorios() {
   const navigate = useNavigate()
   const sales = getSales()
@@ -155,6 +162,32 @@ export default function Relatorios() {
     card: getPaymentSummary(filteredSales, 'card'),
   }
   const soldProducts = getSoldProducts(filteredSales)
+  const products = getProducts()
+  const stockSummary = products.reduce((summary, product) => {
+    summary.totalProducts += 1
+    summary.totalUnits += product.stock
+    summary.estimatedValue += product.price * product.stock
+
+    if (product.stock > 0) {
+      summary.availableProducts += 1
+    } else {
+      summary.outOfStockProducts += 1
+    }
+
+    return summary
+  }, {
+    totalProducts: 0,
+    availableProducts: 0,
+    outOfStockProducts: 0,
+    totalUnits: 0,
+    estimatedValue: 0,
+  })
+  const stockProducts = products
+    .map<StockProduct>((product, originalIndex) => ({ product, originalIndex }))
+    .sort((firstProduct, secondProduct) =>
+      firstProduct.product.stock - secondProduct.product.stock
+      || firstProduct.originalIndex - secondProduct.originalIndex,
+    )
 
   function applyPeriod() {
     if (dateError) return
@@ -402,6 +435,78 @@ export default function Relatorios() {
                 <Package size={28} aria-hidden="true" />
                 <h2>Nenhum produto vendido</h2>
                 <p>Não existem produtos vendidos no período selecionado.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="reports-section" aria-labelledby="stock-report-title">
+            <div className="reports-section-heading reports-section-heading-compact">
+              <div>
+                <span className="reports-section-overline">VISÃO DO CATÁLOGO</span>
+                <h2 id="stock-report-title">Estoque</h2>
+                <p>Resumo do estoque atual dos produtos cadastrados.</p>
+              </div>
+              <Package className="reports-section-icon" size={22} aria-hidden="true" />
+            </div>
+
+            <div className="reports-indicators-grid reports-stock-indicators-grid">
+              <article className="reports-indicator-card reports-indicator-card-highlight">
+                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                <span>Total de produtos cadastrados</span>
+                <strong>{stockSummary.totalProducts}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                <span>Produtos com estoque disponível</span>
+                <strong>{stockSummary.availableProducts}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                <span>Produtos sem estoque</span>
+                <strong>{stockSummary.outOfStockProducts}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                <span>Unidades em estoque</span>
+                <strong>{stockSummary.totalUnits}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
+                <span>Valor estimado do estoque</span>
+                <strong>{currency.format(stockSummary.estimatedValue)}</strong>
+              </article>
+            </div>
+
+            {stockProducts.length > 0 ? (
+              <div className="reports-products-table-wrapper reports-stock-table-wrapper">
+                <table className="reports-products-table">
+                  <thead>
+                    <tr>
+                      <th>Produto</th>
+                      <th>Código de barras</th>
+                      <th className="reports-products-number">Preço unitário</th>
+                      <th className="reports-products-number">Estoque atual</th>
+                      <th className="reports-products-number">Valor em estoque</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockProducts.map(({ product }) => (
+                      <tr key={product.id}>
+                        <td className="reports-products-name">{product.name}</td>
+                        <td>{product.barcode}</td>
+                        <td className="reports-products-number">{currency.format(product.price)}</td>
+                        <td className="reports-products-number">{product.stock}</td>
+                        <td className="reports-products-number">{currency.format(product.price * product.stock)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="reports-empty-state" aria-live="polite">
+                <Package size={28} aria-hidden="true" />
+                <h2>Nenhum produto cadastrado</h2>
+                <p>Não existem produtos cadastrados no catálogo.</p>
               </div>
             )}
           </section>
