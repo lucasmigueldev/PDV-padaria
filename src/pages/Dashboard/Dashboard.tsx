@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  QrCode,
   Settings,
   ShoppingCart,
   UserRound,
@@ -16,10 +17,70 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { getOpenCashRegister } from '../../data/cashRegister'
+import { getSales } from '../../data/sales'
+import type { PaymentMethod, Sale } from '../../types/Sale'
 import './Dashborad.css'
+
+const currency = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+const percentage = new Intl.NumberFormat('pt-BR', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+function isSameDay(dateValue: string, referenceDate: Date): boolean {
+  const date = new Date(dateValue)
+
+  return !Number.isNaN(date.getTime())
+    && date.getFullYear() === referenceDate.getFullYear()
+    && date.getMonth() === referenceDate.getMonth()
+    && date.getDate() === referenceDate.getDate()
+}
+
+function sumSales(sales: Sale[]): number {
+  return sales.reduce((total, sale) => total + sale.total, 0)
+}
+
+function getVariation(currentValue: number, previousValue: number): string {
+  if (previousValue === 0) return 'Sem dados de ontem'
+
+  const variation = (currentValue - previousValue) / previousValue
+  const sign = variation > 0 ? '+' : ''
+  return `${sign}${percentage.format(variation)} em relação a ontem`
+}
+
+function getPaymentTotal(sales: Sale[], paymentMethod: PaymentMethod): number {
+  return sumSales(sales.filter((sale) => sale.paymentMethod === paymentMethod))
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const currentDate = new Date()
+  const yesterday = new Date(currentDate)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const salesToday = getSales().filter((sale) => isSameDay(sale.date, currentDate))
+  const salesYesterday = getSales().filter((sale) => isSameDay(sale.date, yesterday))
+  const totalSalesToday = sumSales(salesToday)
+  const totalSalesYesterday = sumSales(salesYesterday)
+  const salesCountToday = salesToday.length
+  const salesCountYesterday = salesYesterday.length
+  const cashSalesToday = getPaymentTotal(salesToday, 'cash')
+  const cardSalesToday = getPaymentTotal(salesToday, 'card')
+  const pixSalesToday = getPaymentTotal(salesToday, 'pix')
+  const cashRegister = getOpenCashRegister()
+  const totalReceived = totalSalesToday
+  const cashPercentage = totalReceived > 0 ? cashSalesToday / totalReceived : 0
+  const cardPercentage = totalReceived > 0 ? cardSalesToday / totalReceived : 0
+  const pixAmountPercentage = totalReceived > 0 ? pixSalesToday / totalReceived : 0
+  const isCashRegisterOpen = cashRegister !== null
+  const openingTime = cashRegister
+    ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
+    : '-'
 
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
@@ -123,8 +184,8 @@ export default function Dashboard() {
                   <DollarSign size={20} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">R$ 4.286,50</strong>
-              <span className="mt-2 block text-xs font-medium text-emerald-600">+12,8% em relação a ontem</span>
+              <strong className="block text-2xl font-bold text-slate-900">{currency.format(totalSalesToday)}</strong>
+              <span className="mt-2 block text-xs font-medium text-emerald-600">{getVariation(totalSalesToday, totalSalesYesterday)}</span>
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -134,8 +195,8 @@ export default function Dashboard() {
                   <ShoppingCart size={20} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">128</strong>
-              <span className="mt-2 block text-xs font-medium text-emerald-600">+8,4% em relação a ontem</span>
+              <strong className="block text-2xl font-bold text-slate-900">{salesCountToday}</strong>
+              <span className="mt-2 block text-xs font-medium text-emerald-600">{getVariation(salesCountToday, salesCountYesterday)}</span>
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -145,8 +206,8 @@ export default function Dashboard() {
                   <Banknote size={20} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">R$ 1.740,00</strong>
-              <span className="mt-2 block text-xs text-slate-400">40,6% do total recebido</span>
+              <strong className="block text-2xl font-bold text-slate-900">{currency.format(cashSalesToday)}</strong>
+              <span className="mt-2 block text-xs text-slate-400">{percentage.format(cashPercentage)} do total recebido</span>
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -156,8 +217,19 @@ export default function Dashboard() {
                   <CreditCard size={20} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">R$ 2.146,50</strong>
-              <span className="mt-2 block text-xs text-slate-400">50,1% do total recebido</span>
+              <strong className="block text-2xl font-bold text-slate-900">{currency.format(cardSalesToday)}</strong>
+              <span className="mt-2 block text-xs text-slate-400">{percentage.format(cardPercentage)} do total recebido</span>
+            </article>
+
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-500">Recebido em PIX</span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <QrCode size={20} />
+                </div>
+              </div>
+              <strong className="block text-2xl font-bold text-slate-900">{currency.format(pixSalesToday)}</strong>
+              <span className="mt-2 block text-xs text-slate-400">{percentage.format(pixAmountPercentage)} do total recebido</span>
             </article>
           </div>
 
@@ -178,10 +250,10 @@ export default function Dashboard() {
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                       Dinheiro
                     </span>
-                    <span className="font-semibold text-slate-900">R$ 1.740,00</span>
+                    <span className="font-semibold text-slate-900">{currency.format(cashSalesToday)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
-                    <div className="h-2 w-[41%] rounded-full bg-emerald-500" />
+                    <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${cashPercentage * 100}%` }} />
                   </div>
                 </div>
 
@@ -191,10 +263,10 @@ export default function Dashboard() {
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                       Cartão
                     </span>
-                    <span className="font-semibold text-slate-900">R$ 2.146,50</span>
+                    <span className="font-semibold text-slate-900">{currency.format(cardSalesToday)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
-                    <div className="h-2 w-1/2 rounded-full bg-blue-500" />
+                    <div className="h-2 rounded-full bg-blue-500" style={{ width: `${cardPercentage * 100}%` }} />
                   </div>
                 </div>
 
@@ -204,10 +276,10 @@ export default function Dashboard() {
                       <span className="h-2.5 w-2.5 rounded-full bg-violet-500" />
                       Pix
                     </span>
-                    <span className="font-semibold text-slate-900">R$ 400,00</span>
+                    <span className="font-semibold text-slate-900">{currency.format(pixSalesToday)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
-                    <div className="h-2 w-[9%] rounded-full bg-violet-500" />
+                    <div className="h-2 rounded-full bg-violet-500" style={{ width: `${pixAmountPercentage * 100}%` }} />
                   </div>
                 </div>
               </div>
@@ -225,12 +297,14 @@ export default function Dashboard() {
               <div className="divide-y divide-slate-100">
                 <div className="flex items-center justify-between py-3 first:pt-0">
                   <span className="flex items-center gap-3 text-sm text-slate-500">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                      <span className={`h-2 w-2 rounded-full ${isCashRegisterOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
                     </span>
                     Status do caixa
                   </span>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Aberto</span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                    {isCashRegisterOpen ? 'Caixa aberto' : 'Caixa fechado'}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between py-3">
@@ -250,7 +324,7 @@ export default function Dashboard() {
                     </span>
                     Horário de abertura
                   </span>
-                  <strong className="text-sm text-slate-900">08:00</strong>
+                  <strong className="text-sm text-slate-900">{openingTime}</strong>
                 </div>
 
                 <div className="flex items-center justify-between py-3 pb-0">
@@ -260,7 +334,7 @@ export default function Dashboard() {
                     </span>
                     Saldo inicial
                   </span>
-                  <strong className="text-sm text-slate-900">R$ 300,00</strong>
+                  <strong className="text-sm text-slate-900">{cashRegister ? currency.format(cashRegister.initialAmount) : '-'}</strong>
                 </div>
               </div>
             </section>
