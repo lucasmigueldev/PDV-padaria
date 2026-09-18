@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { getOpenCashRegister } from '../../data/cashRegister'
 import { decreaseStock, getProducts } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
@@ -162,6 +163,7 @@ export default function PDV() {
 
     function openCheckout() {
         if (items.length === 0) return
+        if (!getOpenCashRegister()) return
 
         setPaymentMethod(null)
         setReceivedValue('')
@@ -184,6 +186,7 @@ export default function PDV() {
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    const isCashRegisterOpen = getOpenCashRegister() !== null
     const totalInCents = Math.round(total * 100)
     const receivedInCents = parseMoneyToCents(receivedValue)
     const isCashPaymentValid = paymentMethod === 'cash'
@@ -211,6 +214,12 @@ export default function PDV() {
         }
 
         if (paymentMethod === 'cash' && !isCashPaymentValid) return
+
+        if (!getOpenCashRegister()) {
+            closeCheckout()
+            setCheckoutMessage('Abra o caixa para finalizar a venda.')
+            return
+        }
 
         const sale: Sale = {
             id: crypto.randomUUID(),
@@ -451,11 +460,16 @@ export default function PDV() {
                             <button
                                 type="button"
                                 className="pdv-finish-button"
-                                disabled={items.length === 0}
+                                disabled={items.length === 0 || !isCashRegisterOpen}
                                 onClick={openCheckout}
                             >
                                 Finalizar venda
                             </button>
+                            {!isCashRegisterOpen && (
+                                <p className="pdv-cash-register-message" role="status">
+                                    Abra o caixa para finalizar a venda.
+                                </p>
+                            )}
                         </aside>
                     </div>
                 </section>

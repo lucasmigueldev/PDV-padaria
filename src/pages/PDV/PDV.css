@@ -286,6 +286,15 @@
 	cursor: not-allowed;
 }
 
+.pdv-cash-register-message {
+	margin-top: 12px;
+	color: #b45309;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.5;
+	text-align: center;
+}
+
 .pdv-checkout-overlay {
 	position: fixed;
 	z-index: 1000;
