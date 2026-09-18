@@ -68,6 +68,43 @@ function getPaymentSummary(sales: Sale[], paymentMethod: PaymentMethod) {
   }
 }
 
+type SoldProductSummary = {
+  productId: string
+  name: string
+  barcode: string
+  quantity: number
+  revenue: number
+}
+
+function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
+  const productsById = new Map<string, SoldProductSummary>()
+
+  sales.forEach((sale) => {
+    sale.items.forEach((item) => {
+      const currentProduct = productsById.get(item.productId)
+
+      if (currentProduct) {
+        currentProduct.quantity += item.quantity
+        currentProduct.revenue += item.subtotal
+        return
+      }
+
+      productsById.set(item.productId, {
+        productId: item.productId,
+        name: item.name,
+        barcode: item.barcode,
+        quantity: item.quantity,
+        revenue: item.subtotal,
+      })
+    })
+  })
+
+  return [...productsById.values()].sort((firstProduct, secondProduct) =>
+    secondProduct.quantity - firstProduct.quantity
+    || secondProduct.revenue - firstProduct.revenue,
+  )
+}
+
 export default function Relatorios() {
   const navigate = useNavigate()
   const sales = getSales()
@@ -117,6 +154,7 @@ export default function Relatorios() {
     pix: getPaymentSummary(filteredSales, 'pix'),
     card: getPaymentSummary(filteredSales, 'card'),
   }
+  const soldProducts = getSoldProducts(filteredSales)
 
   function applyPeriod() {
     if (dateError) return
@@ -325,13 +363,48 @@ export default function Relatorios() {
             </div>
           </section>
 
-          {filteredSales.length === 0 && (
-            <section className="reports-empty-state" aria-live="polite">
-              <BarChart3 size={28} aria-hidden="true" />
-              <h2>Nenhuma venda encontrada</h2>
-              <p>Não existem vendas no período selecionado.</p>
-            </section>
-          )}
+          <section className="reports-section" aria-labelledby="best-selling-products-title">
+            <div className="reports-section-heading reports-section-heading-compact">
+              <div>
+                <h2 id="best-selling-products-title">Produtos mais vendidos</h2>
+                <p>Produtos ordenados pela quantidade vendida no período selecionado.</p>
+              </div>
+              <Package className="reports-section-icon" size={22} aria-hidden="true" />
+            </div>
+
+            {soldProducts.length > 0 ? (
+              <div className="reports-products-table-wrapper">
+                <table className="reports-products-table">
+                  <thead>
+                    <tr>
+                      <th>Posição</th>
+                      <th>Produto</th>
+                      <th>Código de barras</th>
+                      <th className="reports-products-number">Quantidade vendida</th>
+                      <th className="reports-products-number">Faturamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {soldProducts.map((product, index) => (
+                      <tr key={product.productId}>
+                        <td>{index + 1}</td>
+                        <td className="reports-products-name">{product.name}</td>
+                        <td>{product.barcode}</td>
+                        <td className="reports-products-number">{product.quantity}</td>
+                        <td className="reports-products-number">{currency.format(product.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="reports-empty-state" aria-live="polite">
+                <Package size={28} aria-hidden="true" />
+                <h2>Nenhum produto vendido</h2>
+                <p>Não existem produtos vendidos no período selecionado.</p>
+              </div>
+            )}
+          </section>
         </section>
       </main>
     </div>
