@@ -204,7 +204,7 @@ export default function Produtos() {
                     <a href="/produtos" className="sidebar-link active"><Package size={19} /><span>Produtos</span></a>
                     <a href="/historico-vendas" className="sidebar-link"><History size={19} /><span>Histórico de Vendas</span></a>
                     <a href="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></a>
-                    <a href="#" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>
+                    <a href="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>
                 </nav>
                 <div className="sidebar-bottom mt-auto flex flex-col gap-2">
                     <a href="#" className="sidebar-link"><Settings size={19} /><span>Configurações</span></a>

@@ -132,7 +132,7 @@ export default function Dashboard() {
             <span>Histórico de Fechamentos</span>
           </a>
 
-          <a href="#" className="sidebar-link">
+          <a href="/relatorios" className="sidebar-link">
             <BarChart3 size={19} />
             <span>Relatórios</span>
           </a>
