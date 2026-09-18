@@ -317,7 +317,7 @@ export default function HistoricoVendas() {
                 </nav>
 
                 <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    <a href="#" className="sidebar-link"><Settings size={19} /><span>Configurações</span></a>
+                    <a href="/configuracoes" className="sidebar-link"><Settings size={19} /><span>Configurações</span></a>
                     <button type="button" onClick={handleLogout} className="sidebar-link logout-button"><LogOut size={19} /><span>Sair</span></button>
                 </div>
             </aside>

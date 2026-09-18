@@ -139,7 +139,7 @@ export default function Dashboard() {
         </nav>
 
         <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          <a href="#" className="sidebar-link">
+          <a href="/configuracoes" className="sidebar-link">
             <Settings size={19} />
             <span>Configurações</span>
           </a>

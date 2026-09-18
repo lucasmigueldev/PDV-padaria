@@ -8,6 +8,7 @@ import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
 import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
+import Configuracoes from './pages/Configuracoes/Configuracoes'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
@@ -93,6 +94,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Relatorios />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Configurações protegidas */}
+        <Route
+          path="/configuracoes"
+          element={
+            <ProtectedRoute>
+              <Configuracoes />
             </ProtectedRoute>
           }
         />
