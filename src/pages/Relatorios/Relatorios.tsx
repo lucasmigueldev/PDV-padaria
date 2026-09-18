@@ -1,6 +1,10 @@
 import {
   BarChart3,
+  Banknote,
   Calculator,
+  CalendarDays,
+  CreditCard,
+  DollarSign,
   History,
   LayoutDashboard,
   LogOut,
@@ -8,13 +12,125 @@ import {
   Settings,
   ShoppingCart,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { getSales } from '../../data/sales'
+import type { PaymentMethod, Sale } from '../../types/Sale'
 import '../Dashboard/Dashborad.css'
 import './Relatorios.css'
 
+const currency = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  cash: 'Dinheiro',
+  pix: 'PIX',
+  card: 'Cartão',
+}
+
+function validateDateInput(value: string, today: Date): string | null {
+  if (!value) return null
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return 'Informe uma data válida com ano de 4 dígitos.'
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const currentYear = today.getFullYear()
+
+  if (year !== currentYear) {
+    return `O ano deve ser o ano atual (${currentYear}).`
+  }
+
+  const date = new Date(year, month - 1, day)
+  const isValidCalendarDate = date.getFullYear() === year
+    && date.getMonth() === month - 1
+    && date.getDate() === day
+
+  if (!isValidCalendarDate) return 'Informe uma data de calendário válida.'
+
+  const todayStart = new Date(currentYear, today.getMonth(), today.getDate())
+  if (date > todayStart) return 'A data não pode ser futura.'
+
+  return null
+}
+
+function getPaymentSummary(sales: Sale[], paymentMethod: PaymentMethod) {
+  const paymentSales = sales.filter((sale) => sale.paymentMethod === paymentMethod)
+
+  return {
+    count: paymentSales.length,
+    total: paymentSales.reduce((sum, sale) => sum + sale.total, 0),
+  }
+}
+
 export default function Relatorios() {
   const navigate = useNavigate()
+  const sales = getSales()
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [appliedStartDate, setAppliedStartDate] = useState('')
+  const [appliedEndDate, setAppliedEndDate] = useState('')
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const todayInputValue = [
+    currentYear,
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-')
+  const minimumDate = `${currentYear}-01-01`
+  const startDateError = validateDateInput(startDate, today)
+  const endDateError = validateDateInput(endDate, today)
+  const startTimestamp = startDate
+    ? new Date(`${startDate}T00:00:00`).getTime()
+    : null
+  const endTimestamp = endDate
+    ? new Date(`${endDate}T23:59:59.999`).getTime()
+    : null
+  const hasInvalidDateRange = !startDateError && !endDateError
+    && startTimestamp !== null && endTimestamp !== null && startTimestamp > endTimestamp
+  const dateError = startDateError || endDateError || (hasInvalidDateRange
+    ? 'A data inicial não pode ser posterior à data final.'
+    : null)
+  const appliedStartTimestamp = appliedStartDate
+    ? new Date(`${appliedStartDate}T00:00:00`).getTime()
+    : null
+  const appliedEndTimestamp = appliedEndDate
+    ? new Date(`${appliedEndDate}T23:59:59.999`).getTime()
+    : null
+  const filteredSales = sales.filter((sale) => {
+    const saleTimestamp = new Date(sale.date).getTime()
+    const matchesStartDate = !appliedStartDate || saleTimestamp >= (appliedStartTimestamp ?? 0)
+    const matchesEndDate = !appliedEndDate || saleTimestamp <= (appliedEndTimestamp ?? 0)
+
+    return matchesStartDate && matchesEndDate
+  })
+  const totalSales = filteredSales.length
+  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
+  const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0
+  const paymentSummary = {
+    cash: getPaymentSummary(filteredSales, 'cash'),
+    pix: getPaymentSummary(filteredSales, 'pix'),
+    card: getPaymentSummary(filteredSales, 'card'),
+  }
+
+  function applyPeriod() {
+    if (dateError) return
+
+    setAppliedStartDate(startDate)
+    setAppliedEndDate(endDate)
+  }
+
+  function clearPeriod() {
+    setStartDate('')
+    setEndDate('')
+    setAppliedStartDate('')
+    setAppliedEndDate('')
+  }
 
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
@@ -94,17 +210,128 @@ export default function Relatorios() {
         </header>
 
         <section className="dashboard-content reports-content p-10">
-          <section className="reports-placeholder" aria-labelledby="reports-placeholder-title">
-            <div className="reports-placeholder-icon" aria-hidden="true">
-              <BarChart3 size={28} />
+          <section className="reports-section reports-filters" aria-labelledby="sales-report-title">
+            <div className="reports-section-heading">
+              <div>
+                <span className="reports-section-overline">RELATÓRIO OPERACIONAL</span>
+                <h2 id="sales-report-title">Relatório de Vendas</h2>
+                <p>Consolide as vendas registradas em um período.</p>
+              </div>
+              <CalendarDays className="reports-section-icon" size={22} aria-hidden="true" />
             </div>
-            <div>
-              <h2 id="reports-placeholder-title">Relatórios em preparação</h2>
-              <p>
-                Esta área está preparada para receber os relatórios da operação.
-              </p>
+
+            <div className="reports-date-fields">
+              <div className="reports-date-field">
+                <label htmlFor="reports-start-date">Data inicial</label>
+                <input
+                  id="reports-start-date"
+                  type="date"
+                  value={startDate}
+                  min={minimumDate}
+                  max={todayInputValue}
+                  aria-invalid={Boolean(startDateError)}
+                  aria-describedby={dateError ? 'reports-date-error' : undefined}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </div>
+              <div className="reports-date-field">
+                <label htmlFor="reports-end-date">Data final</label>
+                <input
+                  id="reports-end-date"
+                  type="date"
+                  value={endDate}
+                  min={minimumDate}
+                  max={todayInputValue}
+                  aria-invalid={Boolean(endDateError)}
+                  aria-describedby={dateError ? 'reports-date-error' : undefined}
+                  onChange={(event) => setEndDate(event.target.value)}
+                />
+              </div>
+              <div className="reports-filter-actions">
+                <button type="button" className="reports-primary-button" onClick={applyPeriod} disabled={Boolean(dateError)}>
+                  Aplicar período
+                </button>
+                <button type="button" className="reports-secondary-button" onClick={clearPeriod} disabled={!startDate && !endDate && !appliedStartDate && !appliedEndDate}>
+                  Limpar período
+                </button>
+              </div>
+            </div>
+            {dateError && <p id="reports-date-error" className="reports-date-error" role="alert">{dateError}</p>}
+          </section>
+
+          <section className="reports-section" aria-labelledby="sales-indicators-title">
+            <div className="reports-section-heading reports-section-heading-compact">
+              <div>
+                <h2 id="sales-indicators-title">Indicadores de vendas</h2>
+                <p>Resultados correspondentes às vendas filtradas.</p>
+              </div>
+            </div>
+            <div className="reports-indicators-grid">
+              <article className="reports-indicator-card reports-indicator-card-highlight">
+                <div className="reports-indicator-icon"><BarChart3 size={19} aria-hidden="true" /></div>
+                <span>Total de vendas</span>
+                <strong>{totalSales}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
+                <span>Faturamento total</span>
+                <strong>{currency.format(totalRevenue)}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><ShoppingCart size={19} aria-hidden="true" /></div>
+                <span>Ticket médio</span>
+                <strong>{currency.format(averageTicket)}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><Banknote size={19} aria-hidden="true" /></div>
+                <span>Total em dinheiro</span>
+                <strong>{currency.format(paymentSummary.cash.total)}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><BarChart3 size={19} aria-hidden="true" /></div>
+                <span>Total em PIX</span>
+                <strong>{currency.format(paymentSummary.pix.total)}</strong>
+              </article>
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><CreditCard size={19} aria-hidden="true" /></div>
+                <span>Total em cartão</span>
+                <strong>{currency.format(paymentSummary.card.total)}</strong>
+              </article>
             </div>
           </section>
+
+          <section className="reports-section" aria-labelledby="payment-summary-title">
+            <div className="reports-section-heading reports-section-heading-compact">
+              <div>
+                <h2 id="payment-summary-title">Resumo por forma de pagamento</h2>
+                <p>Quantidade e valor das vendas no período selecionado.</p>
+              </div>
+            </div>
+            <div className="reports-payment-grid">
+              {(Object.entries(paymentSummary) as [PaymentMethod, { count: number; total: number }][]).map(([paymentMethod, summary]) => (
+                <article className="reports-payment-card" key={paymentMethod}>
+                  <div className="reports-payment-card-heading">
+                    {paymentMethod === 'cash' && <Banknote size={19} aria-hidden="true" />}
+                    {paymentMethod === 'pix' && <BarChart3 size={19} aria-hidden="true" />}
+                    {paymentMethod === 'card' && <CreditCard size={19} aria-hidden="true" />}
+                    <h3>{paymentMethodLabels[paymentMethod]}</h3>
+                  </div>
+                  <div className="reports-payment-values">
+                    <div><span>Quantidade de vendas</span><strong>{summary.count}</strong></div>
+                    <div><span>Valor total</span><strong>{currency.format(summary.total)}</strong></div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {filteredSales.length === 0 && (
+            <section className="reports-empty-state" aria-live="polite">
+              <BarChart3 size={28} aria-hidden="true" />
+              <h2>Nenhuma venda encontrada</h2>
+              <p>Não existem vendas no período selecionado.</p>
+            </section>
+          )}
         </section>
       </main>
     </div>
