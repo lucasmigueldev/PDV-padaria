@@ -118,20 +118,20 @@ export default function Dashboard() {
             <span>Dashboard</span>
           </a>}
 
-          <a href="/pdv" className="sidebar-link">
+          {!isOwner && <a href="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
             <span>Caixa</span>
-          </a>
+          </a>}
 
-          <a href="/fechamento" className="sidebar-link">
+          {!isOwner && <a href="/fechamento" className="sidebar-link">
             <Calculator size={19} />
             <span>Fechamento</span>
-          </a>
+          </a>}
 
-          <a href="/produtos" className="sidebar-link">
+          {!isOwner && <a href="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
-          </a>
+          </a>}
 
           {isOwner && <a href="/historico-vendas" className="sidebar-link">
             <History size={19} />
@@ -192,20 +192,20 @@ export default function Dashboard() {
             <span>Dashboard</span>
           </a>}
 
-          <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
             <ShoppingCart size={19} />
             <span>Caixa</span>
-          </a>
+          </a>}
 
-          <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
             <Calculator size={19} />
             <span>Fechamento</span>
-          </a>
+          </a>}
 
-          <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
             <Package size={19} />
             <span>Produtos</span>
-          </a>
+          </a>}
 
           {isOwner && <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />

@@ -229,18 +229,18 @@ export default function Relatorios() {
             <LayoutDashboard size={19} />
             <span>Dashboard</span>
           </a>}
-          <a href="/pdv" className="sidebar-link">
+          {!isOwner && <a href="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
             <span>Caixa</span>
-          </a>
-          <a href="/fechamento" className="sidebar-link">
+          </a>}
+          {!isOwner && <a href="/fechamento" className="sidebar-link">
             <Calculator size={19} />
             <span>Fechamento</span>
-          </a>
-          <a href="/produtos" className="sidebar-link">
+          </a>}
+          {!isOwner && <a href="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
-          </a>
+          </a>}
           {isOwner && <a href="/historico-vendas" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Vendas</span>
