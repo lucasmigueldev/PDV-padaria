@@ -1,4 +1,5 @@
 import type { User } from '../types/User'
+import { getBakeries } from './bakeries'
 
 export const USERS_STORAGE_KEY = 'padaria-pdv-users'
 
@@ -28,6 +29,20 @@ function persistUsers(userList: User[]): void {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(userList))
 }
 
+function normalizeUserData(user: Omit<User, 'id'>): Omit<User, 'id'> {
+    if (user.role === 'owner') {
+        return { ...user, bakeryId: null }
+    }
+
+    const bakery = user.bakeryId && getBakeries().find((currentBakery) => currentBakery.id === user.bakeryId)
+
+    if (!bakery || !bakery.active) {
+        throw new Error('Selecione uma unidade ativa válida para o operador de caixa.')
+    }
+
+    return user
+}
+
 function readStoredUsers(): User[] {
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY)
 
@@ -41,7 +56,17 @@ function readStoredUsers(): User[] {
         const parsedUsers = JSON.parse(storedUsers) as unknown
         const validUsers = Array.isArray(parsedUsers) ? parsedUsers.filter(isUser) : []
 
-        if (validUsers.length > 0) return validUsers
+        if (validUsers.length > 0) {
+            const normalizedUsers = validUsers.map((user) => (
+                user.role === 'owner' && user.bakeryId !== null
+                    ? { ...user, bakeryId: null }
+                    : user
+            ))
+            const hasNormalizedOwner = normalizedUsers.some((user, index) => user.bakeryId !== validUsers[index].bakeryId)
+
+            if (hasNormalizedOwner) persistUsers(normalizedUsers)
+            return normalizedUsers
+        }
 
         const defaultUsers = [initialAdminUser]
         persistUsers(defaultUsers)
@@ -62,8 +87,9 @@ export function saveUsers(userList: User[]): void {
 }
 
 export function addUser(user: Omit<User, 'id'>): User {
+    const normalizedUser = normalizeUserData(user)
     const newUser: User = {
-        ...user,
+        ...normalizedUser,
         id: crypto.randomUUID(),
     }
     const users = getUsers()
@@ -79,7 +105,7 @@ export function updateUser(id: string, user: Omit<User, 'id'>): User | undefined
 
     if (userIndex === -1) return undefined
 
-    const updatedUser: User = { id, ...user }
+    const updatedUser: User = { id, ...normalizeUserData(user) }
     users[userIndex] = updatedUser
     saveUsers(users)
     return updatedUser

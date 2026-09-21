@@ -41,8 +41,11 @@ function getRoleLabel(role: User['role']): string {
   return role === 'owner' ? 'Proprietário' : 'Operador de caixa'
 }
 
-function getBakeryLabel(bakeryId: User['bakeryId']): string {
-  return bakeryId === null ? 'Todas as unidades' : bakeryId
+function getBakeryLabel(bakeryId: User['bakeryId'], bakeries: Bakery[]): string {
+  if (bakeryId === null) return 'Todas as unidades'
+
+  const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
+  return bakery?.active ? bakery.name : 'Unidade indisponível'
 }
 
 type NewUserForm = {
@@ -266,8 +269,8 @@ export default function Configuracoes() {
       setUserFormError('')
       setIsUserModalOpen(false)
       setUserSuccessMessage(successMessage)
-    } catch {
-      setUserFormError('Não foi possível criar o usuário.')
+    } catch (error) {
+      setUserFormError(error instanceof Error ? error.message : 'Não foi possível salvar o usuário.')
     } finally {
       setIsSavingUser(false)
     }
@@ -304,6 +307,7 @@ export default function Configuracoes() {
     { field: 'new', label: 'Nova senha', id: 'new-password', autoComplete: 'new-password' },
     { field: 'confirmation', label: 'Confirmar nova senha', id: 'confirm-password', autoComplete: 'new-password' },
   ]
+  const bakeries = getBakeries()
 
   return (
     <div className="dashboard-layout flex min-h-screen">
@@ -469,7 +473,7 @@ export default function Configuracoes() {
                         <td data-label="Perfil">
                           <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
                         </td>
-                        <td data-label="Unidade">{getBakeryLabel(user.bakeryId)}</td>
+                        <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
                         <td data-label="Ações">
                           <button
                             type="button"
