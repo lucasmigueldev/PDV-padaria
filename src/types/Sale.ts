@@ -15,6 +15,7 @@ export interface Sale {
     items: SaleItemSnapshot[]
     total: number
     paymentMethod: PaymentMethod
+    bakeryId: string
     receivedAmount?: number
     change?: number
 }

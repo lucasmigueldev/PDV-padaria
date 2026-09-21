@@ -23,6 +23,7 @@ import { decreaseStock, getProducts } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
+import { getAuthenticatedUser } from '../../utils/auth'
 import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './PDV.css'
@@ -224,6 +225,12 @@ export default function PDV() {
             return
         }
 
+        const authenticatedUser = getAuthenticatedUser()
+        if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.bakeryId?.trim()) {
+            setCheckoutMessage('Não foi possível identificar a unidade do operador.')
+            return
+        }
+
         const sale: Sale = {
             id: crypto.randomUUID(),
             date: new Date().toISOString(),
@@ -237,6 +244,7 @@ export default function PDV() {
             })),
             total,
             paymentMethod,
+            bakeryId: authenticatedUser.bakeryId,
             ...(paymentMethod === 'cash' && receivedInCents !== null
                 ? {
                     receivedAmount: receivedInCents / 100,
