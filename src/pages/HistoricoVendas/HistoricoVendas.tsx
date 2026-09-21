@@ -151,6 +151,7 @@ export default function HistoricoVendas() {
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
+        sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
     }
 

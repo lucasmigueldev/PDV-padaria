@@ -123,6 +123,7 @@ export default function HistoricoFechamentos() {
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
+        sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
     }
 

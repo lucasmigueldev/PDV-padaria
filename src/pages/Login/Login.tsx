@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+
+import { getUsers } from '../../data/users'
+import type { User } from '../../types/User'
 import './Login.css'
+
+const AUTHENTICATED_USER_STORAGE_KEY = 'authenticatedUser'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -9,15 +14,29 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const isFormReady = username.trim().length > 0 && password.length === 5
+  const isFormReady = username.trim().length > 0 && password.length > 0
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (username === 'ADM' && password === '12345') {
+    const normalizedUsername = username.trim().toLocaleLowerCase()
+    const users = getUsers()
+    const authenticatedUser = normalizedUsername === 'adm'
+      ? users.find((user) => user.id === 'admin')
+      : users.find((user) => user.email.trim().toLocaleLowerCase() === normalizedUsername)
+
+    if (authenticatedUser && authenticatedUser.password === password) {
+      const sessionUser: Omit<User, 'password'> = {
+        id: authenticatedUser.id,
+        name: authenticatedUser.name,
+        email: authenticatedUser.email,
+        role: authenticatedUser.role,
+        bakeryId: authenticatedUser.bakeryId,
+      }
+
       setErrorMessage('Login realizado com sucesso.')
-      console.log('Usuário logado:', username)
       sessionStorage.setItem('isAuthenticated', 'true')
+      sessionStorage.setItem(AUTHENTICATED_USER_STORAGE_KEY, JSON.stringify(sessionUser))
       navigate('/dashboard', { replace: true })
       return
     }

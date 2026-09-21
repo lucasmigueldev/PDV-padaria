@@ -110,6 +110,7 @@ export default function Configuracoes() {
 
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
+    sessionStorage.removeItem('authenticatedUser')
     navigate('/login', { replace: true })
   }
 

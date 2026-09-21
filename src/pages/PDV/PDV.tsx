@@ -87,6 +87,7 @@ export default function PDV() {
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
+        sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
     }
 

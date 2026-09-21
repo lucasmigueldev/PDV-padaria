@@ -105,6 +105,7 @@ export default function Fechamento() {
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
+        sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
     }
 
