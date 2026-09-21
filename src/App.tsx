@@ -17,10 +17,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
-function OwnerRoute({ children }: { children: React.ReactNode }) {
+function RoleRoute({ allowedRole, redirectTo, children }: {
+  allowedRole: 'owner' | 'cashier'
+  redirectTo: string
+  children: React.ReactNode
+}) {
   const authenticatedUser = getAuthenticatedUser()
 
-  return authenticatedUser?.role === 'owner' ? children : <Navigate to="/pdv" replace />
+  return authenticatedUser?.role === allowedRole ? children : <Navigate to={redirectTo} replace />
 }
 
 
@@ -40,9 +44,9 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <OwnerRoute>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv">
                 <Dashboard />
-              </OwnerRoute>
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -52,7 +56,9 @@ function App() {
           path="/pdv"
           element={
             <ProtectedRoute>
-              <PDV />
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+                <PDV />
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -62,7 +68,9 @@ function App() {
           path="/produtos"
           element={
             <ProtectedRoute>
-              <Produtos />
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+                <Produtos />
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -72,9 +80,9 @@ function App() {
           path="/historico-vendas"
           element={
             <ProtectedRoute>
-              <OwnerRoute>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv">
                 <HistoricoVendas />
-              </OwnerRoute>
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -84,7 +92,9 @@ function App() {
           path="/fechamento"
           element={
             <ProtectedRoute>
-              <Fechamento />
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+                <Fechamento />
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -94,9 +104,9 @@ function App() {
           path="/historico-fechamentos"
           element={
             <ProtectedRoute>
-              <OwnerRoute>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv">
                 <HistoricoFechamentos />
-              </OwnerRoute>
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -106,9 +116,9 @@ function App() {
           path="/relatorios"
           element={
             <ProtectedRoute>
-              <OwnerRoute>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv">
                 <Relatorios />
-              </OwnerRoute>
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
@@ -118,9 +128,9 @@ function App() {
           path="/configuracoes"
           element={
             <ProtectedRoute>
-              <OwnerRoute>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv">
                 <Configuracoes />
-              </OwnerRoute>
+              </RoleRoute>
             </ProtectedRoute>
           }
         />
