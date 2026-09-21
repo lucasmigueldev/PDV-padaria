@@ -17,8 +17,9 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { addProduct, deleteProduct, getProducts, normalizeBarcode, updateProduct } from '../../data/products'
-import type { Product } from '../../types/Product'
+import { addProduct, deleteProduct, getProductsForBakery, normalizeBarcode, updateProduct } from '../../data/products'
+import type { Product, ProductWithStock } from '../../types/Product'
+import { getAuthenticatedUser } from '../../utils/auth'
 import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './Produtos.css'
@@ -57,7 +58,9 @@ function parsePrice(value: string): number {
 export default function Produtos() {
     const navigate = useNavigate()
     const isOwner = isOwnerAuthenticated()
-    const [productList, setProductList] = useState<Product[]>(getProducts)
+    const authenticatedUser = getAuthenticatedUser()
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const [productList, setProductList] = useState<ProductWithStock[]>(() => bakeryId ? getProductsForBakery(bakeryId) : [])
     const [search, setSearch] = useState('')
     const [form, setForm] = useState<ProductForm>(emptyForm)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -105,7 +108,7 @@ export default function Produtos() {
         setFormError('')
     }
 
-    function openEditProduct(product: Product) {
+    function openEditProduct(product: ProductWithStock) {
         setEditingId(product.id)
         setIsFormOpen(true)
         setForm({
@@ -155,12 +158,17 @@ export default function Produtos() {
             return
         }
 
+        if (!bakeryId) {
+            setFormError('Não foi possível identificar a unidade do operador.')
+            return
+        }
+
         const productData = { name, barcode, price, stock }
         try {
             if (editingId) {
-                updateProduct(editingId, productData)
+                updateProduct(editingId, productData, bakeryId)
             } else {
-                addProduct(productData)
+                addProduct(productData, bakeryId)
             }
         } catch (error) {
             if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
@@ -171,7 +179,7 @@ export default function Produtos() {
             setFormError('Não foi possível salvar o produto.')
             return
         }
-        setProductList(getProducts())
+        setProductList(getProductsForBakery(bakeryId))
         closeForm()
     }
 
@@ -182,8 +190,10 @@ export default function Produtos() {
     function confirmProductDeletion() {
         if (!productPendingDeletion) return
 
+        if (!bakeryId) return
+
         deleteProduct(productPendingDeletion.id)
-        setProductList(getProducts())
+        setProductList(getProductsForBakery(bakeryId))
         if (editingId === productPendingDeletion.id) closeForm()
         setProductPendingDeletion(null)
     }

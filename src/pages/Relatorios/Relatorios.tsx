@@ -15,9 +15,9 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getProducts } from '../../data/products'
+import { getProductsWithTotalStock } from '../../data/products'
 import { getSales } from '../../data/sales'
-import type { Product } from '../../types/Product'
+import type { ProductWithStock } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
@@ -109,7 +109,7 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
 }
 
 type StockProduct = {
-  product: Product
+  product: ProductWithStock
   originalIndex: number
 }
 
@@ -164,7 +164,7 @@ export default function Relatorios() {
     card: getPaymentSummary(filteredSales, 'card'),
   }
   const soldProducts = getSoldProducts(filteredSales)
-  const products = getProducts()
+  const products = getProductsWithTotalStock()
   const stockSummary = products.reduce((summary, product) => {
     summary.totalProducts += 1
     summary.totalUnits += product.stock

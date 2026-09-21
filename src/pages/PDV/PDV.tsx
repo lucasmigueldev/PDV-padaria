@@ -19,7 +19,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { getOpenCashRegister } from '../../data/cashRegister'
-import { decreaseStock, getProducts } from '../../data/products'
+import { decreaseStock, getProductsForBakery } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -51,6 +51,8 @@ function parseMoneyToCents(value: string): number | null {
 export default function PDV() {
     const navigate = useNavigate()
     const isOwner = isOwnerAuthenticated()
+    const authenticatedUser = getAuthenticatedUser()
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const [barcode, setBarcode] = useState('')
     const [items, setItems] = useState<SaleItem[]>([])
@@ -99,7 +101,7 @@ export default function PDV() {
         setErrorMessage('')
         setSaleFeedback('')
         const normalizedBarcode = barcode.trim()
-        const product = getProducts().find((item) => item.barcode.trim() === normalizedBarcode)
+        const product = bakeryId ? getProductsForBakery(bakeryId).find((item) => item.barcode.trim() === normalizedBarcode) : undefined
 
         if (!product) {
             setErrorMessage('Produto não encontrado.')
@@ -140,7 +142,7 @@ export default function PDV() {
 
     function updateQuantity(id: string, amount: number) {
         const currentItem = items.find((item) => item.id === id)
-        const catalogProduct = getProducts().find((product) => product.id === id)
+        const catalogProduct = bakeryId ? getProductsForBakery(bakeryId).find((product) => product.id === id) : undefined
         const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
 
         if (amount > 0 && currentItem && currentItem.quantity >= stock) {
@@ -258,7 +260,7 @@ export default function PDV() {
 
         try {
             saveSale(sale)
-            decreaseStock(sale.items)
+            decreaseStock(sale.items, sale.bakeryId)
             setItems([])
             closeCheckout()
             setSaleFeedback('Venda concluída com sucesso.')
