@@ -9,8 +9,8 @@ import {
   LockKeyhole,
   LogOut,
   Mail,
-  MoreHorizontal,
   Package,
+  Pencil,
   Settings,
   ShoppingCart,
   Users,
@@ -19,7 +19,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { getBakeries } from '../../data/bakeries'
-import { addUser, getUsers } from '../../data/users'
+import { addUser, getUsers, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
 import '../Dashboard/Dashborad.css'
@@ -63,6 +63,7 @@ export default function Configuracoes() {
   const navigate = useNavigate()
   const [users, setUsers] = useState(() => getUsers())
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
   const [userFormError, setUserFormError] = useState('')
@@ -81,6 +82,7 @@ export default function Configuracoes() {
       if (event.key !== 'Escape') return
 
       setIsUserModalOpen(false)
+      setEditingUser(null)
       setNewUserForm(initialNewUserForm)
       setUserFormError('')
     }
@@ -102,7 +104,23 @@ export default function Configuracoes() {
 
   function openUserModal() {
     setActiveBakeries(getBakeries().filter((bakery) => bakery.active))
+    setEditingUser(null)
     setNewUserForm(initialNewUserForm)
+    setUserFormError('')
+    setUserSuccessMessage('')
+    setIsUserModalOpen(true)
+  }
+
+  function openEditUserModal(user: User) {
+    setActiveBakeries(getBakeries().filter((bakery) => bakery.active))
+    setEditingUser(user)
+    setNewUserForm({
+      name: user.name,
+      email: user.email,
+      password: '',
+      role: user.role,
+      bakeryId: user.bakeryId ?? '',
+    })
     setUserFormError('')
     setUserSuccessMessage('')
     setIsUserModalOpen(true)
@@ -112,6 +130,7 @@ export default function Configuracoes() {
     if (isSavingUser) return
 
     setIsUserModalOpen(false)
+    setEditingUser(null)
     setNewUserForm(initialNewUserForm)
     setUserFormError('')
   }
@@ -148,7 +167,7 @@ export default function Configuracoes() {
       return
     }
 
-    if (!password.trim()) {
+    if (!editingUser && !password.trim()) {
       setUserFormError('Informe a senha.')
       return
     }
@@ -164,7 +183,10 @@ export default function Configuracoes() {
     }
 
     const normalizedEmail = email.toLocaleLowerCase()
-    const hasDuplicateEmail = users.some((user) => user.email.trim().toLocaleLowerCase() === normalizedEmail)
+    const hasDuplicateEmail = users.some((user) => (
+      user.id !== editingUser?.id
+      && user.email.trim().toLocaleLowerCase() === normalizedEmail
+    ))
 
     if (hasDuplicateEmail) {
       setUserFormError('Este e-mail já está cadastrado.')
@@ -174,19 +196,33 @@ export default function Configuracoes() {
     setIsSavingUser(true)
 
     try {
-      const createdUser = addUser({
+      const userData = {
         name,
         email,
-        password,
+        password: editingUser && !password.trim() ? editingUser.password : password,
         role: newUserForm.role,
         bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
-      })
+      }
+      const savedUser = editingUser
+        ? updateUser(editingUser.id, userData)
+        : addUser(userData)
 
-      setUsers((currentUsers) => [...currentUsers, createdUser])
+      if (!savedUser) {
+        setUserFormError('Não foi possível atualizar o usuário.')
+        return
+      }
+
+      setUsers((currentUsers) => editingUser
+        ? currentUsers.map((user) => user.id === savedUser.id ? savedUser : user)
+        : [...currentUsers, savedUser])
+      const successMessage = editingUser
+        ? 'Usuário atualizado com sucesso.'
+        : 'Usuário criado com sucesso.'
       setNewUserForm(initialNewUserForm)
+      setEditingUser(null)
       setUserFormError('')
       setIsUserModalOpen(false)
-      setUserSuccessMessage('Usuário criado com sucesso.')
+      setUserSuccessMessage(successMessage)
     } catch {
       setUserFormError('Não foi possível criar o usuário.')
     } finally {
@@ -395,10 +431,11 @@ export default function Configuracoes() {
                           <button
                             type="button"
                             className="user-actions-button"
-                            aria-label={`Ações para ${user.name}`}
-                            disabled
+                            onClick={() => openEditUserModal(user)}
+                            aria-label={`Editar ${user.name}`}
+                            title={`Editar ${user.name}`}
                           >
-                            <MoreHorizontal size={18} aria-hidden="true" />
+                            <Pencil size={16} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
@@ -426,8 +463,8 @@ export default function Configuracoes() {
               <div className="user-modal-header">
                 <div>
                   <span className="settings-card-overline">ACESSO AO SISTEMA</span>
-                  <h2 id="new-user-modal-title">Novo usuário</h2>
-                  <p>Cadastre um usuário para acessar o sistema.</p>
+                  <h2 id="new-user-modal-title">{editingUser ? 'Editar usuário' : 'Novo usuário'}</h2>
+                  <p>{editingUser ? 'Atualize os dados do usuário cadastrado.' : 'Cadastre um usuário para acessar o sistema.'}</p>
                 </div>
                 <button type="button" className="user-modal-close" onClick={closeUserModal} aria-label="Fechar cadastro de usuário">
                   <X size={20} aria-hidden="true" />
@@ -466,6 +503,7 @@ export default function Configuracoes() {
                       value={newUserForm.password}
                       onChange={(event) => updateNewUserField('password', event.target.value)}
                       autoComplete="new-password"
+                      placeholder={editingUser ? 'Deixe vazio para manter a senha atual' : undefined}
                     />
                   </div>
 
@@ -505,7 +543,7 @@ export default function Configuracoes() {
                     Cancelar
                   </button>
                   <button type="submit" className="settings-button" disabled={isSavingUser}>
-                    {isSavingUser ? 'Salvando...' : 'Salvar'}
+                    {isSavingUser ? 'Salvando...' : editingUser ? 'Atualizar' : 'Salvar'}
                   </button>
                 </div>
               </form>
