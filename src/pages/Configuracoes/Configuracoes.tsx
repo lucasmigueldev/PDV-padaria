@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import {
   BarChart3,
   Calculator,
@@ -14,10 +14,13 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getUsers } from '../../data/users'
+import { getBakeries } from '../../data/bakeries'
+import { addUser, getUsers } from '../../data/users'
+import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
@@ -40,14 +43,51 @@ function getBakeryLabel(bakeryId: User['bakeryId']): string {
   return bakeryId === null ? 'Todas as unidades' : bakeryId
 }
 
+type NewUserForm = {
+  name: string
+  email: string
+  password: string
+  role: '' | User['role']
+  bakeryId: string
+}
+
+const initialNewUserForm: NewUserForm = {
+  name: '',
+  email: '',
+  password: '',
+  role: '',
+  bakeryId: '',
+}
+
 export default function Configuracoes() {
   const navigate = useNavigate()
-  const [users] = useState(() => getUsers())
+  const [users, setUsers] = useState(() => getUsers())
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
+  const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
+  const [userFormError, setUserFormError] = useState('')
+  const [userSuccessMessage, setUserSuccessMessage] = useState('')
+  const [isSavingUser, setIsSavingUser] = useState(false)
   const [email, setEmail] = useState('')
   const [passwords, setPasswords] = useState({ current: '', new: '', confirmation: '' })
   const [visiblePasswords, setVisiblePasswords] = useState(initialPasswordVisibility)
   const [emailMessage, setEmailMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
+
+  useEffect(() => {
+    if (!isUserModalOpen) return
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+
+      setIsUserModalOpen(false)
+      setNewUserForm(initialNewUserForm)
+      setUserFormError('')
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isUserModalOpen])
 
   const isEmailValid = emailPattern.test(email.trim())
   const arePasswordsValid = passwords.current.length > 0
@@ -58,6 +98,100 @@ export default function Configuracoes() {
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
     navigate('/login', { replace: true })
+  }
+
+  function openUserModal() {
+    setActiveBakeries(getBakeries().filter((bakery) => bakery.active))
+    setNewUserForm(initialNewUserForm)
+    setUserFormError('')
+    setUserSuccessMessage('')
+    setIsUserModalOpen(true)
+  }
+
+  function closeUserModal() {
+    if (isSavingUser) return
+
+    setIsUserModalOpen(false)
+    setNewUserForm(initialNewUserForm)
+    setUserFormError('')
+  }
+
+  function handleUserOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) closeUserModal()
+  }
+
+  function updateNewUserField(field: keyof NewUserForm, value: string) {
+    setNewUserForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+      ...(field === 'role' && value === 'owner' ? { bakeryId: '' } : {}),
+    }))
+    setUserFormError('')
+  }
+
+  function handleUserSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (isSavingUser) return
+
+    const name = newUserForm.name.trim()
+    const email = newUserForm.email.trim()
+    const password = newUserForm.password
+
+    if (!name) {
+      setUserFormError('Informe o nome.')
+      return
+    }
+
+    if (!email) {
+      setUserFormError('Informe o e-mail.')
+      return
+    }
+
+    if (!password.trim()) {
+      setUserFormError('Informe a senha.')
+      return
+    }
+
+    if (!newUserForm.role) {
+      setUserFormError('Selecione um perfil.')
+      return
+    }
+
+    if (newUserForm.role === 'cashier' && !newUserForm.bakeryId) {
+      setUserFormError('Selecione uma unidade.')
+      return
+    }
+
+    const normalizedEmail = email.toLocaleLowerCase()
+    const hasDuplicateEmail = users.some((user) => user.email.trim().toLocaleLowerCase() === normalizedEmail)
+
+    if (hasDuplicateEmail) {
+      setUserFormError('Este e-mail já está cadastrado.')
+      return
+    }
+
+    setIsSavingUser(true)
+
+    try {
+      const createdUser = addUser({
+        name,
+        email,
+        password,
+        role: newUserForm.role,
+        bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+      })
+
+      setUsers((currentUsers) => [...currentUsers, createdUser])
+      setNewUserForm(initialNewUserForm)
+      setUserFormError('')
+      setIsUserModalOpen(false)
+      setUserSuccessMessage('Usuário criado com sucesso.')
+    } catch {
+      setUserFormError('Não foi possível criar o usuário.')
+    } finally {
+      setIsSavingUser(false)
+    }
   }
 
   function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
@@ -223,8 +357,16 @@ export default function Configuracoes() {
                 <h2 id="users-section-title">Usuários</h2>
                 <p>Consulte os usuários cadastrados para acessar o sistema.</p>
               </div>
-              <Users size={22} aria-hidden="true" />
+              <div className="users-heading-actions">
+                <Users size={22} aria-hidden="true" />
+                <button type="button" className="settings-button users-new-button" onClick={openUserModal}>
+                  <Users size={17} />
+                  Novo usuário
+                </button>
+              </div>
             </div>
+
+            {userSuccessMessage && <p className="settings-message" role="status">{userSuccessMessage}</p>}
 
             {users.length === 0 ? (
               <div className="users-empty-state">Nenhum usuário cadastrado.</div>
@@ -267,6 +409,109 @@ export default function Configuracoes() {
             )}
           </section>
         </section>
+
+        {isUserModalOpen && (
+          <div
+            className="user-modal-overlay"
+            role="presentation"
+            onMouseDown={handleUserOverlayMouseDown}
+          >
+            <section
+              className="user-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-user-modal-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="user-modal-header">
+                <div>
+                  <span className="settings-card-overline">ACESSO AO SISTEMA</span>
+                  <h2 id="new-user-modal-title">Novo usuário</h2>
+                  <p>Cadastre um usuário para acessar o sistema.</p>
+                </div>
+                <button type="button" className="user-modal-close" onClick={closeUserModal} aria-label="Fechar cadastro de usuário">
+                  <X size={20} aria-hidden="true" />
+                </button>
+              </div>
+
+              <form className="user-form" onSubmit={handleUserSubmit}>
+                <div className="user-form-fields">
+                  <div className="settings-field">
+                    <label htmlFor="new-user-name">Nome</label>
+                    <input
+                      id="new-user-name"
+                      type="text"
+                      value={newUserForm.name}
+                      onChange={(event) => updateNewUserField('name', event.target.value)}
+                      autoComplete="name"
+                    />
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor="new-user-email">E-mail</label>
+                    <input
+                      id="new-user-email"
+                      type="email"
+                      value={newUserForm.email}
+                      onChange={(event) => updateNewUserField('email', event.target.value)}
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor="new-user-password">Senha</label>
+                    <input
+                      id="new-user-password"
+                      type="password"
+                      value={newUserForm.password}
+                      onChange={(event) => updateNewUserField('password', event.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor="new-user-role">Perfil</label>
+                    <select
+                      id="new-user-role"
+                      value={newUserForm.role}
+                      onChange={(event) => updateNewUserField('role', event.target.value)}
+                    >
+                      <option value="">Selecione um perfil</option>
+                      <option value="owner">Proprietário</option>
+                      <option value="cashier">Operador de caixa</option>
+                    </select>
+                  </div>
+
+                  <div className="settings-field">
+                    <label htmlFor="new-user-bakery">Unidade</label>
+                    <select
+                      id="new-user-bakery"
+                      value={newUserForm.bakeryId}
+                      onChange={(event) => updateNewUserField('bakeryId', event.target.value)}
+                      disabled={newUserForm.role !== 'cashier'}
+                    >
+                      <option value="">Selecione uma unidade</option>
+                      {activeBakeries.map((bakery) => (
+                        <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {userFormError && <p className="user-form-error" role="alert">{userFormError}</p>}
+
+                <div className="user-modal-actions">
+                  <button type="button" className="user-modal-cancel" onClick={closeUserModal} disabled={isSavingUser}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="settings-button" disabled={isSavingUser}>
+                    {isSavingUser ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
       </main>
     </div>
   )
