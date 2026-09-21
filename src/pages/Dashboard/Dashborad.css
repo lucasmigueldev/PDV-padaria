@@ -180,6 +180,17 @@
   padding: 40px;
 }
 
+.mobile-menu-button,
+.mobile-menu-overlay,
+.mobile-drawer,
+.mobile-header-brand {
+  display: none;
+}
+
+.mobile-topbar {
+  display: contents;
+}
+
 .page-placeholder {
   padding: 32px;
   border: 1px solid #e5e7eb;
@@ -224,31 +235,6 @@
 }
 
 @media (max-width: 650px) {
-  .sidebar {
-    width: 72px;
-    padding: 24px 10px;
-  }
-
-  .sidebar-logo {
-    justify-content: center;
-    padding: 0;
-  }
-
-  .sidebar-logo > div:last-child,
-  .sidebar-link span {
-    display: none;
-  }
-
-  .sidebar-link {
-    justify-content: center;
-    padding: 13px 8px;
-  }
-
-  .dashboard-main {
-    width: calc(100% - 72px);
-    margin-left: 72px;
-  }
-
   .dashboard-header,
   .dashboard-content {
     padding: 22px;
@@ -322,5 +308,207 @@
 
   .dashboard-content .rounded-2xl > * + * {
     margin-top: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-layout {
+    overflow-x: hidden;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .dashboard-main {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .dashboard-header {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+    gap: 16px;
+  }
+
+  .mobile-menu-button {
+    display: flex;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #dbe3ef;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #2563eb;
+    cursor: pointer;
+  }
+
+  .mobile-page-heading {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mobile-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #1d4ed8;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mobile-header-brand .logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .mobile-header-brand .logo-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 23px;
+  }
+
+  .dashboard-header p {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .header-overline {
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+
+  .header-user {
+    display: none;
+  }
+
+  .dashboard-content {
+    padding: 24px 16px 32px;
+  }
+
+  .dashboard-content > div:first-child {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-content > div:last-child {
+    gap: 16px;
+  }
+
+  .dashboard-content .rounded-2xl {
+    min-width: 0;
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .dashboard-content .rounded-2xl > * + * {
+    margin-top: 18px;
+  }
+
+  .dashboard-content .rounded-2xl .flex {
+    gap: 12px;
+  }
+
+  .dashboard-content .rounded-2xl h2 {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  .dashboard-content .rounded-2xl strong.text-2xl {
+    font-size: 24px;
+  }
+
+  .mobile-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: block;
+    background: rgb(15 23 42 / 35%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .mobile-menu-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    width: min(300px, calc(100vw - 32px));
+    padding: 24px 16px;
+    background: #ffffff;
+    box-shadow: 12px 0 30px rgb(15 23 42 / 15%);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.25s ease, visibility 0.25s ease;
+  }
+
+  .mobile-drawer.is-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .mobile-drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .mobile-drawer .sidebar-logo {
+    margin: 0;
+    padding: 0 4px;
+  }
+
+  .mobile-close-button {
+    display: flex;
+    flex: 0 0 38px;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #6b7280;
+    cursor: pointer;
+  }
+
+  .mobile-drawer-menu,
+  .mobile-drawer-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mobile-drawer-bottom {
+    margin-top: auto;
   }
 }

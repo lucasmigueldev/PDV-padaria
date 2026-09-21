@@ -8,13 +8,16 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Menu,
   Package,
   QrCode,
   Settings,
   ShoppingCart,
   UserRound,
   Wallet,
+  X,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getOpenCashRegister } from '../../data/cashRegister'
@@ -60,6 +63,7 @@ function getPaymentTotal(sales: Sale[], paymentMethod: PaymentMethod): number {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const currentDate = new Date()
   const yesterday = new Date(currentDate)
   yesterday.setDate(yesterday.getDate() - 1)
@@ -85,6 +89,10 @@ export default function Dashboard() {
   function handleLogout() {
     sessionStorage.removeItem('isAuthenticated')
     navigate('/login', { replace: true })
+  }
+
+  function closeMobileMenu() {
+    setIsMobileMenuOpen(false)
   }
 
   return (
@@ -155,9 +163,98 @@ export default function Dashboard() {
         </div>
       </aside>
 
+      <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
+
+      <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
+        <div className="mobile-drawer-header">
+          <div className="sidebar-logo">
+            <div className="logo-icon">
+              <ShoppingCart size={22} />
+            </div>
+
+            <div>
+              <strong>Padaria PDV</strong>
+              <span>Sistema de vendas</span>
+            </div>
+          </div>
+
+          <button type="button" className="mobile-close-button" onClick={closeMobileMenu} aria-label="Fechar menu">
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav className="mobile-drawer-menu">
+          <a href="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
+            <LayoutDashboard size={19} />
+            <span>Dashboard</span>
+          </a>
+
+          <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+            <ShoppingCart size={19} />
+            <span>Caixa</span>
+          </a>
+
+          <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+            <Calculator size={19} />
+            <span>Fechamento</span>
+          </a>
+
+          <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+            <Package size={19} />
+            <span>Produtos</span>
+          </a>
+
+          <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
+            <History size={19} />
+            <span>Histórico de Vendas</span>
+          </a>
+
+          <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
+            <History size={19} />
+            <span>Histórico de Fechamentos</span>
+          </a>
+
+          <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
+            <BarChart3 size={19} />
+            <span>Relatórios</span>
+          </a>
+        </nav>
+
+        <div className="mobile-drawer-bottom">
+          <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+            <Settings size={19} />
+            <span>Configurações</span>
+          </a>
+
+          <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
+            <LogOut size={19} />
+            <span>Sair</span>
+          </button>
+        </div>
+      </aside>
+
       <main className="dashboard-main ml-64 min-h-screen flex-1">
         <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-          <div>
+          <div className="mobile-topbar">
+            <div className="mobile-header-brand" aria-label="Padaria PDV">
+              <div className="logo-icon">
+                <ShoppingCart size={17} />
+              </div>
+              <span>Padaria PDV</span>
+            </div>
+
+            <button
+              type="button"
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Abrir menu"
+              aria-expanded={isMobileMenuOpen}
+            >
+              <Menu size={23} />
+            </button>
+          </div>
+
+          <div className="mobile-page-heading">
             <span className="header-overline">VISÃO GERAL</span>
 
             <h1>Dashboard</h1>
