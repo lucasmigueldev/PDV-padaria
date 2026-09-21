@@ -9,12 +9,16 @@ import {
   LockKeyhole,
   LogOut,
   Mail,
+  MoreHorizontal,
   Package,
   Settings,
   ShoppingCart,
+  Users,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { getUsers } from '../../data/users'
+import type { User } from '../../types/User'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
 
@@ -28,8 +32,17 @@ const initialPasswordVisibility: Record<PasswordField, boolean> = {
   confirmation: false,
 }
 
+function getRoleLabel(role: User['role']): string {
+  return role === 'owner' ? 'Proprietário' : 'Operador de caixa'
+}
+
+function getBakeryLabel(bakeryId: User['bakeryId']): string {
+  return bakeryId === null ? 'Todas as unidades' : bakeryId
+}
+
 export default function Configuracoes() {
   const navigate = useNavigate()
+  const [users] = useState(() => getUsers())
   const [email, setEmail] = useState('')
   const [passwords, setPasswords] = useState({ current: '', new: '', confirmation: '' })
   const [visiblePasswords, setVisiblePasswords] = useState(initialPasswordVisibility)
@@ -202,6 +215,57 @@ export default function Configuracoes() {
             </button>
             {passwordMessage && <p className="settings-message" role="status">{passwordMessage}</p>}
           </form>
+
+          <section className="settings-card users-card" aria-labelledby="users-section-title">
+            <div className="settings-card-heading">
+              <div>
+                <span className="settings-card-overline">ACESSO AO SISTEMA</span>
+                <h2 id="users-section-title">Usuários</h2>
+                <p>Consulte os usuários cadastrados para acessar o sistema.</p>
+              </div>
+              <Users size={22} aria-hidden="true" />
+            </div>
+
+            {users.length === 0 ? (
+              <div className="users-empty-state">Nenhum usuário cadastrado.</div>
+            ) : (
+              <div className="users-table-wrapper">
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Nome</th>
+                      <th scope="col">E-mail</th>
+                      <th scope="col">Perfil</th>
+                      <th scope="col">Unidade</th>
+                      <th scope="col">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td data-label="Nome">{user.name}</td>
+                        <td data-label="E-mail">{user.email}</td>
+                        <td data-label="Perfil">
+                          <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
+                        </td>
+                        <td data-label="Unidade">{getBakeryLabel(user.bakeryId)}</td>
+                        <td data-label="Ações">
+                          <button
+                            type="button"
+                            className="user-actions-button"
+                            aria-label={`Ações para ${user.name}`}
+                            disabled
+                          >
+                            <MoreHorizontal size={18} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </section>
       </main>
     </div>
