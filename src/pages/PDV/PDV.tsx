@@ -23,6 +23,7 @@ import { decreaseStock, getProducts } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
+import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './PDV.css'
 
@@ -48,6 +49,7 @@ function parseMoneyToCents(value: string): number | null {
 
 export default function PDV() {
     const navigate = useNavigate()
+    const isOwner = isOwnerAuthenticated()
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const [barcode, setBarcode] = useState('')
     const [items, setItems] = useState<SaleItem[]>([])
@@ -279,10 +281,10 @@ export default function PDV() {
                 </div>
 
                 <nav className="sidebar-menu flex flex-col gap-2">
-                    <a href="/dashboard" className="sidebar-link">
+                    {isOwner && <a href="/dashboard" className="sidebar-link">
                         <BarChart3 size={19} />
                         <span>Dashboard</span>
-                    </a>
+                    </a>}
                     <a href="/pdv" className="sidebar-link active">
                         <ShoppingCart size={19} />
                         <span>Caixa</span>
@@ -295,25 +297,25 @@ export default function PDV() {
                         <Package size={19} />
                         <span>Produtos</span>
                     </a>
-                    <a href="/historico-vendas" className="sidebar-link">
+                    {isOwner && <a href="/historico-vendas" className="sidebar-link">
                         <History size={19} />
                         <span>Histórico de Vendas</span>
-                    </a>
-                    <a href="/historico-fechamentos" className="sidebar-link">
+                    </a>}
+                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link">
                         <History size={19} />
                         <span>Histórico de Fechamentos</span>
-                    </a>
-                    <a href="/relatorios" className="sidebar-link">
+                    </a>}
+                    {isOwner && <a href="/relatorios" className="sidebar-link">
                         <BarChart3 size={19} />
                         <span>Relatórios</span>
-                    </a>
+                    </a>}
                 </nav>
 
                 <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    <a href="/configuracoes" className="sidebar-link">
+                    {isOwner && <a href="/configuracoes" className="sidebar-link">
                         <Settings size={19} />
                         <span>Configurações</span>
-                    </a>
+                    </a>}
                     <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
                         <LogOut size={19} />
                         <span>Sair</span>

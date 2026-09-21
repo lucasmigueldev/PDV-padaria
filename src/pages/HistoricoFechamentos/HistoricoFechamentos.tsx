@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { getCashClosures } from '../../data/cashClosures'
 import type { CashClosure } from '../../types/CashClosure'
+import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './HistoricoFechamentos.css'
 
@@ -88,6 +89,7 @@ function validateDateInput(value: string, today: Date): string | null {
 
 export default function HistoricoFechamentos() {
     const navigate = useNavigate()
+    const isOwner = isOwnerAuthenticated()
     const closures = [...getCashClosures()].sort(sortByMostRecent)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -158,10 +160,10 @@ export default function HistoricoFechamentos() {
                 </div>
 
                 <nav className="sidebar-menu flex flex-col gap-2">
-                    <a href="/dashboard" className="sidebar-link">
+                    {isOwner && <a href="/dashboard" className="sidebar-link">
                         <LayoutDashboard size={19} />
                         <span>Dashboard</span>
-                    </a>
+                    </a>}
                     <a href="/pdv" className="sidebar-link">
                         <ShoppingCart size={19} />
                         <span>Caixa</span>
@@ -174,25 +176,25 @@ export default function HistoricoFechamentos() {
                         <Package size={19} />
                         <span>Produtos</span>
                     </a>
-                    <a href="/historico-vendas" className="sidebar-link">
+                    {isOwner && <a href="/historico-vendas" className="sidebar-link">
                         <History size={19} />
                         <span>Histórico de Vendas</span>
-                    </a>
-                    <a href="/historico-fechamentos" className="sidebar-link active">
+                    </a>}
+                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link active">
                         <History size={19} />
                         <span>Histórico de Fechamentos</span>
-                    </a>
-                    <a href="/relatorios" className="sidebar-link">
+                    </a>}
+                    {isOwner && <a href="/relatorios" className="sidebar-link">
                         <BarChart3 size={19} />
                         <span>Relatórios</span>
-                    </a>
+                    </a>}
                 </nav>
 
                 <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    <a href="/configuracoes" className="sidebar-link">
+                    {isOwner && <a href="/configuracoes" className="sidebar-link">
                         <Settings size={19} />
                         <span>Configurações</span>
-                    </a>
+                    </a>}
                     <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
                         <LogOut size={19} />
                         <span>Sair</span>

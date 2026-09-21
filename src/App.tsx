@@ -9,11 +9,18 @@ import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
+import { getAuthenticatedUser } from './utils/auth'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
 
   return isAuthenticated ? children : <Navigate to="/login" replace />
+}
+
+function OwnerRoute({ children }: { children: React.ReactNode }) {
+  const authenticatedUser = getAuthenticatedUser()
+
+  return authenticatedUser?.role === 'owner' ? children : <Navigate to="/pdv" replace />
 }
 
 
@@ -33,7 +40,9 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <OwnerRoute>
+                <Dashboard />
+              </OwnerRoute>
             </ProtectedRoute>
           }
         />
@@ -63,7 +72,9 @@ function App() {
           path="/historico-vendas"
           element={
             <ProtectedRoute>
-              <HistoricoVendas />
+              <OwnerRoute>
+                <HistoricoVendas />
+              </OwnerRoute>
             </ProtectedRoute>
           }
         />
@@ -83,7 +94,9 @@ function App() {
           path="/historico-fechamentos"
           element={
             <ProtectedRoute>
-              <HistoricoFechamentos />
+              <OwnerRoute>
+                <HistoricoFechamentos />
+              </OwnerRoute>
             </ProtectedRoute>
           }
         />
@@ -93,7 +106,9 @@ function App() {
           path="/relatorios"
           element={
             <ProtectedRoute>
-              <Relatorios />
+              <OwnerRoute>
+                <Relatorios />
+              </OwnerRoute>
             </ProtectedRoute>
           }
         />
@@ -103,7 +118,9 @@ function App() {
           path="/configuracoes"
           element={
             <ProtectedRoute>
-              <Configuracoes />
+              <OwnerRoute>
+                <Configuracoes />
+              </OwnerRoute>
             </ProtectedRoute>
           }
         />

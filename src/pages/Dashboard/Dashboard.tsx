@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { getSales } from '../../data/sales'
 import type { PaymentMethod, Sale } from '../../types/Sale'
+import { isOwnerAuthenticated } from '../../utils/auth'
 import './Dashborad.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -63,6 +64,7 @@ function getPaymentTotal(sales: Sale[], paymentMethod: PaymentMethod): number {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const isOwner = isOwnerAuthenticated()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const currentDate = new Date()
   const yesterday = new Date(currentDate)
@@ -111,10 +113,10 @@ export default function Dashboard() {
         </div>
 
         <nav className="sidebar-menu flex flex-col gap-2">
-          <a href="/dashboard" className="sidebar-link active">
+          {isOwner && <a href="/dashboard" className="sidebar-link active">
             <LayoutDashboard size={19} />
             <span>Dashboard</span>
-          </a>
+          </a>}
 
           <a href="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
@@ -131,27 +133,27 @@ export default function Dashboard() {
             <span>Produtos</span>
           </a>
 
-          <a href="/historico-vendas" className="sidebar-link">
+          {isOwner && <a href="/historico-vendas" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Vendas</span>
-          </a>
+          </a>}
 
-          <a href="/historico-fechamentos" className="sidebar-link">
+          {isOwner && <a href="/historico-fechamentos" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Fechamentos</span>
-          </a>
+          </a>}
 
-          <a href="/relatorios" className="sidebar-link">
+          {isOwner && <a href="/relatorios" className="sidebar-link">
             <BarChart3 size={19} />
             <span>Relatórios</span>
-          </a>
+          </a>}
         </nav>
 
         <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          <a href="/configuracoes" className="sidebar-link">
+          {isOwner && <a href="/configuracoes" className="sidebar-link">
             <Settings size={19} />
             <span>Configurações</span>
-          </a>
+          </a>}
 
           <button
             type="button"
@@ -185,10 +187,10 @@ export default function Dashboard() {
         </div>
 
         <nav className="mobile-drawer-menu">
-          <a href="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
+          {isOwner && <a href="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
             <span>Dashboard</span>
-          </a>
+          </a>}
 
           <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
             <ShoppingCart size={19} />
@@ -205,27 +207,27 @@ export default function Dashboard() {
             <span>Produtos</span>
           </a>
 
-          <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
             <span>Histórico de Vendas</span>
-          </a>
+          </a>}
 
-          <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
             <span>Histórico de Fechamentos</span>
-          </a>
+          </a>}
 
-          <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
             <span>Relatórios</span>
-          </a>
+          </a>}
         </nav>
 
         <div className="mobile-drawer-bottom">
-          <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
             <Settings size={19} />
             <span>Configurações</span>
-          </a>
+          </a>}
 
           <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
             <LogOut size={19} />

@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { getUsers } from '../../data/users'
 import type { User } from '../../types/User'
+import { AUTHENTICATED_USER_STORAGE_KEY } from '../../utils/auth'
 import './Login.css'
-
-const AUTHENTICATED_USER_STORAGE_KEY = 'authenticatedUser'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -37,7 +36,7 @@ const Login = () => {
       setErrorMessage('Login realizado com sucesso.')
       sessionStorage.setItem('isAuthenticated', 'true')
       sessionStorage.setItem(AUTHENTICATED_USER_STORAGE_KEY, JSON.stringify(sessionUser))
-      navigate('/dashboard', { replace: true })
+      navigate(authenticatedUser.role === 'owner' ? '/dashboard' : '/pdv', { replace: true })
       return
     }
 

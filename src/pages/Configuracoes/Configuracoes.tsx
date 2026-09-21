@@ -24,6 +24,7 @@ import { getBakeries } from '../../data/bakeries'
 import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
+import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
 
@@ -66,6 +67,7 @@ const initialNewUserForm: NewUserForm = {
 
 export default function Configuracoes() {
   const navigate = useNavigate()
+  const isOwner = isOwnerAuthenticated()
   const [users, setUsers] = useState(() => getUsers())
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
   const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
@@ -324,17 +326,17 @@ export default function Configuracoes() {
         </div>
 
         <nav className="sidebar-menu flex flex-col gap-2">
-          <a href="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>
+          {isOwner && <a href="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>}
           <a href="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></a>
           <a href="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>
           <a href="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></a>
-          <a href="/historico-vendas" className="sidebar-link"><History size={19} /><span>Histórico de Vendas</span></a>
-          <a href="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></a>
-          <a href="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>
+          {isOwner && <a href="/historico-vendas" className="sidebar-link"><History size={19} /><span>Histórico de Vendas</span></a>}
+          {isOwner && <a href="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></a>}
+          {isOwner && <a href="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>}
         </nav>
 
         <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          <a href="/configuracoes" className="sidebar-link active"><Settings size={19} /><span>Configurações</span></a>
+          {isOwner && <a href="/configuracoes" className="sidebar-link active"><Settings size={19} /><span>Configurações</span></a>}
           <button type="button" onClick={handleLogout} className="sidebar-link logout-button"><LogOut size={19} /><span>Sair</span></button>
         </div>
       </aside>
