@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { getSales } from '../../data/sales'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { isOwnerAuthenticated } from '../../utils/auth'
@@ -77,6 +78,7 @@ export default function HistoricoVendas() {
     const sales = getSales()
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
+    const [bakeryFilter, setBakeryFilter] = useState('all')
     const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'highest' | 'lowest'>('recent')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -92,6 +94,7 @@ export default function HistoricoVendas() {
     ].join('-')
     const minimumDate = `${currentYear}-01-01`
     const normalizedSearch = search.trim().toLocaleLowerCase()
+    const activeBakeries = getBakeries().filter((bakery) => bakery.active)
     const startDateError = validateDateInput(startDate, today)
     const endDateError = validateDateInput(endDate, today)
     const startTimestamp = startDate
@@ -107,6 +110,7 @@ export default function HistoricoVendas() {
         : null)
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
+        const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
         const saleTimestamp = new Date(sale.date).getTime()
         const matchesStartDate = !startDate || !!startDateError || saleTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || saleTimestamp <= (endTimestamp ?? 0)
@@ -118,7 +122,7 @@ export default function HistoricoVendas() {
                 item.barcode.toLocaleLowerCase().includes(normalizedSearch),
             )
 
-        return matchesPayment && matchesDate && matchesSearch
+        return matchesPayment && matchesBakery && matchesDate && matchesSearch
     })
     const filteredSalesSummary = filteredSales.reduce((summary, sale) => {
         summary.total += sale.total
@@ -373,6 +377,23 @@ export default function HistoricoVendas() {
                         </div>
 
                         <div className="sales-history-filter">
+                            <label htmlFor="sales-history-bakery-filter">Unidade</label>
+                            <select
+                                id="sales-history-bakery-filter"
+                                value={bakeryFilter}
+                                onChange={(event) => {
+                                    setBakeryFilter(event.target.value)
+                                    setCurrentPage(1)
+                                }}
+                            >
+                                <option value="all">Todas as unidades</option>
+                                {activeBakeries.map((bakery) => (
+                                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="sales-history-filter">
                             <label htmlFor="sales-history-sort-order">Ordenar por</label>
                             <select
                                 id="sales-history-sort-order"
@@ -428,9 +449,10 @@ export default function HistoricoVendas() {
                                 onClick={() => {
                                     setStartDate('')
                                     setEndDate('')
+                                    setBakeryFilter('all')
                                     setCurrentPage(1)
                                 }}
-                                disabled={!startDate && !endDate}
+                                disabled={!startDate && !endDate && bakeryFilter === 'all'}
                             >
                                 Limpar datas
                             </button>
