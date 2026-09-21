@@ -272,6 +272,19 @@
   background: #eff6ff;
 }
 
+.user-actions-button + .user-actions-button {
+  margin-left: 8px;
+}
+
+.user-delete-button {
+  color: #dc2626;
+}
+
+.user-delete-button:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .users-empty-state {
   padding: 28px 0 4px;
   color: #6b7280;
@@ -341,6 +354,34 @@
 .user-modal-close:hover {
   background: #f3f4f6;
   color: #111827;
+}
+
+.user-modal-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.user-deletion-modal {
+  width: min(100%, 480px);
+}
+
+.user-deletion-overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #b45309;
+}
+
+.user-deletion-modal .user-modal-header {
+  margin-bottom: 0;
+}
+
+.user-confirm-delete {
+  background: #dc2626;
+}
+
+.user-confirm-delete:hover:not(:disabled) {
+  background: #b91c1c;
 }
 
 .user-form-fields {
@@ -414,7 +455,27 @@
 }
 
 @media (max-width: 760px) {
+  .settings-card {
+    padding: 22px;
+  }
+
   .settings-password-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .users-table {
+    min-width: 700px;
+  }
+
+  .user-modal-overlay {
+    padding: 16px;
+  }
+
+  .user-modal {
+    padding: 22px;
+  }
+
+  .user-form-fields {
     grid-template-columns: 1fr;
   }
 }

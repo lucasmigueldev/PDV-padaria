@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import {
+  AlertTriangle,
   BarChart3,
   Calculator,
   Eye,
@@ -13,13 +14,14 @@ import {
   Pencil,
   Settings,
   ShoppingCart,
+  Trash2,
   Users,
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import { getBakeries } from '../../data/bakeries'
-import { addUser, getUsers, updateUser } from '../../data/users'
+import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
 import '../Dashboard/Dashborad.css'
@@ -63,12 +65,15 @@ export default function Configuracoes() {
   const navigate = useNavigate()
   const [users, setUsers] = useState(() => getUsers())
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
   const [userFormError, setUserFormError] = useState('')
   const [userSuccessMessage, setUserSuccessMessage] = useState('')
   const [isSavingUser, setIsSavingUser] = useState(false)
+  const [isDeletingUser, setIsDeletingUser] = useState(false)
+  const isDeletingUserRef = useRef(false)
   const [email, setEmail] = useState('')
   const [passwords, setPasswords] = useState({ current: '', new: '', confirmation: '' })
   const [visiblePasswords, setVisiblePasswords] = useState(initialPasswordVisibility)
@@ -76,20 +81,23 @@ export default function Configuracoes() {
   const [passwordMessage, setPasswordMessage] = useState('')
 
   useEffect(() => {
-    if (!isUserModalOpen) return
+    if (!isUserModalOpen && !userPendingDeletion) return
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
 
-      setIsUserModalOpen(false)
-      setEditingUser(null)
-      setNewUserForm(initialNewUserForm)
-      setUserFormError('')
+      if (isUserModalOpen) {
+        setIsUserModalOpen(false)
+        setEditingUser(null)
+        setNewUserForm(initialNewUserForm)
+        setUserFormError('')
+      }
+      if (userPendingDeletion && !isDeletingUser) setUserPendingDeletion(null)
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isUserModalOpen])
+  }, [isDeletingUser, isUserModalOpen, userPendingDeletion])
 
   const isEmailValid = emailPattern.test(email.trim())
   const arePasswordsValid = passwords.current.length > 0
@@ -137,6 +145,41 @@ export default function Configuracoes() {
 
   function handleUserOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) closeUserModal()
+  }
+
+  function openUserDeletionModal(user: User) {
+    setUserFormError('')
+    setUserPendingDeletion(user)
+  }
+
+  function closeUserDeletionModal() {
+    if (isDeletingUser) return
+
+    setUserPendingDeletion(null)
+    setUserFormError('')
+  }
+
+  function handleUserDeletionOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) closeUserDeletionModal()
+  }
+
+  function handleUserDeletion() {
+    if (!userPendingDeletion || isDeletingUserRef.current) return
+
+    isDeletingUserRef.current = true
+    setIsDeletingUser(true)
+
+    try {
+      removeUser(userPendingDeletion.id)
+      setUsers((currentUsers) => currentUsers.filter((user) => user.id !== userPendingDeletion.id))
+      setUserPendingDeletion(null)
+      setUserSuccessMessage('Usuário excluído com sucesso.')
+    } catch {
+      setUserFormError('Não foi possível excluir o usuário.')
+    } finally {
+      isDeletingUserRef.current = false
+      setIsDeletingUser(false)
+    }
   }
 
   function updateNewUserField(field: keyof NewUserForm, value: string) {
@@ -437,6 +480,17 @@ export default function Configuracoes() {
                           >
                             <Pencil size={16} aria-hidden="true" />
                           </button>
+                          {user.id !== 'admin' && (
+                            <button
+                              type="button"
+                              className="user-actions-button user-delete-button"
+                              onClick={() => openUserDeletionModal(user)}
+                              aria-label={`Excluir ${user.name}`}
+                              title={`Excluir ${user.name}`}
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -547,6 +601,45 @@ export default function Configuracoes() {
                   </button>
                 </div>
               </form>
+            </section>
+          </div>
+        )}
+
+        {userPendingDeletion && (
+          <div
+            className="user-modal-overlay"
+            role="presentation"
+            onMouseDown={handleUserDeletionOverlayMouseDown}
+          >
+            <section
+              className="user-modal user-deletion-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-user-modal-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="user-modal-header">
+                <div>
+                  <span className="settings-card-overline user-deletion-overline"><AlertTriangle size={15} aria-hidden="true" /> AÇÃO PERMANENTE</span>
+                  <h2 id="delete-user-modal-title">Excluir usuário?</h2>
+                  <p>Tem certeza que deseja excluir o usuário {userPendingDeletion.name}? Essa ação é permanente.</p>
+                </div>
+                <button type="button" className="user-modal-close" onClick={closeUserDeletionModal} disabled={isDeletingUser} aria-label="Fechar confirmação de exclusão">
+                  <X size={20} aria-hidden="true" />
+                </button>
+              </div>
+
+              {userFormError && <p className="user-form-error" role="alert">{userFormError}</p>}
+
+              <div className="user-modal-actions">
+                <button type="button" className="user-modal-cancel" onClick={closeUserDeletionModal} disabled={isDeletingUser}>
+                  Cancelar
+                </button>
+                <button type="button" className="settings-button user-confirm-delete" onClick={handleUserDeletion} disabled={isDeletingUser}>
+                  <Trash2 size={17} />
+                  {isDeletingUser ? 'Excluindo...' : 'Excluir'}
+                </button>
+              </div>
             </section>
           </div>
         )}
