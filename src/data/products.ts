@@ -1,9 +1,11 @@
-import type { Product } from '../types/Product'
+import type { Product, ProductStock, ProductWithStock } from '../types/Product'
 import type { SaleItemSnapshot } from '../types/Sale'
 
 const STORAGE_KEY = 'padaria-pdv-products'
+const STOCK_STORAGE_KEY = 'padaria-pdv-product-stock'
+const LEGACY_STOCK_BAKERY_ID = 'bakery-1'
 
-const defaultProducts: Product[] = [
+const defaultProducts: Array<Product & { stock: number }> = [
     {
         id: '1',
         barcode: '7891000100015',
@@ -36,132 +38,156 @@ const defaultProducts: Product[] = [
 
 export const normalizeBarcode = (barcode: string | number): string => String(barcode).trim()
 
-function sanitizeProducts(productList: Product[]): Product[] {
-    const seenBarcodes = new Set<string>()
-
-    return productList.reduce<Product[]>((sanitizedProducts, product) => {
-        const barcode = normalizeBarcode(product.barcode)
-
-        if (!barcode || seenBarcodes.has(barcode)) return sanitizedProducts
-
-        seenBarcodes.add(barcode)
-        sanitizedProducts.push({ ...product, barcode })
-        return sanitizedProducts
-    }, [])
+function persistProducts(productList: Product[]): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(productList))
 }
 
-function readStoredProducts(): Product[] {
+function persistStocks(stockList: ProductStock[]): void {
+    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(stockList))
+}
+
+function readProducts(): Product[] {
     const storedProducts = localStorage.getItem(STORAGE_KEY)
 
     if (!storedProducts) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProducts))
-        return [...defaultProducts]
+        const catalog = defaultProducts.map(({ id, barcode, name, price }) => ({ id, barcode, name, price }))
+        persistProducts(catalog)
+        persistStocks(defaultProducts.map(({ id, stock }) => ({ productId: id, bakeryId: LEGACY_STOCK_BAKERY_ID, quantity: stock })))
+        return catalog
     }
 
     try {
-        const parsedProducts = JSON.parse(storedProducts) as Product[]
-        return Array.isArray(parsedProducts) ? sanitizeProducts(parsedProducts) : [...defaultProducts]
+        const parsedProducts = JSON.parse(storedProducts) as Array<Product & { stock?: number }>
+        if (!Array.isArray(parsedProducts)) return []
+
+        const seenBarcodes = new Set<string>()
+        const catalog = parsedProducts.reduce<Product[]>((products, product) => {
+            const barcode = normalizeBarcode(product.barcode)
+            if (!barcode || seenBarcodes.has(barcode)) return products
+
+            seenBarcodes.add(barcode)
+            products.push({ id: product.id, barcode, name: product.name, price: product.price })
+            return products
+        }, [])
+        const storedStocks = localStorage.getItem(STOCK_STORAGE_KEY)
+
+        if (!storedStocks) {
+            const legacyStocks = parsedProducts
+                .filter((product) => typeof product.stock === 'number')
+                .map((product) => ({ productId: product.id, bakeryId: LEGACY_STOCK_BAKERY_ID, quantity: product.stock ?? 0 }))
+            persistStocks(legacyStocks)
+        }
+
+        persistProducts(catalog)
+
+        return catalog
     } catch {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProducts))
-        return [...defaultProducts]
+        return []
     }
 }
 
-export const products: Product[] = readStoredProducts()
-localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+function readStocks(): ProductStock[] {
+    const storedStocks = localStorage.getItem(STOCK_STORAGE_KEY)
+    if (!storedStocks) return []
 
-function persistProducts(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+    try {
+        const parsedStocks = JSON.parse(storedStocks) as ProductStock[]
+        return Array.isArray(parsedStocks)
+            ? parsedStocks.filter((stock) => typeof stock.productId === 'string' && typeof stock.bakeryId === 'string' && Number.isFinite(stock.quantity))
+            : []
+    } catch {
+        return []
+    }
 }
 
 export function getProducts(): Product[] {
-    const storedProducts = localStorage.getItem(STORAGE_KEY)
-
-    if (storedProducts) {
-        try {
-            const parsedProducts = JSON.parse(storedProducts) as Product[]
-
-            if (Array.isArray(parsedProducts)) {
-                products.splice(0, products.length, ...sanitizeProducts(parsedProducts))
-            }
-        } catch {
-            // Keep the in-memory catalog when persisted data is invalid.
-        }
-    }
-
-    return [...products]
+    return [...readProducts()]
 }
 
-export function addProduct(product: Omit<Product, 'id'>): Product {
-    const normalizedBarcode = normalizeBarcode(product.barcode)
-
-    if (products.some((item) => normalizeBarcode(item.barcode) === normalizedBarcode)) {
-        throw new Error('DUPLICATE_BARCODE')
-    }
-
-    const newProduct: Product = {
+export function getProductsForBakery(bakeryId: string): ProductWithStock[] {
+    const stocks = readStocks()
+    return getProducts().map((product) => ({
         ...product,
-        barcode: normalizedBarcode,
-        id: crypto.randomUUID(),
-    }
+        stock: stocks.find((stock) => stock.productId === product.id && stock.bakeryId === bakeryId)?.quantity ?? 0,
+    }))
+}
 
+export function getTotalStockByProduct(productId: string): number {
+    return readStocks()
+        .filter((stock) => stock.productId === productId)
+        .reduce((total, stock) => total + stock.quantity, 0)
+}
+
+export function getProductsWithTotalStock(): ProductWithStock[] {
+    const stocks = readStocks()
+    return getProducts().map((product) => ({
+        ...product,
+        stock: stocks
+            .filter((stock) => stock.productId === product.id)
+            .reduce((total, stock) => total + stock.quantity, 0),
+    }))
+}
+
+export function addProduct(product: Omit<ProductWithStock, 'id'>, bakeryId: string): Product {
+    const normalizedBarcode = normalizeBarcode(product.barcode)
+    const products = getProducts()
+
+    if (products.some((item) => item.barcode === normalizedBarcode)) throw new Error('DUPLICATE_BARCODE')
+
+    const newProduct = { ...product, barcode: normalizedBarcode, id: crypto.randomUUID() }
     products.push(newProduct)
-    persistProducts()
+    persistProducts(products)
+    persistStocks([...readStocks(), { productId: newProduct.id, bakeryId, quantity: product.stock }])
     return newProduct
 }
 
-export function updateProduct(id: string, product: Omit<Product, 'id'>): Product | undefined {
+export function updateProduct(id: string, product: Omit<ProductWithStock, 'id'>, bakeryId: string): Product | undefined {
+    const products = getProducts()
     const productIndex = products.findIndex((item) => item.id === id)
-
     if (productIndex === -1) return undefined
 
     const normalizedBarcode = normalizeBarcode(product.barcode)
-    const hasDuplicateBarcode = products.some(
-        (item) => item.id !== id && normalizeBarcode(item.barcode) === normalizedBarcode,
-    )
+    if (products.some((item) => item.id !== id && item.barcode === normalizedBarcode)) throw new Error('DUPLICATE_BARCODE')
 
-    if (hasDuplicateBarcode) {
-        throw new Error('DUPLICATE_BARCODE')
+    const updatedProduct = {
+        id,
+        name: product.name,
+        barcode: normalizedBarcode,
+        price: product.price,
     }
+    products[productIndex] = updatedProduct
+    persistProducts(products)
+    updateProductStock(id, bakeryId, product.stock)
+    return updatedProduct
+}
 
-    products[productIndex] = { id, ...product, barcode: normalizedBarcode }
-    persistProducts()
-    return products[productIndex]
+function updateProductStock(productId: string, bakeryId: string, quantity: number): void {
+    const stocks = readStocks()
+    const stockIndex = stocks.findIndex((stock) => stock.productId === productId && stock.bakeryId === bakeryId)
+    const nextStock = { productId, bakeryId, quantity }
+    if (stockIndex === -1) stocks.push(nextStock)
+    else stocks[stockIndex] = nextStock
+    persistStocks(stocks)
 }
 
 export function deleteProduct(id: string): void {
-    const productIndex = products.findIndex((item) => item.id === id)
-
-    if (productIndex !== -1) {
-        products.splice(productIndex, 1)
-        persistProducts()
-    }
+    persistProducts(getProducts().filter((product) => product.id !== id))
+    persistStocks(readStocks().filter((stock) => stock.productId !== id))
 }
 
-export function decreaseStock(items: SaleItemSnapshot[]): void {
-    const currentProducts = getProducts()
+export function decreaseStock(items: SaleItemSnapshot[], bakeryId: string): void {
+    const stocks = readStocks()
     const quantitiesByProduct = new Map<string, number>()
+    items.forEach((item) => quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity))
 
-    items.forEach((item) => {
-        quantitiesByProduct.set(item.productId, (quantitiesByProduct.get(item.productId) ?? 0) + item.quantity)
-    })
-
-    const updatedProducts = currentProducts.map((product) => {
-        const quantity = quantitiesByProduct.get(product.id) ?? 0
-
-        if (quantity > product.stock) {
-            throw new Error('INSUFFICIENT_STOCK')
-        }
-
-        return quantity > 0 ? { ...product, stock: product.stock - quantity } : product
-    })
-
-    for (const productId of quantitiesByProduct.keys()) {
-        if (!currentProducts.some((product) => product.id === productId)) {
-            throw new Error('PRODUCT_NOT_FOUND')
-        }
+    for (const [productId, quantity] of quantitiesByProduct) {
+        const stock = stocks.find((item) => item.productId === productId && item.bakeryId === bakeryId)
+        if (!stock) throw new Error('INSUFFICIENT_STOCK')
+        if (quantity > stock.quantity) throw new Error('INSUFFICIENT_STOCK')
     }
 
-    products.splice(0, products.length, ...updatedProducts)
-    persistProducts()
+    persistStocks(stocks.map((stock) => {
+        const quantity = bakeryId === stock.bakeryId ? quantitiesByProduct.get(stock.productId) ?? 0 : 0
+        return quantity ? { ...stock, quantity: stock.quantity - quantity } : stock
+    }))
 }
