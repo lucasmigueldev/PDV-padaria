@@ -63,6 +63,7 @@ function calculateCashMovement(cashRegister: CashRegister) {
     const openedAtTimestamp = new Date(cashRegister.openedAt).getTime()
     const cashSalesAmountInCents = getSales()
         .filter((sale) => sale.paymentMethod === 'cash')
+        .filter((sale) => sale.bakeryId === cashRegister.bakeryId)
         .filter((sale) => new Date(sale.date).getTime() >= openedAtTimestamp)
         .reduce((total, sale) => total + toCents(sale.total), 0)
     const initialAmountInCents = toCents(cashRegister.initialAmount)
@@ -90,7 +91,11 @@ function formatOpeningDate(openedAt: string): { date: string; time: string } {
 export default function Fechamento() {
     const navigate = useNavigate()
     const isOwner = isOwnerAuthenticated()
-    const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => getOpenCashRegister())
+    const authenticatedUser = getAuthenticatedUser()
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => (
+        bakeryId ? getOpenCashRegister(bakeryId) : null
+    ))
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
     const [countedCashInput, setCountedCashInput] = useState('')
@@ -136,9 +141,9 @@ export default function Fechamento() {
 
     function handleOpenCash() {
         const initialAmount = parseMoneyInput(initialAmountInput)
-        if (initialAmount === null || cashRegister) return
+        if (initialAmount === null || cashRegister || !bakeryId) return
 
-        setCashRegister(openCashRegister(initialAmount))
+        setCashRegister(openCashRegister(initialAmount, bakeryId))
         closeOpeningModal()
     }
 
@@ -168,7 +173,7 @@ export default function Fechamento() {
             return
         }
 
-        const currentCashRegister = getOpenCashRegister()
+        const currentCashRegister = bakeryId ? getOpenCashRegister(bakeryId) : null
         if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
             setCloseError('O caixa aberto não está mais disponível para fechamento.')
             return
@@ -185,7 +190,7 @@ export default function Fechamento() {
 
             saveCashClosure({
                 id: currentCashRegister.id,
-                bakeryId: getAuthenticatedUser()?.bakeryId ?? undefined,
+                bakeryId: currentCashRegister.bakeryId,
                 openedAt: currentCashRegister.openedAt,
                 initialAmount: currentCashRegister.initialAmount,
                 closedAt,
@@ -194,7 +199,7 @@ export default function Fechamento() {
                 differenceAmount: (countedAmountInCents - currentCashMovement.expectedAmountInCents) / 100,
                 cashSalesAmount: currentCashMovement.cashSalesAmountInCents / 100,
             })
-            clearOpenCashRegister()
+            clearOpenCashRegister(currentCashRegister.id)
             setCashRegister(null)
             setCountedCashInput('')
             setIsCloseModalOpen(false)

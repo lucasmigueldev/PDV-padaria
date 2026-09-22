@@ -169,7 +169,7 @@ export default function PDV() {
 
     function openCheckout() {
         if (items.length === 0) return
-        if (!getOpenCashRegister()) return
+        if (!bakeryId || !getOpenCashRegister(bakeryId)) return
 
         setPaymentMethod(null)
         setReceivedValue('')
@@ -192,7 +192,7 @@ export default function PDV() {
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-    const isCashRegisterOpen = getOpenCashRegister() !== null
+    const isCashRegisterOpen = bakeryId ? getOpenCashRegister(bakeryId) !== null : false
     const totalInCents = Math.round(total * 100)
     const receivedInCents = parseMoneyToCents(receivedValue)
     const isCashPaymentValid = paymentMethod === 'cash'
@@ -221,7 +221,7 @@ export default function PDV() {
 
         if (paymentMethod === 'cash' && !isCashPaymentValid) return
 
-        if (!getOpenCashRegister()) {
+        if (!bakeryId || !getOpenCashRegister(bakeryId)) {
             closeCheckout()
             setCheckoutMessage('Abra o caixa para finalizar a venda.')
             return
