@@ -105,7 +105,16 @@ export function updateUser(id: string, user: Omit<User, 'id'>): User | undefined
 
     if (userIndex === -1) return undefined
 
-    const updatedUser: User = { id, ...normalizeUserData(user) }
+    const currentUser = users[userIndex]
+    const canPreserveInactiveBakery = currentUser.role === 'cashier'
+        && user.role === 'cashier'
+        && currentUser.bakeryId === user.bakeryId
+        && !!user.bakeryId
+        && !getBakeries().some((bakery) => bakery.id === user.bakeryId && bakery.active)
+    const normalizedUser = canPreserveInactiveBakery
+        ? user
+        : normalizeUserData(user)
+    const updatedUser: User = { id, ...normalizedUser }
     users[userIndex] = updatedUser
     saveUsers(users)
     return updatedUser

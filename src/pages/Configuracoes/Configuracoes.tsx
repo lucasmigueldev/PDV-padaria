@@ -149,7 +149,11 @@ export default function Configuracoes() {
   }
 
   function openEditUserModal(user: User) {
-    setActiveBakeries(bakeries.filter((bakery) => bakery.active))
+    const activeOptions = bakeries.filter((bakery) => bakery.active)
+    const currentInactiveBakery = user.bakeryId
+      ? bakeries.find((bakery) => bakery.id === user.bakeryId && !bakery.active)
+      : undefined
+    setActiveBakeries(currentInactiveBakery ? [...activeOptions, currentInactiveBakery] : activeOptions)
     setEditingUser(user)
     setNewUserForm({
       name: user.name,
@@ -807,7 +811,9 @@ export default function Configuracoes() {
                     >
                       <option value="">Selecione uma unidade</option>
                       {activeBakeries.map((bakery) => (
-                        <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                        <option key={bakery.id} value={bakery.id}>
+                          {bakery.name}{bakery.active ? '' : ' (Inativa)'}
+                        </option>
                       ))}
                     </select>
                   </div>
