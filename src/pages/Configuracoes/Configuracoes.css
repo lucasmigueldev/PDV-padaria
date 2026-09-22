@@ -253,6 +253,27 @@
   color: #15803d;
 }
 
+.bakery-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bakery-status-badge.active {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.bakery-status-badge.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .user-actions-button {
   display: inline-flex;
   align-items: center;
@@ -412,6 +433,26 @@
   background: #f9fafb;
   color: #9ca3af;
   cursor: not-allowed;
+}
+
+.bakery-form-fields {
+  align-items: end;
+}
+
+.bakery-status-toggle {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 9px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bakery-status-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: #2563eb;
 }
 
 .user-form-error {

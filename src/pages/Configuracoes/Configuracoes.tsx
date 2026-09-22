@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 're
 import {
   AlertTriangle,
   BarChart3,
+  Building2,
   Calculator,
   Eye,
   EyeOff,
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
+import { addBakery, getBakeries, updateBakery } from '../../data/bakeries'
 import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
@@ -65,6 +66,16 @@ const initialNewUserForm: NewUserForm = {
   bakeryId: '',
 }
 
+type BakeryForm = {
+  name: string
+  active: boolean
+}
+
+const initialBakeryForm: BakeryForm = {
+  name: '',
+  active: true,
+}
+
 export default function Configuracoes() {
   const navigate = useNavigate()
   const isOwner = isOwnerAuthenticated()
@@ -73,7 +84,13 @@ export default function Configuracoes() {
   const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
+  const [bakeries, setBakeries] = useState(() => getBakeries())
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
+  const [isBakeryModalOpen, setIsBakeryModalOpen] = useState(false)
+  const [editingBakery, setEditingBakery] = useState<Bakery | null>(null)
+  const [bakeryForm, setBakeryForm] = useState(initialBakeryForm)
+  const [bakeryFormError, setBakeryFormError] = useState('')
+  const [isSavingBakery, setIsSavingBakery] = useState(false)
   const [userFormError, setUserFormError] = useState('')
   const [userSuccessMessage, setUserSuccessMessage] = useState('')
   const [isSavingUser, setIsSavingUser] = useState(false)
@@ -86,7 +103,7 @@ export default function Configuracoes() {
   const [passwordMessage, setPasswordMessage] = useState('')
 
   useEffect(() => {
-    if (!isUserModalOpen && !userPendingDeletion) return
+    if (!isUserModalOpen && !userPendingDeletion && !isBakeryModalOpen) return
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
@@ -98,11 +115,17 @@ export default function Configuracoes() {
         setUserFormError('')
       }
       if (userPendingDeletion && !isDeletingUser) setUserPendingDeletion(null)
+      if (isBakeryModalOpen && !isSavingBakery) {
+        setIsBakeryModalOpen(false)
+        setEditingBakery(null)
+        setBakeryForm(initialBakeryForm)
+        setBakeryFormError('')
+      }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isDeletingUser, isUserModalOpen, userPendingDeletion])
+  }, [isBakeryModalOpen, isDeletingUser, isSavingBakery, isUserModalOpen, userPendingDeletion])
 
   const isEmailValid = emailPattern.test(email.trim())
   const arePasswordsValid = passwords.current.length > 0
@@ -117,7 +140,7 @@ export default function Configuracoes() {
   }
 
   function openUserModal() {
-    setActiveBakeries(getBakeries().filter((bakery) => bakery.active))
+    setActiveBakeries(bakeries.filter((bakery) => bakery.active))
     setEditingUser(null)
     setNewUserForm(initialNewUserForm)
     setUserFormError('')
@@ -126,7 +149,7 @@ export default function Configuracoes() {
   }
 
   function openEditUserModal(user: User) {
-    setActiveBakeries(getBakeries().filter((bakery) => bakery.active))
+    setActiveBakeries(bakeries.filter((bakery) => bakery.active))
     setEditingUser(user)
     setNewUserForm({
       name: user.name,
@@ -279,6 +302,80 @@ export default function Configuracoes() {
     }
   }
 
+  function openBakeryModal() {
+    setEditingBakery(null)
+    setBakeryForm(initialBakeryForm)
+    setBakeryFormError('')
+    setIsBakeryModalOpen(true)
+  }
+
+  function openEditBakeryModal(bakery: Bakery) {
+    setEditingBakery(bakery)
+    setBakeryForm({ name: bakery.name, active: bakery.active })
+    setBakeryFormError('')
+    setIsBakeryModalOpen(true)
+  }
+
+  function closeBakeryModal() {
+    if (isSavingBakery) return
+
+    setIsBakeryModalOpen(false)
+    setEditingBakery(null)
+    setBakeryForm(initialBakeryForm)
+    setBakeryFormError('')
+  }
+
+  function handleBakeryOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) closeBakeryModal()
+  }
+
+  function handleBakerySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (isSavingBakery) return
+
+    const name = bakeryForm.name.trim()
+    if (!name) {
+      setBakeryFormError('Informe o nome da unidade.')
+      return
+    }
+
+    const normalizedName = name.toLocaleLowerCase().replace(/\s+/g, ' ')
+    const hasDuplicateName = bakeries.some((bakery) => (
+      bakery.id !== editingBakery?.id
+      && bakery.name.trim().toLocaleLowerCase().replace(/\s+/g, ' ') === normalizedName
+    ))
+
+    if (hasDuplicateName) {
+      setBakeryFormError('Esta unidade já está cadastrada.')
+      return
+    }
+
+    setIsSavingBakery(true)
+
+    try {
+      const savedBakery = editingBakery
+        ? updateBakery(editingBakery.id, { name, active: bakeryForm.active })
+        : addBakery({ name, active: bakeryForm.active })
+
+      if (!savedBakery) {
+        setBakeryFormError('Não foi possível atualizar a unidade.')
+        return
+      }
+
+      setBakeries((currentBakeries) => editingBakery
+        ? currentBakeries.map((bakery) => bakery.id === savedBakery.id ? savedBakery : bakery)
+        : [...currentBakeries, savedBakery])
+      setIsBakeryModalOpen(false)
+      setEditingBakery(null)
+      setBakeryForm(initialBakeryForm)
+      setBakeryFormError('')
+    } catch {
+      setBakeryFormError('Não foi possível salvar a unidade.')
+    } finally {
+      setIsSavingBakery(false)
+    }
+  }
+
   function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!isEmailValid) return
@@ -310,8 +407,6 @@ export default function Configuracoes() {
     { field: 'new', label: 'Nova senha', id: 'new-password', autoComplete: 'new-password' },
     { field: 'confirmation', label: 'Confirmar nova senha', id: 'confirm-password', autoComplete: 'new-password' },
   ]
-  const bakeries = getBakeries()
-
   return (
     <div className="dashboard-layout flex min-h-screen">
       <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
@@ -506,7 +601,128 @@ export default function Configuracoes() {
               </div>
             )}
           </section>
+
+          <section className="settings-card users-card" aria-labelledby="bakeries-section-title">
+            <div className="settings-card-heading">
+              <div>
+                <span className="settings-card-overline">ESTRUTURA DA OPERAÇÃO</span>
+                <h2 id="bakeries-section-title">Unidades</h2>
+                <p>Gerencie as unidades disponíveis no sistema.</p>
+              </div>
+              <div className="users-heading-actions">
+                <Building2 size={22} aria-hidden="true" />
+                <button type="button" className="settings-button users-new-button" onClick={openBakeryModal}>
+                  <Building2 size={17} />
+                  Nova unidade
+                </button>
+              </div>
+            </div>
+
+            {bakeries.length === 0 ? (
+              <div className="users-empty-state">Nenhuma unidade cadastrada.</div>
+            ) : (
+              <div className="users-table-wrapper">
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Nome</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bakeries.map((bakery) => (
+                      <tr key={bakery.id}>
+                        <td data-label="Nome">{bakery.name}</td>
+                        <td data-label="Status">
+                          <span className={`bakery-status-badge ${bakery.active ? 'active' : 'inactive'}`}>
+                            {bakery.active ? 'Ativa' : 'Inativa'}
+                          </span>
+                        </td>
+                        <td data-label="Ações">
+                          <button
+                            type="button"
+                            className="user-actions-button"
+                            onClick={() => openEditBakeryModal(bakery)}
+                            aria-label={`Editar ${bakery.name}`}
+                            title={`Editar ${bakery.name}`}
+                          >
+                            <Pencil size={16} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </section>
+
+        {isBakeryModalOpen && (
+          <div
+            className="user-modal-overlay"
+            role="presentation"
+            onMouseDown={handleBakeryOverlayMouseDown}
+          >
+            <section
+              className="user-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="bakery-modal-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="user-modal-header">
+                <div>
+                  <span className="settings-card-overline">ESTRUTURA DA OPERAÇÃO</span>
+                  <h2 id="bakery-modal-title">{editingBakery ? 'Editar unidade' : 'Nova unidade'}</h2>
+                  <p>{editingBakery ? 'Atualize os dados da unidade cadastrada.' : 'Cadastre uma unidade para a operação.'}</p>
+                </div>
+                <button type="button" className="user-modal-close" onClick={closeBakeryModal} aria-label="Fechar cadastro de unidade">
+                  <X size={20} aria-hidden="true" />
+                </button>
+              </div>
+
+              <form className="user-form" onSubmit={handleBakerySubmit}>
+                <div className="user-form-fields bakery-form-fields">
+                  <div className="settings-field">
+                    <label htmlFor="bakery-name">Nome da unidade</label>
+                    <input
+                      id="bakery-name"
+                      type="text"
+                      value={bakeryForm.name}
+                      onChange={(event) => {
+                        setBakeryForm((currentForm) => ({ ...currentForm, name: event.target.value }))
+                        setBakeryFormError('')
+                      }}
+                      autoComplete="organization"
+                      aria-invalid={Boolean(bakeryFormError)}
+                    />
+                  </div>
+                  <label className="bakery-status-toggle">
+                    <input
+                      type="checkbox"
+                      checked={bakeryForm.active}
+                      onChange={(event) => setBakeryForm((currentForm) => ({ ...currentForm, active: event.target.checked }))}
+                    />
+                    <span>Unidade ativa</span>
+                  </label>
+                </div>
+
+                {bakeryFormError && <p className="user-form-error" role="alert">{bakeryFormError}</p>}
+
+                <div className="user-modal-actions">
+                  <button type="button" className="user-modal-cancel" onClick={closeBakeryModal} disabled={isSavingBakery}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="settings-button" disabled={isSavingBakery}>
+                    {isSavingBakery ? 'Salvando...' : editingBakery ? 'Atualizar' : 'Salvar'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
 
         {isUserModalOpen && (
           <div
