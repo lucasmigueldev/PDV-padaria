@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom'
 import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
 import { saveCashClosure } from '../../data/cashClosures'
 import { getSales } from '../../data/sales'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { getAuthenticatedUser, isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './Fechamento.css'
 
@@ -185,6 +185,7 @@ export default function Fechamento() {
 
             saveCashClosure({
                 id: currentCashRegister.id,
+                bakeryId: getAuthenticatedUser()?.bakeryId ?? undefined,
                 openedAt: currentCashRegister.openedAt,
                 initialAmount: currentCashRegister.initialAmount,
                 closedAt,

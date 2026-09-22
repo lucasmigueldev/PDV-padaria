@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { getCashClosures } from '../../data/cashClosures'
 import type { CashClosure } from '../../types/CashClosure'
 import { isOwnerAuthenticated } from '../../utils/auth'
@@ -91,8 +92,10 @@ export default function HistoricoFechamentos() {
     const navigate = useNavigate()
     const isOwner = isOwnerAuthenticated()
     const closures = [...getCashClosures()].sort(sortByMostRecent)
+    const activeBakeries = getBakeries().filter((bakery) => bakery.active)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
+    const [bakeryFilter, setBakeryFilter] = useState('all')
     const [selectedClosure, setSelectedClosure] = useState<CashClosure | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const today = new Date()
@@ -117,10 +120,11 @@ export default function HistoricoFechamentos() {
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
     const filteredClosures = closures.filter((closure) => {
+        const matchesBakery = bakeryFilter === 'all' || closure.bakeryId === bakeryFilter
         const closureTimestamp = new Date(closure.closedAt).getTime()
         const matchesStartDate = !startDate || !!startDateError || closureTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || closureTimestamp <= (endTimestamp ?? 0)
-        return !hasInvalidDateRange && matchesStartDate && matchesEndDate
+        return matchesBakery && !hasInvalidDateRange && matchesStartDate && matchesEndDate
     })
 
     function handleLogout() {
@@ -220,6 +224,19 @@ export default function HistoricoFechamentos() {
 
                 <section className="dashboard-content fechamento-history-content p-10">
                     <div className="fechamento-history-date-filter">
+                        <div className="fechamento-history-filter">
+                            <label htmlFor="fechamento-history-bakery-filter">Unidade</label>
+                            <select
+                                id="fechamento-history-bakery-filter"
+                                value={bakeryFilter}
+                                onChange={(event) => setBakeryFilter(event.target.value)}
+                            >
+                                <option value="all">Todas as unidades</option>
+                                {activeBakeries.map((bakery) => (
+                                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="fechamento-history-date-field">
                             <label htmlFor="fechamento-history-start-date">Data inicial</label>
                             <input

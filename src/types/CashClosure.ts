@@ -1,5 +1,6 @@
 export interface CashClosure {
     id: string
+    bakeryId?: string
     openedAt: string
     initialAmount: number
     closedAt: string

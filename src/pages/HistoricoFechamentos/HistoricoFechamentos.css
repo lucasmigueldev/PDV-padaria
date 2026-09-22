@@ -4,10 +4,43 @@
 
 .fechamento-history-date-filter {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: 230px repeat(2, minmax(0, 1fr)) auto;
     gap: 12px;
     align-items: end;
     margin-bottom: 24px;
+}
+
+.fechamento-history-filter {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.fechamento-history-filter label {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.fechamento-history-filter select {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    outline: 0;
+    background: #ffffff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.fechamento-history-filter select:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
 }
 
 .fechamento-history-date-field {
@@ -369,6 +402,14 @@
 }
 
 @media (max-width: 900px) {
+    .fechamento-history-date-filter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fechamento-history-clear-dates {
+        grid-column: 1 / -1;
+    }
+
     .fechamento-history-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
