@@ -15,7 +15,8 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getProductsWithTotalStock } from '../../data/products'
+import { getBakeries } from '../../data/bakeries'
+import { getProductsForBakery, getProductsWithTotalStock } from '../../data/products'
 import { getSales } from '../../data/sales'
 import type { ProductWithStock } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -117,6 +118,8 @@ export default function Relatorios() {
   const navigate = useNavigate()
   const isOwner = isOwnerAuthenticated()
   const sales = getSales()
+  const activeBakeries = getBakeries().filter((bakery) => bakery.active)
+  const [bakeryFilter, setBakeryFilter] = useState('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [appliedStartDate, setAppliedStartDate] = useState('')
@@ -149,11 +152,12 @@ export default function Relatorios() {
     ? new Date(`${appliedEndDate}T23:59:59.999`).getTime()
     : null
   const filteredSales = sales.filter((sale) => {
+    const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
     const saleTimestamp = new Date(sale.date).getTime()
     const matchesStartDate = !appliedStartDate || saleTimestamp >= (appliedStartTimestamp ?? 0)
     const matchesEndDate = !appliedEndDate || saleTimestamp <= (appliedEndTimestamp ?? 0)
 
-    return matchesStartDate && matchesEndDate
+    return matchesBakery && matchesStartDate && matchesEndDate
   })
   const totalSales = filteredSales.length
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
@@ -164,7 +168,9 @@ export default function Relatorios() {
     card: getPaymentSummary(filteredSales, 'card'),
   }
   const soldProducts = getSoldProducts(filteredSales)
-  const products = getProductsWithTotalStock()
+  const products = bakeryFilter === 'all'
+    ? getProductsWithTotalStock()
+    : getProductsForBakery(bakeryFilter)
   const stockSummary = products.reduce((summary, product) => {
     summary.totalProducts += 1
     summary.totalUnits += product.stock
@@ -295,6 +301,19 @@ export default function Relatorios() {
             </div>
 
             <div className="reports-date-fields">
+              <div className="reports-unit-field">
+                <label htmlFor="reports-bakery-filter">Unidade</label>
+                <select
+                  id="reports-bakery-filter"
+                  value={bakeryFilter}
+                  onChange={(event) => setBakeryFilter(event.target.value)}
+                >
+                  <option value="all">Todas as unidades</option>
+                  {activeBakeries.map((bakery) => (
+                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="reports-date-field">
                 <label htmlFor="reports-start-date">Data inicial</label>
                 <input
