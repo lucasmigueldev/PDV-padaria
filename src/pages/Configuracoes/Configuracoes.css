@@ -181,6 +181,29 @@
   white-space: nowrap;
 }
 
+.users-filter {
+  max-width: 280px;
+  margin-bottom: 24px;
+}
+
+.users-filter select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 38px 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+}
+
+.users-filter select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
 .users-table-wrapper {
   overflow-x: auto;
 }

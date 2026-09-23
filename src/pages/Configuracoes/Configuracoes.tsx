@@ -80,6 +80,7 @@ export default function Configuracoes() {
   const navigate = useNavigate()
   const isOwner = isOwnerAuthenticated()
   const [users, setUsers] = useState(() => getUsers())
+  const [userBakeryFilter, setUserBakeryFilter] = useState('all')
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
   const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -101,6 +102,11 @@ export default function Configuracoes() {
   const [visiblePasswords, setVisiblePasswords] = useState(initialPasswordVisibility)
   const [emailMessage, setEmailMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
+  const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
+  const filteredUsers = users.filter((user) => (
+    userBakeryFilter === 'all'
+      || (user.role === 'cashier' && user.bakeryId === userBakeryFilter)
+  ))
 
   useEffect(() => {
     if (!isUserModalOpen && !userPendingDeletion && !isBakeryModalOpen) return
@@ -369,6 +375,7 @@ export default function Configuracoes() {
       setBakeries((currentBakeries) => editingBakery
         ? currentBakeries.map((bakery) => bakery.id === savedBakery.id ? savedBakery : bakery)
         : [...currentBakeries, savedBakery])
+      if (!savedBakery.active && userBakeryFilter === savedBakery.id) setUserBakeryFilter('all')
       setIsBakeryModalOpen(false)
       setEditingBakery(null)
       setBakeryForm(initialBakeryForm)
@@ -553,8 +560,24 @@ export default function Configuracoes() {
 
             {userSuccessMessage && <p className="settings-message" role="status">{userSuccessMessage}</p>}
 
-            {users.length === 0 ? (
-              <div className="users-empty-state">Nenhum usuário cadastrado.</div>
+            <div className="settings-field users-filter">
+              <label htmlFor="users-bakery-filter">Unidade</label>
+              <select
+                id="users-bakery-filter"
+                value={userBakeryFilter}
+                onChange={(event) => setUserBakeryFilter(event.target.value)}
+              >
+                <option value="all">Todas as unidades</option>
+                {activeBakeryOptions.map((bakery) => (
+                  <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {filteredUsers.length === 0 ? (
+              <div className="users-empty-state">
+                {userBakeryFilter === 'all' ? 'Nenhum usuário cadastrado.' : 'Nenhum usuário cadastrado nesta unidade.'}
+              </div>
             ) : (
               <div className="users-table-wrapper">
                 <table className="users-table">
@@ -568,7 +591,7 @@ export default function Configuracoes() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
+                    {filteredUsers.map((user) => (
                       <tr key={user.id}>
                         <td data-label="Nome">{user.name}</td>
                         <td data-label="E-mail">{user.email}</td>
