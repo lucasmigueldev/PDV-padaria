@@ -276,6 +276,21 @@ export default function Configuracoes() {
       return
     }
 
+    const currentBakeryId = editingUser?.bakeryId ?? undefined
+    const currentBakery = currentBakeryId
+      ? bakeries.find((bakery) => bakery.id === currentBakeryId)
+      : undefined
+    const isChangingCashierBakery = editingUser?.role === 'cashier'
+      && newUserForm.role === 'cashier'
+      && !!currentBakeryId
+      && currentBakeryId !== newUserForm.bakeryId
+      && currentBakery?.active
+
+    if (isChangingCashierBakery && getOpenCashRegister(currentBakeryId)) {
+      setUserFormError('Não é possível alterar a unidade deste usuário enquanto houver um caixa aberto. Feche o caixa primeiro.')
+      return
+    }
+
     setIsSavingUser(true)
 
     try {
