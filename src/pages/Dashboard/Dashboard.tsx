@@ -20,6 +20,7 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { getSales } from '../../data/sales'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -66,11 +67,14 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const isOwner = isOwnerAuthenticated()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [bakeryFilter, setBakeryFilter] = useState('all')
+  const activeBakeries = getBakeries().filter((bakery) => bakery.active)
   const currentDate = new Date()
   const yesterday = new Date(currentDate)
   yesterday.setDate(yesterday.getDate() - 1)
-  const salesToday = getSales().filter((sale) => isSameDay(sale.date, currentDate))
-  const salesYesterday = getSales().filter((sale) => isSameDay(sale.date, yesterday))
+  const sales = getSales().filter((sale) => bakeryFilter === 'all' || sale.bakeryId === bakeryFilter)
+  const salesToday = sales.filter((sale) => isSameDay(sale.date, currentDate))
+  const salesYesterday = sales.filter((sale) => isSameDay(sale.date, yesterday))
   const totalSalesToday = sumSales(salesToday)
   const totalSalesYesterday = sumSales(salesYesterday)
   const salesCountToday = salesToday.length
@@ -78,7 +82,7 @@ export default function Dashboard() {
   const cashSalesToday = getPaymentTotal(salesToday, 'cash')
   const cardSalesToday = getPaymentTotal(salesToday, 'card')
   const pixSalesToday = getPaymentTotal(salesToday, 'pix')
-  const cashRegister = getOpenCashRegister()
+  const cashRegister = getOpenCashRegister(bakeryFilter === 'all' ? undefined : bakeryFilter)
   const totalReceived = totalSalesToday
   const cashPercentage = totalReceived > 0 ? cashSalesToday / totalReceived : 0
   const cardPercentage = totalReceived > 0 ? cardSalesToday / totalReceived : 0
@@ -276,6 +280,20 @@ export default function Dashboard() {
         </header>
 
         <section className="dashboard-content p-10">
+          <div className="dashboard-unit-filter">
+            <label htmlFor="dashboard-bakery-filter">Unidade</label>
+            <select
+              id="dashboard-bakery-filter"
+              value={bakeryFilter}
+              onChange={(event) => setBakeryFilter(event.target.value)}
+            >
+              <option value="all">Todas as unidades</option>
+              {activeBakeries.map((bakery) => (
+                <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between">
