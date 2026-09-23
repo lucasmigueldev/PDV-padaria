@@ -206,6 +206,15 @@ export default function Configuracoes() {
   function handleUserDeletion() {
     if (!userPendingDeletion || isDeletingUserRef.current) return
 
+    if (
+      userPendingDeletion.role === 'cashier'
+      && userPendingDeletion.bakeryId
+      && getOpenCashRegister(userPendingDeletion.bakeryId)
+    ) {
+      setUserFormError('Não é possível excluir este usuário enquanto houver um caixa aberto. Feche o caixa primeiro.')
+      return
+    }
+
     isDeletingUserRef.current = true
     setIsDeletingUser(true)
 
