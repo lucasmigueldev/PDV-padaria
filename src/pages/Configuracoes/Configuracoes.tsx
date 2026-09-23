@@ -22,6 +22,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { addBakery, getBakeries, updateBakery } from '../../data/bakeries'
+import { getOpenCashRegister } from '../../data/cashRegister'
 import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
@@ -357,6 +358,11 @@ export default function Configuracoes() {
 
     if (hasDuplicateName) {
       setBakeryFormError('Esta unidade já está cadastrada.')
+      return
+    }
+
+    if (editingBakery?.active && !bakeryForm.active && getOpenCashRegister(editingBakery.id)) {
+      setBakeryFormError('Não é possível desativar esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
       return
     }
 
