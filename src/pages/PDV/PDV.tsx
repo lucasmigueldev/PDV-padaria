@@ -53,6 +53,7 @@ export default function PDV() {
     const isOwner = isOwnerAuthenticated()
     const authenticatedUser = getAuthenticatedUser()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const isCashier = authenticatedUser?.role === 'cashier'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const [barcode, setBarcode] = useState('')
     const [items, setItems] = useState<SaleItem[]>([])
@@ -66,6 +67,7 @@ export default function PDV() {
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
+    const [isCashierMode, setIsCashierMode] = useState(isCashier)
 
     useEffect(() => {
         barcodeInputRef.current?.focus()
@@ -89,6 +91,27 @@ export default function PDV() {
             receivedValueInputRef.current?.focus()
         }
     }, [isCheckoutOpen, paymentMethod])
+
+    useEffect(() => {
+        if (!isCashier) return
+
+        function handleKeyboardShortcut(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                if (isCheckoutOpen) return
+
+                setIsCashierMode(false)
+                return
+            }
+
+            if (event.key === 'F12' && !isCashierMode) {
+                event.preventDefault()
+                setIsCashierMode(true)
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyboardShortcut)
+        return () => document.removeEventListener('keydown', handleKeyboardShortcut)
+    }, [isCashier, isCashierMode, isCheckoutOpen])
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -278,7 +301,7 @@ export default function PDV() {
     }
 
     return (
-        <div className="dashboard-layout flex min-h-screen">
+        <div className={`dashboard-layout pdv-layout flex min-h-screen${isCashierMode ? ' cashier-mode' : ''}`}>
             <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
                 <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
                     <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
@@ -350,6 +373,8 @@ export default function PDV() {
                 </header>
 
                 <section className="dashboard-content pdv-content p-10">
+                    {isCashierMode && <p className="pdv-mode-hint">ESC para sair do modo caixa</p>}
+                    {!isCashierMode && <p className="pdv-mode-hint">F12 para entrar no modo caixa</p>}
                     {saleFeedback && <p className="pdv-success-message" role="status">{saleFeedback}</p>}
 
                     <form className="pdv-add-product" onSubmit={addProduct}>

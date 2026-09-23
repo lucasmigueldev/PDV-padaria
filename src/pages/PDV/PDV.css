@@ -4,6 +4,23 @@
 	gap: 24px;
 }
 
+.pdv-layout.cashier-mode .sidebar {
+	display: none;
+}
+
+.pdv-layout.cashier-mode .dashboard-main {
+	width: 100%;
+	margin-left: 0;
+}
+
+.pdv-mode-hint {
+	align-self: flex-end;
+	margin: -8px 0 -8px;
+	color: #94a3b8;
+	font-size: 12px;
+	font-weight: 600;
+}
+
 .pdv-success-message {
 	margin: 0;
 	border: 1px solid #bbf7d0;
