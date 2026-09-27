@@ -2,26 +2,27 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
     AlertTriangle,
     BarChart3,
-    Calculator,
     Edit3,
     History,
     LayoutDashboard,
     LogOut,
     Package,
     Plus,
+    Receipt,
     Search,
     Settings,
     ShoppingCart,
+    Store,
     Trash2,
     X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { addProduct, deleteProduct, getProductsForBakery, normalizeBarcode, updateProduct } from '../../data/products'
 import type { Product, ProductWithStock } from '../../types/Product'
 import { getAuthenticatedUser } from '../../utils/auth'
 import { isOwnerAuthenticated } from '../../utils/auth'
-import '../Dashboard/Dashborad.css'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -60,6 +61,9 @@ export default function Produtos() {
     const isOwner = isOwnerAuthenticated()
     const authenticatedUser = getAuthenticatedUser()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const bakeryName = bakeryId
+        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        : null
     const [productList, setProductList] = useState<ProductWithStock[]>(() => bakeryId ? getProductsForBakery(bakeryId) : [])
     const [search, setSearch] = useState('')
     const [form, setForm] = useState<ProductForm>(emptyForm)
@@ -199,10 +203,18 @@ export default function Produtos() {
     }
 
     return (
-        <div className="dashboard-layout flex min-h-screen">
-            <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
-                <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
-                    <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
+        <div
+            className="products-layout"
+            onKeyDown={(event) => {
+                if (!isFormOpen || event.key !== 'Escape' || document.querySelector('[role="dialog"]')) return
+
+                event.preventDefault()
+                closeForm()
+            }}
+        >
+            <aside className="products-sidebar">
+                <div className="products-brand">
+                    <div className="products-logo-icon">
                         <ShoppingCart size={22} />
                     </div>
                     <div>
@@ -210,35 +222,59 @@ export default function Produtos() {
                         <span>Sistema de vendas</span>
                     </div>
                 </div>
-                <nav className="sidebar-menu flex flex-col gap-2">
-                    {isOwner && <a href="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>}
-                    {!isOwner && <a href="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></a>}
-                    {!isOwner && <a href="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></a>}
-                    {!isOwner && <a href="/produtos" className="sidebar-link active"><Package size={19} /><span>Produtos</span></a>}
-                    {isOwner && <a href="/historico-vendas" className="sidebar-link"><History size={19} /><span>Histórico de Vendas</span></a>}
-                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></a>}
-                    {isOwner && <a href="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></a>}
+
+                <section className="products-user" aria-label="Sessão atual">
+                    <div className="products-user-avatar" aria-hidden="true">
+                        {authenticatedUser?.name.charAt(0).toLocaleUpperCase()}
+                    </div>
+                    <div className="products-user-details">
+                        <strong>{authenticatedUser?.name}</strong>
+                        <span>{isOwner ? 'Proprietário' : 'Operador de caixa'}</span>
+                        {bakeryName && <span className="products-user-unit"><Store size={14} />{bakeryName}</span>}
+                    </div>
+                </section>
+
+                <nav className="products-navigation" aria-label={isOwner ? 'Navegação administrativa' : 'Atalhos operacionais'}>
+                    {isOwner ? (
+                        <>
+                            <span className="products-sidebar-label">Administração</span>
+                            <a href="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>
+                            <a href="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></a>
+                            <a href="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></a>
+                            <a href="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></a>
+                        </>
+                    ) : (
+                        <>
+                            <span className="products-sidebar-label">Operação</span>
+                            <a href="/produtos" className="products-shortcut-link active" aria-current="page">
+                                <Package size={20} /><span>Produtos</span><kbd>F2</kbd>
+                            </a>
+                            <a href="/fechamento" className="products-shortcut-link">
+                                <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
+                            </a>
+                            <a href="/pdv" className="products-shortcut-link">
+                                <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                            </a>
+                        </>
+                    )}
                 </nav>
-                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    {isOwner && <a href="/configuracoes" className="sidebar-link"><Settings size={19} /><span>Configurações</span></a>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button"><LogOut size={19} /><span>Sair</span></button>
+
+                <div className="products-sidebar-bottom">
+                    {isOwner && <a href="/configuracoes" className="products-nav-link"><Settings size={19} /><span>Configurações</span></a>}
+                    <button type="button" onClick={handleLogout} className="products-logout"><LogOut size={19} /><span>Sair</span></button>
                 </div>
             </aside>
 
-            <main className="dashboard-main ml-64 min-h-screen flex-1">
-                <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
+            <main className="products-main">
+                <header className="products-page-heading">
                     <div>
-                        <span className="header-overline">CATÁLOGO</span>
+                        <span>CATÁLOGO OPERACIONAL</span>
                         <h1>Produtos</h1>
-                        <p>Gerencie os produtos disponíveis para venda.</p>
-                    </div>
-                    <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">A</div>
-                        <div><strong>Administrador</strong><span>Usuário do sistema</span></div>
+                        <p>Gerenciamento do catálogo de produtos</p>
                     </div>
                 </header>
 
-                <section className="dashboard-content products-content p-10">
+                <section className="products-content">
                     <div className="products-toolbar">
                         <div className="products-search">
                             <Search size={18} aria-hidden="true" />
@@ -250,7 +286,7 @@ export default function Produtos() {
                             />
                         </div>
                         <button type="button" className="products-primary-button" onClick={openNewProduct}>
-                            <Plus size={18} />
+                            <Plus size={20} />
                             Novo produto
                         </button>
                     </div>
@@ -272,8 +308,12 @@ export default function Produtos() {
                             </div>
                             {formError && <p className="products-form-error" role="alert">{formError}</p>}
                             <div className="product-form-actions">
-                                <button type="button" className="products-secondary-button" onClick={closeForm}>Cancelar</button>
-                                <button type="submit" className="products-primary-button">Salvar produto</button>
+                                <button type="button" className="products-secondary-button" onClick={closeForm} aria-keyshortcuts="Escape">
+                                    <span>Cancelar</span><kbd className="products-button-shortcut">ESC</kbd>
+                                </button>
+                                <button type="submit" className="products-primary-button" aria-keyshortcuts="Enter">
+                                    <span>Salvar produto</span><kbd className="products-button-shortcut">ENTER</kbd>
+                                </button>
                             </div>
                         </form>
                     )}
