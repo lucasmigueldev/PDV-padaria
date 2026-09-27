@@ -1,4 +1,6 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './App.css'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -23,6 +25,32 @@ function RoleRoute({ allowedRole, redirectTo, children }: {
   children: React.ReactNode
 }) {
   const authenticatedUser = getAuthenticatedUser()
+  const navigate = useNavigate()
+  const hasCashierAccess = authenticatedUser?.role === 'cashier'
+
+  useEffect(() => {
+    if (allowedRole !== 'cashier' || !hasCashierAccess) return
+
+    function handleCashierShortcut(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (document.querySelector('[role="dialog"]')) return
+
+      const targetByKey: Record<string, string> = {
+        F2: '/produtos',
+        F3: '/fechamento',
+        F4: '/pdv',
+      }
+      const target = targetByKey[event.key]
+
+      if (!target) return
+
+      event.preventDefault()
+      navigate(target)
+    }
+
+    document.addEventListener('keydown', handleCashierShortcut)
+    return () => document.removeEventListener('keydown', handleCashierShortcut)
+  }, [allowedRole, hasCashierAccess, navigate])
 
   return authenticatedUser?.role === allowedRole ? children : <Navigate to={redirectTo} replace />
 }

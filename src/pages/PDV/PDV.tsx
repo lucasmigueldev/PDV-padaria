@@ -1,31 +1,30 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
-    BarChart3,
     Banknote,
-    Calculator,
+    CircleAlert,
+    CircleCheck,
     CreditCard,
-    History,
     LogOut,
     Minus,
     Package,
     Plus,
     QrCode,
     Receipt,
-    Settings,
+    Store,
     ShoppingCart,
     Trash2,
+    UserRound,
     X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { decreaseStock, getProductsForBakery } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { getAuthenticatedUser } from '../../utils/auth'
-import { isOwnerAuthenticated } from '../../utils/auth'
-import '../Dashboard/Dashborad.css'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -50,12 +49,15 @@ function parseMoneyToCents(value: string): number | null {
 
 export default function PDV() {
     const navigate = useNavigate()
-    const isOwner = isOwnerAuthenticated()
     const authenticatedUser = getAuthenticatedUser()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
-    const isCashier = authenticatedUser?.role === 'cashier'
+    const bakeryName = bakeryId
+        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        : 'Unidade indisponível'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
+    const finishButtonRef = useRef<HTMLButtonElement>(null)
     const [barcode, setBarcode] = useState('')
+    const [productQuantity, setProductQuantity] = useState('1')
     const [items, setItems] = useState<SaleItem[]>([])
     const [errorMessage, setErrorMessage] = useState('')
     const [saleFeedback, setSaleFeedback] = useState('')
@@ -67,7 +69,6 @@ export default function PDV() {
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
-    const [isCashierMode, setIsCashierMode] = useState(isCashier)
 
     useEffect(() => {
         barcodeInputRef.current?.focus()
@@ -87,31 +88,22 @@ export default function PDV() {
     }, [isCheckoutOpen])
 
     useEffect(() => {
+        function handleFinishShortcut(event: KeyboardEvent) {
+            if (event.key !== 'F5') return
+
+            event.preventDefault()
+            if (!isCheckoutOpen) finishButtonRef.current?.click()
+        }
+
+        document.addEventListener('keydown', handleFinishShortcut)
+        return () => document.removeEventListener('keydown', handleFinishShortcut)
+    }, [isCheckoutOpen])
+
+    useEffect(() => {
         if (isCheckoutOpen && paymentMethod === 'cash') {
             receivedValueInputRef.current?.focus()
         }
     }, [isCheckoutOpen, paymentMethod])
-
-    useEffect(() => {
-        if (!isCashier) return
-
-        function handleKeyboardShortcut(event: KeyboardEvent) {
-            if (event.key === 'Escape') {
-                if (isCheckoutOpen) return
-
-                setIsCashierMode(false)
-                return
-            }
-
-            if (event.key === 'F12' && !isCashierMode) {
-                event.preventDefault()
-                setIsCashierMode(true)
-            }
-        }
-
-        document.addEventListener('keydown', handleKeyboardShortcut)
-        return () => document.removeEventListener('keydown', handleKeyboardShortcut)
-    }, [isCashier, isCashierMode, isCheckoutOpen])
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -124,7 +116,14 @@ export default function PDV() {
         setErrorMessage('')
         setSaleFeedback('')
         const normalizedBarcode = barcode.trim()
+        const requestedQuantity = Number(productQuantity)
         const product = bakeryId ? getProductsForBakery(bakeryId).find((item) => item.barcode.trim() === normalizedBarcode) : undefined
+
+        if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity < 1) {
+            setErrorMessage('Informe uma quantidade válida.')
+            barcodeInputRef.current?.focus()
+            return
+        }
 
         if (!product) {
             setErrorMessage('Produto não encontrado.')
@@ -140,7 +139,13 @@ export default function PDV() {
 
         const existingItem = items.find((item) => item.barcode === product.barcode)
 
-        if (existingItem && existingItem.quantity >= product.stock) {
+        if (existingItem && existingItem.quantity + requestedQuantity > product.stock) {
+            setErrorMessage('Limite de estoque atingido.')
+            barcodeInputRef.current?.focus()
+            return
+        }
+
+        if (!existingItem && requestedQuantity > product.stock) {
             setErrorMessage('Limite de estoque atingido.')
             barcodeInputRef.current?.focus()
             return
@@ -152,14 +157,15 @@ export default function PDV() {
             if (currentItem) {
                 return currentItems.map((item) =>
                     item.barcode === product.barcode
-                        ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
+                        ? { ...item, quantity: Math.min(item.quantity + requestedQuantity, product.stock) }
                         : item,
                 )
             }
 
-            return [...currentItems, { ...product, quantity: 1 }]
+            return [...currentItems, { ...product, quantity: requestedQuantity }]
         })
         setBarcode('')
+        setProductQuantity('1')
         barcodeInputRef.current?.focus()
     }
 
@@ -301,10 +307,31 @@ export default function PDV() {
     }
 
     return (
-        <div className={`dashboard-layout pdv-layout flex min-h-screen${isCashierMode ? ' cashier-mode' : ''}`}>
-            <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
-                <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
-                    <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
+        <div className="pdv-layout">
+            <header className="pdv-topbar">
+                <strong className="pdv-topbar-title">Padaria PDV</strong>
+                <div className="pdv-topbar-session">
+                    <div className="pdv-session-field">
+                        <UserRound size={16} aria-hidden="true" />
+                        <span>Operador</span>
+                        <strong>{authenticatedUser?.name}</strong>
+                    </div>
+                    <div className="pdv-session-divider" aria-hidden="true" />
+                    <div className="pdv-session-field">
+                        <Store size={16} aria-hidden="true" />
+                        <span>Unidade</span>
+                        <strong>{bakeryName}</strong>
+                    </div>
+                    <button type="button" onClick={handleLogout} className="pdv-topbar-logout">
+                        <LogOut size={17} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </header>
+
+            <aside className="pdv-sidebar">
+                <div className="pdv-brand">
+                    <div className="pdv-logo-icon">
                         <ShoppingCart size={22} />
                     </div>
                     <div>
@@ -313,103 +340,52 @@ export default function PDV() {
                     </div>
                 </div>
 
-                <nav className="sidebar-menu flex flex-col gap-2">
-                    {isOwner && <a href="/dashboard" className="sidebar-link">
-                        <BarChart3 size={19} />
-                        <span>Dashboard</span>
-                    </a>}
-                    {!isOwner && <a href="/pdv" className="sidebar-link active">
-                        <ShoppingCart size={19} />
-                        <span>Caixa</span>
-                    </a>}
-                    {!isOwner && <a href="/fechamento" className="sidebar-link">
-                        <Calculator size={19} />
-                        <span>Fechamento</span>
-                    </a>}
-                    {!isOwner && <a href="/produtos" className="sidebar-link">
+                <form className="pdv-add-product" onSubmit={addProduct}>
+                    <label htmlFor="barcode">Código do produto</label>
+                    <input
+                        ref={barcodeInputRef}
+                        id="barcode"
+                        value={barcode}
+                        onChange={(event) => setBarcode(event.target.value)}
+                        placeholder="Digite ou bip o código"
+                        autoComplete="off"
+                    />
+                    <button type="submit" className="pdv-primary-button">
+                        <Plus size={18} />
+                        Adicionar produto
+                    </button>
+                    {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
+                </form>
+
+                <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
+                    <span className="pdv-sidebar-label">Operação</span>
+                    <a href="/produtos" className="pdv-shortcut">
                         <Package size={19} />
                         <span>Produtos</span>
-                    </a>}
-                    {isOwner && <a href="/historico-vendas" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
-                    </a>}
-                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Fechamentos</span>
-                    </a>}
-                    {isOwner && <a href="/relatorios" className="sidebar-link">
-                        <BarChart3 size={19} />
-                        <span>Relatórios</span>
-                    </a>}
+                        <kbd>F2</kbd>
+                    </a>
+                    <a href="/fechamento" className="pdv-shortcut">
+                        <Receipt size={19} />
+                        <span>Fechamento</span>
+                        <kbd>F3</kbd>
+                    </a>
+                    <a href="/pdv" className="pdv-shortcut active" aria-current="page">
+                        <ShoppingCart size={19} />
+                        <span>Voltar ao PDV</span>
+                        <kbd>F4</kbd>
+                    </a>
                 </nav>
-
-                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    {isOwner && <a href="/configuracoes" className="sidebar-link">
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </a>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} />
-                        <span>Sair</span>
-                    </button>
-                </div>
             </aside>
 
-            <main className="dashboard-main ml-64 min-h-screen flex-1">
-                <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-                    <div>
-                        <span className="header-overline">OPERAÇÃO DE VENDAS</span>
-                        <h1>PDV</h1>
-                        <p>Registre os produtos e finalize a venda do cliente.</p>
-                    </div>
-                    <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">A</div>
-                        <div>
-                            <strong>Administrador</strong>
-                            <span>Usuário do sistema</span>
-                        </div>
-                    </div>
-                </header>
-
-                <section className="dashboard-content pdv-content p-10">
-                    {isCashierMode && <p className="pdv-mode-hint">ESC para sair do modo caixa</p>}
-                    {!isCashierMode && <p className="pdv-mode-hint">F12 para entrar no modo caixa</p>}
+            <main className="pdv-main">
+                <section className="pdv-content">
                     {saleFeedback && <p className="pdv-success-message" role="status">{saleFeedback}</p>}
-
-                    <form className="pdv-add-product" onSubmit={addProduct}>
-                        <div className="pdv-section-heading">
-                            <div>
-                                <h2>Adicionar produto</h2>
-                                <p>Use o código de barras para incluir um item na venda.</p>
-                            </div>
-                            <Receipt size={21} aria-hidden="true" />
-                        </div>
-                        <div className="pdv-product-form">
-                            <label htmlFor="barcode">Código de barras</label>
-                            <div className="pdv-product-fields">
-                                <input
-                                    ref={barcodeInputRef}
-                                    id="barcode"
-                                    value={barcode}
-                                    onChange={(event) => setBarcode(event.target.value)}
-                                    placeholder="Digite ou bip o código de barras"
-                                    autoComplete="off"
-                                />
-                                <button type="submit" className="pdv-primary-button">
-                                    <Plus size={18} />
-                                    Adicionar produto
-                                </button>
-                            </div>
-                            {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
-                        </div>
-                    </form>
 
                     <div className="pdv-sale-grid">
                         <section className="pdv-sale-panel">
                             <div className="pdv-section-heading">
                                 <div>
-                                    <h2>Itens da venda</h2>
+                                    <h1>Venda atual</h1>
                                     <p>{totalItems === 1 ? '1 item adicionado' : `${totalItems} itens adicionados`}</p>
                                 </div>
                             </div>
@@ -425,19 +401,19 @@ export default function PDV() {
                                     <table>
                                         <thead>
                                             <tr>
-                                                <th>Produto</th>
                                                 <th>Código</th>
+                                                <th>Nome</th>
                                                 <th>Quantidade</th>
-                                                <th>Preço unitário</th>
-                                                <th>Subtotal</th>
+                                                <th>Valor (un.)</th>
+                                                <th>Valor</th>
                                                 <th><span className="sr-only">Ação</span></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {items.map((item) => (
                                                 <tr key={item.id}>
-                                                    <td className="pdv-product-name">{item.name}</td>
                                                     <td>{item.barcode}</td>
+                                                    <td className="pdv-product-name">{item.name}</td>
                                                     <td>
                                                         <div className="pdv-quantity-controls">
                                                             <button
@@ -484,7 +460,16 @@ export default function PDV() {
                         </section>
 
                         <aside className="pdv-summary">
-                            <div className="pdv-section-heading">
+                            <div className={`pdv-cash-status${isCashRegisterOpen ? ' is-open' : ' is-closed'}`} role="status">
+                                {isCashRegisterOpen
+                                    ? <CircleCheck size={20} aria-hidden="true" />
+                                    : <CircleAlert size={20} aria-hidden="true" />}
+                                <div>
+                                    <strong>Caixa {isCashRegisterOpen ? 'aberto' : 'fechado'}</strong>
+                                    {!isCashRegisterOpen && <span className="pdv-cash-register-message">Abra o caixa para finalizar a venda.</span>}
+                                </div>
+                            </div>
+                            <div className="pdv-section-heading pdv-summary-heading">
                                 <div>
                                     <h2>Resumo da venda</h2>
                                     <p>Confira os valores antes de finalizar.</p>
@@ -496,18 +481,15 @@ export default function PDV() {
                             </div>
                             <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
                             <button
+                                ref={finishButtonRef}
                                 type="button"
                                 className="pdv-finish-button"
                                 disabled={items.length === 0 || !isCashRegisterOpen}
                                 onClick={openCheckout}
                             >
-                                Finalizar venda
+                                <span>FINALIZAR VENDA</span>
+                                <kbd>F5</kbd>
                             </button>
-                            {!isCashRegisterOpen && (
-                                <p className="pdv-cash-register-message" role="status">
-                                    Abra o caixa para finalizar a venda.
-                                </p>
-                            )}
                         </aside>
                     </div>
                 </section>
