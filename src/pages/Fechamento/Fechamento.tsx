@@ -1,23 +1,25 @@
 import {
     BarChart3,
     Banknote,
-    Calculator,
     History,
     LayoutDashboard,
     LogOut,
     Package,
+    Receipt,
     Settings,
     ShoppingCart,
+    Store,
+    UserRound,
     X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { getBakeries } from '../../data/bakeries'
 import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
 import { saveCashClosure } from '../../data/cashClosures'
 import { getSales } from '../../data/sales'
 import { getAuthenticatedUser, isOwnerAuthenticated } from '../../utils/auth'
-import '../Dashboard/Dashborad.css'
 import './Fechamento.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -93,6 +95,9 @@ export default function Fechamento() {
     const isOwner = isOwnerAuthenticated()
     const authenticatedUser = getAuthenticatedUser()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const bakeryName = bakeryId
+        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        : 'Unidade indisponível'
     const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => (
         bakeryId ? getOpenCashRegister(bakeryId) : null
     ))
@@ -103,6 +108,7 @@ export default function Fechamento() {
     const [isClosing, setIsClosing] = useState(false)
     const [closeError, setCloseError] = useState('')
     const isClosingRef = useRef(false)
+    const confirmCloseButtonRef = useRef<HTMLButtonElement>(null)
     const cashMovement = cashRegister ? calculateCashMovement(cashRegister) : null
     const countedCash = parseMoneyInput(countedCashInput)
     const countedCashInCents = countedCash === null ? null : toCents(countedCash)
@@ -114,6 +120,10 @@ export default function Fechamento() {
         sessionStorage.removeItem('isAuthenticated')
         sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
+    }
+
+    function requestOpenCash() {
+        setIsOpeningModalOpen(true)
     }
 
     function closeOpeningModal() {
@@ -211,6 +221,16 @@ export default function Fechamento() {
         }
     }
 
+    function handlePageEnter(event: ReactKeyboardEvent<HTMLDivElement>) {
+        if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+        if (isOpeningModalOpen || isCloseModalOpen || event.repeat) return
+        if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, button, a, [contenteditable="true"]')) return
+
+        event.preventDefault()
+        if (cashRegister) handleRequestClose()
+        else requestOpenCash()
+    }
+
     useEffect(() => {
         if (!isOpeningModalOpen && !isCloseModalOpen) return
 
@@ -230,170 +250,151 @@ export default function Fechamento() {
         return () => document.removeEventListener('keydown', handleEscape)
     }, [isOpeningModalOpen, isCloseModalOpen, isClosing])
 
+    useEffect(() => {
+        if (isCloseModalOpen) confirmCloseButtonRef.current?.focus()
+    }, [isCloseModalOpen])
+
     const initialAmount = parseMoneyInput(initialAmountInput)
 
     return (
-        <div className="dashboard-layout flex min-h-screen">
-            <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
-                <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
-                    <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
-                        <ShoppingCart size={22} />
+        <div className="fechamento-layout" onKeyDown={handlePageEnter}>
+            <header className="fechamento-topbar">
+                <strong className="fechamento-topbar-title">Padaria PDV</strong>
+                <div className="fechamento-topbar-session">
+                    <div className="fechamento-session-field">
+                        <UserRound size={16} aria-hidden="true" />
+                        <span>Operador</span>
+                        <strong>{authenticatedUser?.name}</strong>
                     </div>
-                    <div>
-                        <strong>Padaria PDV</strong>
-                        <span>Sistema de vendas</span>
+                    <div className="fechamento-session-divider" aria-hidden="true" />
+                    <div className="fechamento-session-field">
+                        <Store size={16} aria-hidden="true" />
+                        <span>Unidade</span>
+                        <strong>{bakeryName}</strong>
                     </div>
-                </div>
-
-                <nav className="sidebar-menu flex flex-col gap-2">
-                    {isOwner && <a href="/dashboard" className="sidebar-link">
-                        <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
-                    </a>}
-                    {!isOwner && <a href="/pdv" className="sidebar-link">
-                        <ShoppingCart size={19} />
-                        <span>Caixa</span>
-                    </a>}
-                    {!isOwner && <a href="/fechamento" className="sidebar-link active">
-                        <Calculator size={19} />
-                        <span>Fechamento</span>
-                    </a>}
-                    {!isOwner && <a href="/produtos" className="sidebar-link">
-                        <Package size={19} />
-                        <span>Produtos</span>
-                    </a>}
-                    {isOwner && <a href="/historico-vendas" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
-                    </a>}
-                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Fechamentos</span>
-                    </a>}
-                    {isOwner && <a href="/relatorios" className="sidebar-link">
-                        <BarChart3 size={19} />
-                        <span>Relatórios</span>
-                    </a>}
-                </nav>
-
-                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    {isOwner && <a href="/configuracoes" className="sidebar-link">
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </a>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} />
+                    <button type="button" onClick={handleLogout} className="fechamento-topbar-logout">
+                        <LogOut size={17} />
                         <span>Sair</span>
                     </button>
                 </div>
+            </header>
+
+            <aside className="fechamento-sidebar">
+                <div className="fechamento-brand">
+                    <div className="fechamento-logo-icon"><ShoppingCart size={22} /></div>
+                    <div><strong>Padaria PDV</strong><span>Sistema de vendas</span></div>
+                </div>
+
+                {!isOwner && <nav className="fechamento-shortcuts" aria-label="Atalhos operacionais">
+                    <span className="fechamento-sidebar-label">Operação</span>
+                    <a href="/produtos" className="fechamento-shortcut">
+                        <Package size={19} /><span>Produtos</span><kbd>F2</kbd>
+                    </a>
+                    <a href="/fechamento" className="fechamento-shortcut active" aria-current="page">
+                        <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
+                    </a>
+                    <a href="/pdv" className="fechamento-shortcut">
+                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                    </a>
+                </nav>}
+
+                {isOwner && <nav className="fechamento-shortcuts" aria-label="Navegação administrativa">
+                    <span className="fechamento-sidebar-label">Administração</span>
+                    <a href="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Dashboard</span></a>
+                    <a href="/historico-vendas" className="fechamento-shortcut"><History size={19} /><span>Histórico de Vendas</span></a>
+                    <a href="/historico-fechamentos" className="fechamento-shortcut"><History size={19} /><span>Histórico de Fechamentos</span></a>
+                    <a href="/relatorios" className="fechamento-shortcut"><BarChart3 size={19} /><span>Relatórios</span></a>
+                </nav>}
+
+                {isOwner && <div className="fechamento-sidebar-bottom">
+                    <a href="/configuracoes" className="fechamento-shortcut"><Settings size={19} /><span>Configurações</span></a>
+                </div>}
             </aside>
 
-            <main className="dashboard-main ml-64 min-h-screen flex-1">
-                <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-                    <div>
-                        <span className="header-overline">FECHAMENTO</span>
-                        <h1>Abertura de caixa</h1>
-                        <p>Inicie a sessão do caixa antes de realizar a conferência.</p>
-                    </div>
-                    <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">A</div>
+            <main className="fechamento-main">
+                <section className="fechamento-content">
+                    <header className="fechamento-page-heading">
                         <div>
-                            <strong>Administrador</strong>
-                            <span>Usuário do sistema</span>
+                            <span>OPERAÇÃO DE CAIXA</span>
+                            <h1>Fechamento</h1>
+                            <p>Abertura e conferência do caixa</p>
                         </div>
-                    </div>
-                </header>
-
-                <section className="dashboard-content fechamento-content p-10">
+                    </header>
                     {!cashRegister ? (
                         <section className="fechamento-status-card fechado">
-                            <div className="fechamento-status-icon">
-                                <Banknote size={26} />
+                            <div className="fechamento-status-overview">
+                                <div className="fechamento-status-icon"><Banknote size={28} /></div>
+                                <div className="fechamento-status-copy">
+                                    <span className="fechamento-status-label">Status do caixa</span>
+                                    <h2>Caixa fechado</h2>
+                                    <p>Informe o valor inicial para iniciar uma nova sessão de caixa.</p>
+                                </div>
+                                <button type="button" className="fechamento-primary-button" onClick={requestOpenCash}>
+                                    <span>Abrir caixa</span><kbd className="fechamento-keycap">ENTER</kbd>
+                                </button>
                             </div>
-                            <div>
-                                <span className="fechamento-status-label">Status do caixa</span>
-                                <h2>Caixa fechado</h2>
-                                <p>Informe o valor inicial para iniciar uma nova sessão de caixa.</p>
-                            </div>
-                            <button type="button" className="fechamento-primary-button" onClick={() => setIsOpeningModalOpen(true)}>
-                                Abrir caixa
-                            </button>
                         </section>
                     ) : (
                         <section className="fechamento-status-card aberto">
-                            <div className="fechamento-status-icon">
-                                <Banknote size={26} />
-                            </div>
-                            <div className="fechamento-opened-heading">
-                                <span className="fechamento-status-label">Status do caixa</span>
-                                <h2>Caixa aberto</h2>
-                            </div>
-                            <button type="button" className="fechamento-danger-button" onClick={handleRequestClose}>
-                                Fechar caixa
-                            </button>
-                            <div className="fechamento-opened-details">
-                                <div>
-                                    <span>Data de abertura</span>
-                                    <strong>{formatOpeningDate(cashRegister.openedAt).date}</strong>
+                            <div className="fechamento-open-status-bar">
+                                <div className="fechamento-status-icon"><Banknote size={28} /></div>
+                                <div className="fechamento-opened-heading">
+                                    <span className="fechamento-status-label">Status do caixa</span>
+                                    <h2>Caixa aberto</h2>
                                 </div>
-                                <div>
-                                    <span>Hora de abertura</span>
-                                    <strong>{formatOpeningDate(cashRegister.openedAt).time}</strong>
-                                </div>
-                                <div>
-                                    <span>Valor inicial</span>
-                                    <strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong>
+                                <button type="button" className="fechamento-danger-button" onClick={handleRequestClose}>
+                                    <span>Fechar caixa</span><kbd className="fechamento-keycap fechamento-keycap-light">ENTER</kbd>
+                                </button>
+                                <div className="fechamento-opened-details">
+                                    <div><span>Data de abertura</span><strong>{formatOpeningDate(cashRegister.openedAt).date}</strong></div>
+                                    <div><span>Hora de abertura</span><strong>{formatOpeningDate(cashRegister.openedAt).time}</strong></div>
+                                    <div><span>Valor inicial</span><strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong></div>
                                 </div>
                             </div>
-                            <div className="fechamento-cash-movement">
-                                <h3>Movimentação em dinheiro</h3>
-                                <div className="fechamento-cash-movement-row">
-                                    <span>Valor inicial</span>
-                                    <strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong>
+                            <div className="fechamento-open-workspace">
+                                <section className="fechamento-cash-movement">
+                                    <h3>Movimentação em dinheiro</h3>
+                                    <div className="fechamento-cash-movement-row"><span>Valor inicial</span><strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong></div>
+                                    <div className="fechamento-cash-movement-row"><span>Vendas em dinheiro</span><strong>{currency.format((cashMovement?.cashSalesAmountInCents ?? 0) / 100)}</strong></div>
+                                    <div className="fechamento-cash-movement-row total"><span>Valor esperado</span><strong>{currency.format((cashMovement?.expectedAmountInCents ?? 0) / 100)}</strong></div>
+                                </section>
+                                <div className="fechamento-counted-panel">
+                                    <div className="fechamento-counted-cash">
+                                        <label htmlFor="counted-cash">Valor contado</label>
+                                        <div className="fechamento-counted-cash-input">
+                                            <span>R$</span>
+                                            <input
+                                                id="counted-cash"
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={countedCashInput}
+                                                onChange={(event) => handleCountedCashChange(event.target.value)}
+                                                onBlur={() => setCountedCashInput(formatMoneyInput(countedCashInput))}
+                                                aria-describedby="counted-cash-description"
+                                            />
+                                        </div>
+                                        <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
+                                    </div>
+                                    <div className={`fechamento-difference ${differenceInCents === null ? 'pending' : differenceInCents === 0 ? 'balanced' : differenceInCents > 0 ? 'surplus' : 'shortage'}`}>
+                                        <span className="fechamento-difference-label">Diferença</span>
+                                        {differenceInCents === null ? (
+                                            <p>Informe o valor contado para conferir o caixa.</p>
+                                        ) : (
+                                            <>
+                                                <strong>
+                                                    {differenceInCents === 0 && 'Caixa conferido'}
+                                                    {differenceInCents > 0 && 'Caixa com sobra'}
+                                                    {differenceInCents < 0 && 'Caixa com falta'}
+                                                </strong>
+                                                <b>
+                                                    {differenceInCents > 0 && '+ '}
+                                                    {differenceInCents < 0 && '- '}
+                                                    {currency.format(Math.abs(differenceInCents) / 100)}
+                                                </b>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="fechamento-cash-movement-row">
-                                    <span>Vendas em dinheiro</span>
-                                    <strong>{currency.format((cashMovement?.cashSalesAmountInCents ?? 0) / 100)}</strong>
-                                </div>
-                                <div className="fechamento-cash-movement-row total">
-                                    <span>Valor esperado</span>
-                                    <strong>{currency.format((cashMovement?.expectedAmountInCents ?? 0) / 100)}</strong>
-                                </div>
-                            </div>
-                            <div className="fechamento-counted-cash">
-                                <label htmlFor="counted-cash">Valor contado</label>
-                                <div className="fechamento-counted-cash-input">
-                                    <span>R$</span>
-                                    <input
-                                        id="counted-cash"
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={countedCashInput}
-                                        onChange={(event) => handleCountedCashChange(event.target.value)}
-                                        onBlur={() => setCountedCashInput(formatMoneyInput(countedCashInput))}
-                                        aria-describedby="counted-cash-description"
-                                    />
-                                </div>
-                                <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
-                            </div>
-                            <div className={`fechamento-difference ${differenceInCents === null ? 'pending' : differenceInCents === 0 ? 'balanced' : differenceInCents > 0 ? 'surplus' : 'shortage'}`}>
-                                <span className="fechamento-difference-label">Diferença</span>
-                                {differenceInCents === null ? (
-                                    <p>Informe o valor contado para conferir o caixa.</p>
-                                ) : (
-                                    <>
-                                        <strong>
-                                            {differenceInCents === 0 && 'Caixa conferido'}
-                                            {differenceInCents > 0 && 'Caixa com sobra'}
-                                            {differenceInCents < 0 && 'Caixa com falta'}
-                                        </strong>
-                                        <b>
-                                            {differenceInCents > 0 && '+ '}
-                                            {differenceInCents < 0 && '- '}
-                                            {currency.format(Math.abs(differenceInCents) / 100)}
-                                        </b>
-                                    </>
-                                )}
                             </div>
                             {closeError && !isCloseModalOpen && (
                                 <p className="fechamento-close-error">{closeError}</p>
@@ -428,6 +429,12 @@ export default function Fechamento() {
                                     value={initialAmountInput}
                                     onChange={(event) => handleInitialAmountChange(event.target.value)}
                                     onBlur={() => setInitialAmountInput(formatMoneyInput(initialAmountInput))}
+                                    onKeyDown={(event) => {
+                                        if (event.key !== 'Enter' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat) return
+
+                                        event.preventDefault()
+                                        handleOpenCash()
+                                    }}
                                     autoFocus
                                 />
                             </div>
@@ -435,10 +442,10 @@ export default function Fechamento() {
                         </div>
                         <div className="fechamento-modal-footer">
                             <button type="button" className="fechamento-secondary-button" onClick={closeOpeningModal}>
-                                Cancelar
+                                <span>Cancelar</span><kbd className="fechamento-cancel-keycap">ESC</kbd>
                             </button>
                             <button type="button" className="fechamento-primary-button" onClick={handleOpenCash} disabled={initialAmount === null}>
-                                Abrir caixa
+                                <span>Abrir caixa</span><kbd className="fechamento-keycap">ENTER</kbd>
                             </button>
                         </div>
                     </section>
@@ -471,10 +478,10 @@ export default function Fechamento() {
                         </div>
                         <div className="fechamento-modal-footer">
                             <button type="button" className="fechamento-secondary-button" onClick={closeClosingModal} disabled={isClosing}>
-                                Cancelar
+                                <span>Cancelar</span><kbd className="fechamento-cancel-keycap">ESC</kbd>
                             </button>
-                            <button type="button" className="fechamento-danger-button" onClick={handleConfirmClose} disabled={isClosing}>
-                                {isClosing ? 'Fechando...' : 'Confirmar fechamento'}
+                            <button ref={confirmCloseButtonRef} type="button" className="fechamento-danger-button" onClick={handleConfirmClose} disabled={isClosing}>
+                                <span>{isClosing ? 'Fechando...' : 'Confirmar fechamento'}</span><kbd className="fechamento-keycap fechamento-keycap-light">ENTER</kbd>
                             </button>
                         </div>
                     </section>

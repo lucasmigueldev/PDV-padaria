@@ -1,44 +1,286 @@
-.fechamento-content {
+.fechamento-layout {
+    display: grid;
+    width: 100vw;
+    height: 100vh;
+    min-width: 1120px;
+    min-height: 700px;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr);
+    overflow: hidden;
+    background: #e8edf3;
+    color: #1f2937;
+}
+
+.fechamento-topbar {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-width: 0;
+    border-bottom: 1px solid #174581;
+    padding: 0 16px 0 20px;
+    background: #1f5daa;
+    color: #ffffff;
+}
+
+.fechamento-topbar-title {
+    flex: 0 0 auto;
+    font-size: 15px;
+    font-weight: 750;
+}
+
+.fechamento-topbar-session {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.fechamento-session-field {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: #d8e6f7;
+    font-size: 12px;
+}
+
+.fechamento-session-field strong {
+    max-width: 220px;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fechamento-session-divider {
+    width: 1px;
+    height: 24px;
+    background: rgb(255 255 255 / 30%);
+}
+
+.fechamento-topbar-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    border: 1px solid rgb(255 255 255 / 35%);
+    border-radius: 4px;
+    padding: 0 11px;
+    background: transparent;
+    color: #ffffff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.fechamento-topbar-logout:hover {
+    background: rgb(255 255 255 / 12%);
+}
+
+.fechamento-sidebar {
+    display: flex;
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    flex-direction: column;
+    gap: 22px;
+    border-right: 1px solid #183253;
+    padding: 20px 16px 16px;
+    background: #1e3a5f;
+    color: #f3f7fc;
+    overflow-y: auto;
+}
+
+.fechamento-brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.fechamento-logo-icon {
+    display: flex;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.fechamento-brand strong,
+.fechamento-brand span {
+    display: block;
+}
+
+.fechamento-brand strong {
+    color: #f8fbff;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.fechamento-brand span {
+    margin-top: 4px;
+    color: #bacbe0;
+    font-size: 12px;
+}
+
+.fechamento-shortcuts,
+.fechamento-sidebar-bottom {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    max-width: 1100px;
+    gap: 4px;
+}
+
+.fechamento-sidebar-label {
+    margin: 0 0 5px 2px;
+    color: #b3c6df;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.fechamento-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    border: 0;
+    border-radius: 5px;
+    padding: 0 10px;
+    background: transparent;
+    color: #e1eaf5;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.fechamento-shortcut span {
+    flex: 1;
+}
+
+.fechamento-shortcut:hover {
+    background: #2d527f;
+    color: #ffffff;
+}
+
+.fechamento-shortcut.active {
+    background: #2b5da1;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.fechamento-shortcut kbd {
+    display: inline-flex;
+    flex: 0 0 44px;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #7f9dc4;
+    border-radius: 4px;
+    padding: 4px 8px;
+    background: #294b75;
+    color: #f3f7fc;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.fechamento-sidebar-bottom {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid #496384;
+}
+
+.fechamento-main {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.fechamento-content {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 22px 22px;
+}
+
+.fechamento-page-heading {
+    flex: 0 0 auto;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 0 2px 13px;
+}
+
+.fechamento-page-heading > div > span {
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.fechamento-page-heading h1 {
+    margin-top: 3px;
+    color: #172b45;
+    font-size: 24px;
+    font-weight: 750;
+}
+
+.fechamento-page-heading p {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 13px;
 }
 
 .fechamento-status-card {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 24px;
-    border: 1px solid #e5e7eb;
-    border-radius: 18px;
-    padding: 32px;
+    min-width: 0;
+    border: 1px solid #d2dbe6;
+    border-radius: 8px;
     background: #ffffff;
-    box-shadow: 0 12px 30px rgb(15 23 42 / 6%);
+    box-shadow: 0 2px 8px rgb(24 45 72 / 5%);
 }
 
 .fechamento-status-card.fechado {
-    border-color: #fed7aa;
+    display: flex;
+    min-height: 250px;
+    flex: 1;
+    align-items: stretch;
+    border-left: 5px solid #2563eb;
 }
 
-.fechamento-status-card.aberto {
-    border-color: #bbf7d0;
+.fechamento-status-overview {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 72px minmax(0, 1fr) minmax(240px, 310px);
+    align-items: center;
+    gap: 24px;
+    padding: 32px 36px;
 }
 
 .fechamento-status-icon {
     display: flex;
-    width: 54px;
-    height: 54px;
+    width: 64px;
+    height: 64px;
     align-items: center;
     justify-content: center;
-    border-radius: 14px;
-    background: #ecfdf5;
-    color: #059669;
-}
-
-.fechamento-status-card.fechado .fechamento-status-icon {
-    background: #fff7ed;
-    color: #ea580c;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1d4ed8;
 }
 
 .fechamento-status-label,
@@ -46,22 +288,22 @@
     display: block;
     color: #64748b;
     font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-weight: 750;
     text-transform: uppercase;
 }
 
-.fechamento-status-card h2 {
-    margin-top: 7px;
-    color: #111827;
-    font-size: 24px;
-    font-weight: 700;
+.fechamento-status-copy h2,
+.fechamento-opened-heading h2 {
+    margin-top: 6px;
+    color: #172b45;
+    font-size: 28px;
+    font-weight: 750;
 }
 
 .fechamento-status-card p {
     margin-top: 8px;
     color: #64748b;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
 }
 
@@ -72,7 +314,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 9px;
+    border-radius: 5px;
     font: inherit;
     cursor: pointer;
 }
@@ -80,10 +322,20 @@
 .fechamento-primary-button,
 .fechamento-secondary-button,
 .fechamento-danger-button {
-    min-height: 44px;
+    min-height: 48px;
+    gap: 10px;
     padding: 0 18px;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 750;
+}
+
+.fechamento-status-overview > .fechamento-primary-button,
+.fechamento-open-status-bar > .fechamento-danger-button {
+    min-height: 64px;
+    justify-content: space-between;
+    padding: 0 18px;
+    font-size: 16px;
+    text-transform: uppercase;
 }
 
 .fechamento-primary-button {
@@ -107,8 +359,8 @@
     color: #475569;
 }
 
-.fechamento-secondary-button:hover {
-    background: #f8fafc;
+.fechamento-secondary-button:hover:not(:disabled) {
+    background: #f1f5f9;
 }
 
 .fechamento-danger-button {
@@ -130,41 +382,99 @@
 
 .fechamento-primary-button:focus-visible,
 .fechamento-secondary-button:focus-visible,
+.fechamento-danger-button:focus-visible,
 .fechamento-modal-close:focus-visible,
 .fechamento-counted-cash-input:focus-within {
-    outline: 3px solid rgb(37 99 235 / 18%);
+    outline: 3px solid rgb(37 99 235 / 28%);
     outline-offset: 2px;
 }
 
-.fechamento-opened-heading {
-    align-self: start;
+.fechamento-keycap {
+    display: inline-flex;
+    flex: 0 0 auto;
+    min-width: 64px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(255 255 255 / 60%);
+    border-radius: 4px;
+    padding: 0 8px;
+    background: rgb(255 255 255 / 16%);
+    color: #ffffff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.fechamento-open-status-bar {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: 64px minmax(150px, 1fr) minmax(240px, 300px);
+    align-items: center;
+    gap: 16px 20px;
+    border-left: 5px solid #2563eb;
+    border-bottom: 1px solid #dbe3ed;
+    padding: 16px 20px;
+    background: #ffffff;
+}
+
+.fechamento-open-status-bar .fechamento-status-icon {
+    width: 56px;
+    height: 56px;
+}
+
+.fechamento-opened-heading h2 {
+    font-size: 24px;
 }
 
 .fechamento-opened-details {
     display: flex;
-    grid-column: 2 / -1;
-    gap: 48px;
-    border-top: 1px solid #eef2f7;
-    padding-top: 20px;
+    grid-column: 1 / -1;
+    gap: 34px;
+    border-top: 1px solid #e8edf3;
+    padding-top: 13px;
 }
 
 .fechamento-opened-details strong {
     display: block;
-    margin-top: 7px;
-    color: #111827;
-    font-size: 16px;
+    margin-top: 5px;
+    color: #172b45;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
 }
 
-.fechamento-cash-movement {
-    grid-column: 2 / -1;
-    border-top: 1px solid #eef2f7;
-    padding-top: 24px;
+.fechamento-status-card.aberto {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+}
+
+.fechamento-open-workspace {
+    display: grid;
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+    gap: 16px;
+    padding: 16px;
+}
+
+.fechamento-cash-movement,
+.fechamento-counted-panel {
+    min-width: 0;
+    border: 1px solid #dbe3ed;
+    border-radius: 6px;
+    padding: 18px 20px;
+    background: #ffffff;
 }
 
 .fechamento-cash-movement h3 {
-    color: #111827;
+    color: #172b45;
     font-size: 17px;
-    font-weight: 700;
+    font-weight: 750;
 }
 
 .fechamento-cash-movement-row {
@@ -172,8 +482,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 14px 0;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 18px 0;
+    border-bottom: 1px solid #e8edf3;
 }
 
 .fechamento-cash-movement-row span {
@@ -182,18 +492,22 @@
 }
 
 .fechamento-cash-movement-row strong {
-    color: #334155;
-    font-size: 15px;
+    color: #172b45;
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
 }
 
 .fechamento-cash-movement-row.total {
-    border-bottom: 0;
-    padding-bottom: 0;
+    margin-top: 4px;
+    border: 1px solid #bfdbfe;
+    border-radius: 5px;
+    padding: 16px 12px;
+    background: #eff6ff;
 }
 
 .fechamento-cash-movement-row.total span,
 .fechamento-cash-movement-row.total strong {
-    color: #047857;
+    color: #1d4ed8;
     font-weight: 800;
 }
 
@@ -201,29 +515,29 @@
     font-size: 20px;
 }
 
-.fechamento-counted-cash {
-    grid-column: 2 / -1;
-    border-top: 1px solid #eef2f7;
-    padding-top: 24px;
+.fechamento-counted-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
 .fechamento-counted-cash label {
     display: block;
-    color: #111827;
-    font-size: 16px;
-    font-weight: 700;
+    color: #172b45;
+    font-size: 15px;
+    font-weight: 750;
 }
 
 .fechamento-counted-cash-input {
     display: flex;
+    max-width: 420px;
+    min-height: 58px;
     align-items: center;
-    max-width: 360px;
-    margin-top: 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
+    margin-top: 10px;
+    border: 1px solid #b8c5d5;
+    border-radius: 5px;
     background: #ffffff;
-    color: #64748b;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    color: #52647a;
 }
 
 .fechamento-counted-cash-input:focus-within {
@@ -232,53 +546,58 @@
 }
 
 .fechamento-counted-cash-input span {
-    padding-left: 14px;
-    font-size: 14px;
-    font-weight: 600;
+    padding-left: 15px;
+    font-size: 15px;
+    font-weight: 700;
 }
 
 .fechamento-counted-cash-input input {
     width: 100%;
+    min-width: 0;
     border: 0;
     outline: 0;
     padding: 12px 14px 12px 8px;
     background: transparent;
-    color: #111827;
+    color: #172b45;
     font: inherit;
-    font-size: 16px;
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 
 .fechamento-counted-cash > p {
     margin-top: 8px;
     color: #64748b;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 .fechamento-difference {
     display: grid;
+    min-height: 120px;
     grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 8px 24px;
-    grid-column: 2 / -1;
-    border-top: 1px solid #eef2f7;
-    padding-top: 24px;
+    gap: 8px 20px;
+    border: 1px solid #dbe3ed;
+    border-radius: 5px;
+    padding: 16px;
 }
 
 .fechamento-difference-label {
     grid-column: 1 / -1;
     color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-size: 11px;
+    font-weight: 750;
     text-transform: uppercase;
 }
 
 .fechamento-difference strong {
-    font-size: 17px;
+    font-size: 16px;
 }
 
 .fechamento-difference b {
     font-size: 22px;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
@@ -286,7 +605,7 @@
     grid-column: 1 / -1;
     margin: 0;
     color: #64748b;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .fechamento-difference.pending {
@@ -294,18 +613,33 @@
 }
 
 .fechamento-difference.balanced {
+    border-color: #86efac;
     background: #f0fdf4;
     color: #15803d;
 }
 
 .fechamento-difference.surplus {
+    border-color: #bfdbfe;
     background: #eff6ff;
     color: #1d4ed8;
 }
 
 .fechamento-difference.shortage {
+    border-color: #fed7aa;
     background: #fff7ed;
     color: #c2410c;
+}
+
+.fechamento-close-error {
+    flex: 0 0 auto;
+    margin: 0 16px 14px;
+    border: 1px solid #fecaca;
+    border-radius: 5px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .fechamento-modal-overlay {
@@ -317,15 +651,16 @@
     justify-content: center;
     padding: 24px;
     background: rgb(15 23 42 / 58%);
-    backdrop-filter: blur(2px);
 }
 
 .fechamento-modal {
     width: min(520px, 100%);
-    border: 1px solid #dbe2ea;
-    border-radius: 18px;
+    max-height: calc(100vh - 48px);
+    border: 1px solid #d2dbe6;
+    border-radius: 8px;
     background: #ffffff;
-    box-shadow: 0 24px 70px rgb(15 23 42 / 22%);
+    box-shadow: 0 18px 40px rgb(15 23 42 / 18%);
+    overflow-y: auto;
 }
 
 .fechamento-modal-header,
@@ -334,42 +669,41 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 24px 28px;
+    padding: 20px 24px;
 }
 
 .fechamento-modal-header {
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid #e8edf3;
 }
 
 .fechamento-modal-overline {
     color: #2563eb;
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-weight: 750;
 }
 
 .fechamento-modal-header h2 {
-    margin-top: 7px;
-    color: #111827;
-    font-size: 24px;
-    font-weight: 700;
+    margin-top: 5px;
+    color: #172b45;
+    font-size: 22px;
+    font-weight: 750;
 }
 
 .fechamento-modal-close {
-    width: 40px;
-    height: 40px;
-    border: 1px solid #dbe2ea;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #d2dbe6;
     background: #ffffff;
-    color: #64748b;
+    color: #52647a;
 }
 
-.fechamento-modal-close:hover {
-    background: #f8fafc;
-    color: #111827;
+.fechamento-modal-close:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #172b45;
 }
 
 .fechamento-modal-body {
-    padding: 28px;
+    padding: 22px 24px;
 }
 
 .fechamento-modal-body label {
@@ -379,41 +713,7 @@
     font-weight: 700;
 }
 
-.fechamento-counted-cash-input {
-    display: flex;
-    align-items: center;
-    max-width: 360px;
-    margin-top: 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #64748b;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.fechamento-counted-cash-input:focus-within {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
-}
-
-.fechamento-counted-cash-input span {
-    padding-left: 14px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.fechamento-counted-cash-input input {
-    width: 100%;
-    border: 0;
-    outline: 0;
-    padding: 12px 14px 12px 8px;
-    background: transparent;
-    color: #111827;
-    font: inherit;
-    font-size: 16px;
-}
-
-.fechamento-modal-body p {
+.fechamento-modal-body > p {
     margin-top: 8px;
     color: #64748b;
     font-size: 13px;
@@ -421,7 +721,7 @@
 
 .fechamento-close-summary {
     display: grid;
-    gap: 16px;
+    gap: 12px;
 }
 
 .fechamento-close-summary > div {
@@ -429,70 +729,211 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    border-bottom: 1px solid #f1f5f9;
-    padding-bottom: 12px;
+    border-bottom: 1px solid #e8edf3;
+    padding-bottom: 10px;
 }
 
 .fechamento-close-summary span {
     color: #64748b;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .fechamento-close-summary strong {
-    color: #111827;
-    font-size: 15px;
+    color: #172b45;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
-.fechamento-close-error {
-    margin-top: 16px;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fef2f2;
-    color: #b91c1c;
-    font-size: 13px;
-    font-weight: 600;
+.fechamento-modal .fechamento-close-error {
+    margin: 14px 0 0;
 }
 
 .fechamento-modal-footer {
     justify-content: flex-end;
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid #e8edf3;
 }
 
-@media (max-width: 700px) {
-    .fechamento-status-card {
-        grid-template-columns: auto 1fr;
-        align-items: start;
+.fechamento-modal-footer .fechamento-secondary-button {
+    gap: 9px;
+}
+
+.fechamento-cancel-keycap {
+    display: inline-flex;
+    min-width: 44px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0 6px;
+    background: #f1f5f9;
+    color: #334155;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+@media (max-width: 1120px) {
+    .fechamento-layout {
+        min-width: 0;
+        min-height: 0;
     }
 
-    .fechamento-status-card .fechamento-primary-button,
-    .fechamento-status-card .fechamento-danger-button {
-        grid-column: 1 / -1;
+    .fechamento-status-overview {
+        grid-template-columns: 64px minmax(0, 1fr) 240px;
+        gap: 16px;
+        padding: 24px;
+    }
+
+    .fechamento-open-workspace {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.9fr);
+    }
+}
+
+@media (max-width: 760px) {
+    .fechamento-layout {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+        grid-template-rows: 52px auto auto;
+        overflow: auto;
+    }
+
+    .fechamento-topbar {
+        grid-column: 1;
+    }
+
+    .fechamento-topbar-session {
+        gap: 8px;
+    }
+
+    .fechamento-session-field span,
+    .fechamento-session-divider {
+        display: none;
+    }
+
+    .fechamento-sidebar {
+        grid-column: 1;
+        grid-row: 2;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .fechamento-brand {
+        display: none;
+    }
+
+    .fechamento-shortcuts {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .fechamento-sidebar-label {
         width: 100%;
     }
 
+    .fechamento-shortcut {
+        flex: 1 1 auto;
+    }
+
+    .fechamento-sidebar-bottom {
+        display: none;
+    }
+
+    .fechamento-main {
+        grid-column: 1;
+        grid-row: 3;
+        overflow: visible;
+    }
+
+    .fechamento-content {
+        height: auto;
+        min-height: 0;
+        padding: 16px;
+    }
+
+    .fechamento-status-card.fechado {
+        flex: initial;
+    }
+
+    .fechamento-status-overview {
+        grid-template-columns: 52px minmax(0, 1fr);
+        gap: 12px;
+        padding: 20px;
+    }
+
+    .fechamento-status-overview > .fechamento-primary-button {
+        grid-column: 1 / -1;
+    }
+
+    .fechamento-status-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .fechamento-open-status-bar {
+        grid-template-columns: 48px minmax(0, 1fr);
+    }
+
+    .fechamento-open-status-bar > .fechamento-danger-button {
+        grid-column: 1 / -1;
+    }
+
     .fechamento-opened-details {
-        grid-column: 1 / -1;
-        flex-direction: column;
-        gap: 18px;
+        flex-wrap: wrap;
+        gap: 14px 22px;
     }
 
-    .fechamento-cash-movement {
-        grid-column: 1 / -1;
+    .fechamento-open-workspace {
+        grid-template-columns: 1fr;
     }
 
-    .fechamento-counted-cash {
-        grid-column: 1 / -1;
+    .fechamento-status-card.aberto {
+        overflow: visible;
+    }
+}
+
+@media (max-width: 480px) {
+    .fechamento-topbar-title {
+        font-size: 13px;
     }
 
-    .fechamento-difference {
-        grid-column: 1 / -1;
+    .fechamento-session-field strong {
+        max-width: 105px;
+    }
+
+    .fechamento-topbar-logout {
+        padding: 0 8px;
+    }
+
+    .fechamento-topbar-logout span {
+        display: none;
+    }
+
+    .fechamento-shortcut {
+        gap: 6px;
+        padding: 0 7px;
+        font-size: 12px;
+    }
+
+    .fechamento-shortcut kbd {
+        flex-basis: 36px;
+        min-height: 30px;
+        font-size: 13px;
+    }
+
+    .fechamento-status-copy h2 {
+        font-size: 22px;
+    }
+
+    .fechamento-modal-overlay {
+        padding: 12px;
     }
 
     .fechamento-modal-header,
     .fechamento-modal-footer,
     .fechamento-modal-body {
-        padding: 20px;
+        padding: 16px;
     }
 }
