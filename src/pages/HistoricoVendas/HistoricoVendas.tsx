@@ -9,6 +9,7 @@ import {
     History,
     LayoutDashboard,
     LogOut,
+    Menu,
     Package,
     Search,
     Settings,
@@ -84,6 +85,7 @@ export default function HistoricoVendas() {
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const today = new Date()
     const currentYear = today.getFullYear()
@@ -159,6 +161,10 @@ export default function HistoricoVendas() {
         sessionStorage.removeItem('isAuthenticated')
         sessionStorage.removeItem('authenticatedUser')
         navigate('/login', { replace: true })
+    }
+
+    function closeMobileMenu() {
+        setIsMobileMenuOpen(false)
     }
 
     function openSaleDetails(sale: Sale) {
@@ -329,9 +335,87 @@ export default function HistoricoVendas() {
                 </div>
             </aside>
 
+            <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
+
+            <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
+                <div className="mobile-drawer-header">
+                    <div className="sidebar-logo">
+                        <div className="logo-icon">
+                            <ShoppingCart size={22} />
+                        </div>
+                        <div>
+                            <strong>Padaria PDV</strong>
+                            <span>Sistema de vendas</span>
+                        </div>
+                    </div>
+                    <button type="button" className="mobile-close-button" onClick={closeMobileMenu} aria-label="Fechar menu">
+                        <X size={22} />
+                    </button>
+                </div>
+
+                <nav className="mobile-drawer-menu">
+                    {isOwner && <a href="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
+                        <LayoutDashboard size={19} />
+                        <span>Dashboard</span>
+                    </a>}
+                    {!isOwner && <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+                        <ShoppingCart size={19} />
+                        <span>Caixa</span>
+                    </a>}
+                    {!isOwner && <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Calculator size={19} />
+                        <span>Fechamento</span>
+                    </a>}
+                    {!isOwner && <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Package size={19} />
+                        <span>Produtos</span>
+                    </a>}
+                    {isOwner && <a href="/historico-vendas" className="sidebar-link active" onClick={closeMobileMenu}>
+                        <History size={19} />
+                        <span>Histórico de Vendas</span>
+                    </a>}
+                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
+                        <History size={19} />
+                        <span>Histórico de Fechamentos</span>
+                    </a>}
+                    {isOwner && <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
+                        <BarChart3 size={19} />
+                        <span>Relatórios</span>
+                    </a>}
+                </nav>
+
+                <div className="mobile-drawer-bottom">
+                    {isOwner && <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Settings size={19} />
+                        <span>Configurações</span>
+                    </a>}
+                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
+                        <LogOut size={19} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
             <main className="dashboard-main ml-64 min-h-screen flex-1">
                 <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-                    <div>
+                    <div className="mobile-topbar">
+                        <div className="mobile-header-brand" aria-label="Padaria PDV">
+                            <div className="logo-icon">
+                                <ShoppingCart size={17} />
+                            </div>
+                            <span>Padaria PDV</span>
+                        </div>
+                        <button
+                            type="button"
+                            className="mobile-menu-button"
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            aria-label="Abrir menu"
+                            aria-expanded={isMobileMenuOpen}
+                        >
+                            <Menu size={23} />
+                        </button>
+                    </div>
+                    <div className="mobile-page-heading">
                         <span className="header-overline">OPERAÇÃO DE VENDAS</span>
                         <h1>Histórico de Vendas</h1>
                         <p>Consulte as vendas já registradas no sistema.</p>
@@ -520,8 +604,8 @@ export default function HistoricoVendas() {
 
                         {sales.length > 0 && filteredSales.length > 0 ? (
                             <>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-160 text-left text-sm">
+                                <div className="sales-history-table-container overflow-x-auto">
+                                    <table className="sales-history-table w-full min-w-160 text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
                                             <th className="px-6 py-4 font-semibold">Data e hora</th>
@@ -546,10 +630,10 @@ export default function HistoricoVendas() {
                                                 tabIndex={0}
                                                 aria-label={`Visualizar detalhes da venda ${sale.id}`}
                                             >
-                                                <td className="whitespace-nowrap px-6 py-4">{dateTime.format(new Date(sale.date))}</td>
-                                                <td className="px-6 py-4 font-medium text-slate-900">{sale.id}</td>
-                                                <td className="px-6 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
+                                                <td data-label="Data e hora" className="whitespace-nowrap px-6 py-4">{dateTime.format(new Date(sale.date))}</td>
+                                                <td data-label="ID da venda" className="px-6 py-4 font-medium text-slate-900">{sale.id}</td>
+                                                <td data-label="Forma de pagamento" className="px-6 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
+                                                <td data-label="Valor total" className="whitespace-nowrap px-6 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

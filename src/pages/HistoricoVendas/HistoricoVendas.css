@@ -648,13 +648,27 @@
     font-weight: 600;
 }
 
+@media (min-width: 721px) and (max-width: 900px) {
+    .sales-history-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .sales-history-search,
+    .sales-history-filter {
+        margin-bottom: 0;
+    }
+}
+
 @media (max-width: 720px) {
     .sales-details-overlay {
+        align-items: flex-start;
         padding: 12px;
     }
 
     .sales-details-modal {
         max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
         padding: 24px;
     }
 
@@ -700,6 +714,18 @@
         gap: 12px;
     }
 
+    .sales-history-search,
+    .sales-history-filter {
+        min-width: 0;
+        min-height: 48px;
+        margin-bottom: 0;
+    }
+
+    .sales-history-search input,
+    .sales-history-filter select {
+        min-width: 0;
+    }
+
     .sales-history-date-filter {
         grid-template-columns: 1fr 1fr;
     }
@@ -715,6 +741,7 @@
 
     .sales-history-export-button {
         width: 100%;
+        min-height: 44px;
     }
 
     .sales-history-summary-grid {
@@ -732,17 +759,144 @@
         padding: 16px;
     }
 
-    .sales-history-search,
-    .sales-history-filter {
-        margin-bottom: 18px;
+    .sales-history-table-container {
+        overflow: visible;
     }
 
-    .sales-history-filter {
-        margin-bottom: 0;
+    .sales-history-table {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    .sales-history-table thead {
+        display: none;
+    }
+
+    .sales-history-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .sales-history-table tbody tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 16px;
+        min-width: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 8px 14px;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+    }
+
+    .sales-history-table tbody tr:focus-visible {
+        outline: 3px solid rgb(37 99 235 / 25%);
+        outline-offset: 2px;
+    }
+
+    .sales-history-table tbody td {
+        display: block;
+        min-width: 0;
+        padding: 10px 0;
+        color: #334155;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .sales-history-table tbody td::before {
+        display: block;
+        margin-bottom: 5px;
+        color: #64748b;
+        content: attr(data-label);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .sales-history-table tbody td:nth-child(-n + 2) {
+        grid-column: 1 / -1;
+    }
+
+    .sales-history-table tbody td:nth-child(4) {
+        font-weight: 700;
+    }
+
+    .sales-history-pagination {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .sales-history-pagination span {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        text-align: center;
+    }
+
+    .sales-history-pagination button {
+        min-width: 0;
+        min-height: 44px;
+        padding: 9px 8px;
     }
 }
 
 @media (max-width: 480px) {
+    .sales-history-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sales-history-date-filter {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sales-history-summary {
+        padding: 16px;
+    }
+
+    .sales-details-modal {
+        padding: 16px;
+        border-radius: 14px;
+    }
+
+    .sales-details-header {
+        gap: 12px;
+        padding-bottom: 18px;
+    }
+
+    .sales-details-header h2 {
+        font-size: 21px;
+    }
+
+    .sales-details-section-header {
+        padding: 16px;
+    }
+
+    .sales-details-summary-card,
+    .sales-details-payment > div {
+        padding: 16px;
+    }
+
+    .sales-details-total {
+        padding: 18px;
+    }
+
+    .sales-details-total strong {
+        font-size: 24px;
+        overflow-wrap: anywhere;
+    }
+
+    .sales-details-footer-button {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 360px) {
     .sales-history-summary-grid {
         grid-template-columns: 1fr;
     }
