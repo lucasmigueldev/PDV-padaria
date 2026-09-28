@@ -18,7 +18,6 @@ import { useNavigate } from 'react-router-dom'
 import { getBakeries } from '../../data/bakeries'
 import { getProductsForBakery, getProductsWithTotalStock } from '../../data/products'
 import { getSales } from '../../data/sales'
-import type { ProductWithStock } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { isOwnerAuthenticated } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
@@ -75,7 +74,6 @@ function getPaymentSummary(sales: Sale[], paymentMethod: PaymentMethod) {
 type SoldProductSummary = {
   productId: string
   name: string
-  barcode: string
   quantity: number
   revenue: number
 }
@@ -96,7 +94,6 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
       productsById.set(item.productId, {
         productId: item.productId,
         name: item.name,
-        barcode: item.barcode,
         quantity: item.quantity,
         revenue: item.subtotal,
       })
@@ -107,11 +104,6 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
     secondProduct.quantity - firstProduct.quantity
     || secondProduct.revenue - firstProduct.revenue,
   )
-}
-
-type StockProduct = {
-  product: ProductWithStock
-  originalIndex: number
 }
 
 export default function Relatorios() {
@@ -190,13 +182,6 @@ export default function Relatorios() {
     totalUnits: 0,
     estimatedValue: 0,
   })
-  const stockProducts = products
-    .map<StockProduct>((product, originalIndex) => ({ product, originalIndex }))
-    .sort((firstProduct, secondProduct) =>
-      firstProduct.product.stock - secondProduct.product.stock
-      || firstProduct.originalIndex - secondProduct.originalIndex,
-    )
-
   function applyPeriod() {
     if (dateError) return
 
@@ -375,21 +360,6 @@ export default function Relatorios() {
                 <span>Ticket médio</span>
                 <strong>{currency.format(averageTicket)}</strong>
               </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><Banknote size={19} aria-hidden="true" /></div>
-                <span>Total em dinheiro</span>
-                <strong>{currency.format(paymentSummary.cash.total)}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><BarChart3 size={19} aria-hidden="true" /></div>
-                <span>Total em PIX</span>
-                <strong>{currency.format(paymentSummary.pix.total)}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><CreditCard size={19} aria-hidden="true" /></div>
-                <span>Total em cartão</span>
-                <strong>{currency.format(paymentSummary.card.total)}</strong>
-              </article>
             </div>
           </section>
 
@@ -434,7 +404,6 @@ export default function Relatorios() {
                     <tr>
                       <th>Posição</th>
                       <th>Produto</th>
-                      <th>Código de barras</th>
                       <th className="reports-products-number">Quantidade vendida</th>
                       <th className="reports-products-number">Faturamento</th>
                     </tr>
@@ -444,7 +413,6 @@ export default function Relatorios() {
                       <tr key={product.productId}>
                         <td>{index + 1}</td>
                         <td className="reports-products-name">{product.name}</td>
-                        <td>{product.barcode}</td>
                         <td className="reports-products-number">{product.quantity}</td>
                         <td className="reports-products-number">{currency.format(product.revenue)}</td>
                       </tr>
@@ -498,39 +466,6 @@ export default function Relatorios() {
                 <strong>{currency.format(stockSummary.estimatedValue)}</strong>
               </article>
             </div>
-
-            {stockProducts.length > 0 ? (
-              <div className="reports-products-table-wrapper reports-stock-table-wrapper">
-                <table className="reports-products-table">
-                  <thead>
-                    <tr>
-                      <th>Produto</th>
-                      <th>Código de barras</th>
-                      <th className="reports-products-number">Preço unitário</th>
-                      <th className="reports-products-number">Estoque atual</th>
-                      <th className="reports-products-number">Valor em estoque</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockProducts.map(({ product }) => (
-                      <tr key={product.id}>
-                        <td className="reports-products-name">{product.name}</td>
-                        <td>{product.barcode}</td>
-                        <td className="reports-products-number">{currency.format(product.price)}</td>
-                        <td className="reports-products-number">{product.stock}</td>
-                        <td className="reports-products-number">{currency.format(product.price * product.stock)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="reports-empty-state" aria-live="polite">
-                <Package size={28} aria-hidden="true" />
-                <h2>Nenhum produto cadastrado</h2>
-                <p>Não existem produtos cadastrados no catálogo.</p>
-              </div>
-            )}
           </section>
         </section>
       </main>
