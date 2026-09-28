@@ -8,9 +8,11 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Menu,
   Package,
   Settings,
   ShoppingCart,
+  X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -109,6 +111,7 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
 export default function Relatorios() {
   const navigate = useNavigate()
   const isOwner = isOwnerAuthenticated()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const sales = getSales()
   const activeBakeries = getBakeries().filter((bakery) => bakery.active)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -201,8 +204,12 @@ export default function Relatorios() {
     navigate('/login', { replace: true })
   }
 
+  function closeMobileMenu() {
+    setIsMobileMenuOpen(false)
+  }
+
   return (
-    <div className="dashboard-layout flex min-h-screen">
+    <div className="dashboard-layout reports-layout flex min-h-screen">
       <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
         <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
           <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
@@ -257,9 +264,87 @@ export default function Relatorios() {
         </div>
       </aside>
 
+      <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
+
+      <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
+        <div className="mobile-drawer-header">
+          <div className="sidebar-logo">
+            <div className="logo-icon">
+              <ShoppingCart size={22} />
+            </div>
+            <div>
+              <strong>Padaria PDV</strong>
+              <span>Sistema de vendas</span>
+            </div>
+          </div>
+          <button type="button" className="mobile-close-button" onClick={closeMobileMenu} aria-label="Fechar menu">
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav className="mobile-drawer-menu">
+          {isOwner && <a href="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
+            <LayoutDashboard size={19} />
+            <span>Dashboard</span>
+          </a>}
+          {!isOwner && <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+            <ShoppingCart size={19} />
+            <span>Caixa</span>
+          </a>}
+          {!isOwner && <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+            <Calculator size={19} />
+            <span>Fechamento</span>
+          </a>}
+          {!isOwner && <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+            <Package size={19} />
+            <span>Produtos</span>
+          </a>}
+          {isOwner && <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
+            <History size={19} />
+            <span>Histórico de Vendas</span>
+          </a>}
+          {isOwner && <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
+            <History size={19} />
+            <span>Histórico de Fechamentos</span>
+          </a>}
+          {isOwner && <a href="/relatorios" className="sidebar-link active" onClick={closeMobileMenu}>
+            <BarChart3 size={19} />
+            <span>Relatórios</span>
+          </a>}
+        </nav>
+
+        <div className="mobile-drawer-bottom">
+          {isOwner && <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+            <Settings size={19} />
+            <span>Configurações</span>
+          </a>}
+          <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
+            <LogOut size={19} />
+            <span>Sair</span>
+          </button>
+        </div>
+      </aside>
+
       <main className="dashboard-main ml-64 min-h-screen flex-1">
         <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-          <div>
+          <div className="mobile-topbar">
+            <div className="mobile-header-brand" aria-label="Padaria PDV">
+              <div className="logo-icon">
+                <ShoppingCart size={17} />
+              </div>
+              <span>Padaria PDV</span>
+            </div>
+            <button
+              type="button"
+              className="mobile-menu-button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Abrir menu"
+              aria-expanded={isMobileMenuOpen}
+            >
+              <Menu size={23} />
+            </button>
+          </div>
+          <div className="mobile-page-heading">
             <span className="header-overline">ANÁLISE OPERACIONAL</span>
             <h1>Relatórios</h1>
             <p>Consulte os relatórios da operação da sua padaria.</p>
@@ -405,10 +490,10 @@ export default function Relatorios() {
                   <tbody>
                     {soldProducts.slice(0, 5).map((product, index) => (
                       <tr key={product.productId}>
-                        <td>{index + 1}</td>
-                        <td className="reports-products-name">{product.name}</td>
-                        <td className="reports-products-number">{product.quantity}</td>
-                        <td className="reports-products-number">{currency.format(product.revenue)}</td>
+                        <td data-label="Posição">{index + 1}</td>
+                        <td className="reports-products-name" data-label="Produto">{product.name}</td>
+                        <td className="reports-products-number" data-label="Quantidade vendida">{product.quantity}</td>
+                        <td className="reports-products-number" data-label="Faturamento">{currency.format(product.revenue)}</td>
                       </tr>
                     ))}
                   </tbody>

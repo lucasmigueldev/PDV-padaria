@@ -340,42 +340,154 @@
 
 @media (max-width: 900px) {
   .reports-date-fields {
-    align-items: stretch;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .reports-date-field,
+  .reports-unit-field {
+    min-width: 0;
   }
 
   .reports-filter-actions {
-    align-items: flex-end;
+    grid-column: 1 / -1;
+    align-items: center;
+  }
+
+  .reports-unit-field select,
+  .reports-date-field input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .reports-date-fields {
+    align-items: end;
   }
 
   .reports-indicators-grid,
   .reports-payment-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .reports-products-table-wrapper {
+    overflow: visible;
+  }
+
+  .reports-products-table,
+  .reports-products-table tbody,
+  .reports-products-table tr,
+  .reports-products-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .reports-products-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .reports-products-table thead {
+    display: none;
+  }
+
+  .reports-products-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+
+  .reports-products-table td,
+  .reports-products-table .reports-products-number {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .reports-products-table td::before {
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .reports-products-table tbody tr:hover {
+    background: #ffffff;
+  }
 }
 
-@media (max-width: 650px) {
+@media (max-width: 767px) {
+  .reports-layout {
+    overflow-x: hidden;
+  }
+
+  .reports-content {
+    width: 100%;
+    min-width: 0;
+    padding: 24px 16px 32px;
+  }
+
   .reports-section {
-    padding: 22px;
+    min-width: 0;
+    padding: 20px;
+  }
+
+  .reports-section-heading {
+    gap: 12px;
+  }
+
+  .reports-section-heading h2 {
+    font-size: 19px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .reports-section-heading p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .reports-section-heading-compact {
+    margin-bottom: 18px;
   }
 
   .reports-date-fields,
   .reports-filter-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
   }
 
-  .reports-date-field {
-    min-width: 0;
+  .reports-date-fields {
+    margin-top: 20px;
   }
 
+  .reports-date-field,
   .reports-unit-field {
+    width: 100%;
     min-width: 0;
+  }
+
+  .reports-unit-field select,
+  .reports-date-field input {
+    width: 100%;
+    min-height: 46px;
+    box-sizing: border-box;
   }
 
   .reports-primary-button,
   .reports-secondary-button {
     width: 100%;
+    min-height: 46px;
   }
 
   .reports-indicators-grid,
@@ -383,9 +495,71 @@
     grid-template-columns: 1fr;
   }
 
+  .reports-indicator-card,
+  .reports-payment-card {
+    min-width: 0;
+    padding: 18px;
+  }
+
+  .reports-stock-indicators-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    gap: 12px;
+  }
+
+  .reports-stock-indicators-grid .reports-indicator-card {
+    padding: 16px;
+  }
+
+  .reports-stock-indicators-grid .reports-indicator-card strong {
+    font-size: 18px;
+  }
+
   .reports-payment-values div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .reports-payment-values span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .reports-layout .header-user {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .reports-layout .user-avatar {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .reports-layout .mobile-close-button {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-drawer .sidebar-link {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 375px) {
+  .reports-section {
+    padding: 18px;
+  }
+
+  .reports-stock-indicators-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-products-table tr {
+    gap: 10px;
+    padding: 12px;
   }
 }
