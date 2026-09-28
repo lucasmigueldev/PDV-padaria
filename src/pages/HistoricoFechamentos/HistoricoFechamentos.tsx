@@ -4,6 +4,7 @@ import {
     History,
     LayoutDashboard,
     LogOut,
+    Menu,
     Package,
     Settings,
     ShoppingCart,
@@ -99,6 +100,7 @@ export default function HistoricoFechamentos() {
     const [endDate, setEndDate] = useState('')
     const [bakeryFilter, setBakeryFilter] = useState('all')
     const [selectedClosure, setSelectedClosure] = useState<CashClosure | null>(null)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const today = new Date()
     const currentYear = today.getFullYear()
@@ -143,6 +145,10 @@ export default function HistoricoFechamentos() {
 
     function closeDetails() {
         setSelectedClosure(null)
+    }
+
+    function closeMobileMenu() {
+        setIsMobileMenuOpen(false)
     }
 
     useEffect(() => {
@@ -214,9 +220,87 @@ export default function HistoricoFechamentos() {
                 </div>
             </aside>
 
+            <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
+
+            <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
+                <div className="mobile-drawer-header">
+                    <div className="sidebar-logo">
+                        <div className="logo-icon">
+                            <ShoppingCart size={22} />
+                        </div>
+                        <div>
+                            <strong>Padaria PDV</strong>
+                            <span>Sistema de vendas</span>
+                        </div>
+                    </div>
+                    <button type="button" className="mobile-close-button" onClick={closeMobileMenu} aria-label="Fechar menu">
+                        <X size={22} />
+                    </button>
+                </div>
+
+                <nav className="mobile-drawer-menu">
+                    {isOwner && <a href="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
+                        <LayoutDashboard size={19} />
+                        <span>Dashboard</span>
+                    </a>}
+                    {!isOwner && <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+                        <ShoppingCart size={19} />
+                        <span>Caixa</span>
+                    </a>}
+                    {!isOwner && <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Calculator size={19} />
+                        <span>Fechamento</span>
+                    </a>}
+                    {!isOwner && <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Package size={19} />
+                        <span>Produtos</span>
+                    </a>}
+                    {isOwner && <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
+                        <History size={19} />
+                        <span>Histórico de Vendas</span>
+                    </a>}
+                    {isOwner && <a href="/historico-fechamentos" className="sidebar-link active" onClick={closeMobileMenu}>
+                        <History size={19} />
+                        <span>Histórico de Fechamentos</span>
+                    </a>}
+                    {isOwner && <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
+                        <BarChart3 size={19} />
+                        <span>Relatórios</span>
+                    </a>}
+                </nav>
+
+                <div className="mobile-drawer-bottom">
+                    {isOwner && <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+                        <Settings size={19} />
+                        <span>Configurações</span>
+                    </a>}
+                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
+                        <LogOut size={19} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+
             <main className="dashboard-main ml-64 min-h-screen flex-1">
                 <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-                    <div>
+                    <div className="mobile-topbar">
+                        <div className="mobile-header-brand" aria-label="Padaria PDV">
+                            <div className="logo-icon">
+                                <ShoppingCart size={17} />
+                            </div>
+                            <span>Padaria PDV</span>
+                        </div>
+                        <button
+                            type="button"
+                            className="mobile-menu-button"
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            aria-label="Abrir menu"
+                            aria-expanded={isMobileMenuOpen}
+                        >
+                            <Menu size={23} />
+                        </button>
+                    </div>
+                    <div className="mobile-page-heading">
                         <span className="header-overline">OPERAÇÃO DE CAIXA</span>
                         <h1>Histórico de Fechamentos</h1>
                         <p>Consulte as sessões de caixa já encerradas.</p>

@@ -515,6 +515,11 @@
         gap: 16px;
     }
 
+    .fechamento-history-card-header,
+    .fechamento-history-grid {
+        min-width: 0;
+    }
+
     .fechamento-history-closed-time {
         text-align: left;
     }
@@ -547,6 +552,25 @@
         padding: 20px;
     }
 
+    .fechamento-details-overlay {
+        align-items: flex-start;
+        padding: 12px;
+    }
+
+    .fechamento-details-modal {
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+        border-radius: 14px;
+    }
+
+    .fechamento-details-header {
+        gap: 12px;
+    }
+
+    .fechamento-details-header h2 {
+        font-size: 20px;
+    }
+
     .fechamento-details-status,
     .fechamento-details-grid {
         grid-template-columns: 1fr;
@@ -555,5 +579,37 @@
     .fechamento-details-status {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .fechamento-history-pagination {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .fechamento-history-pagination span {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        text-align: center;
+    }
+
+    .fechamento-history-pagination button {
+        min-width: 0;
+        min-height: 44px;
+        padding: 9px 8px;
+    }
+}
+
+@media (max-width: 360px) {
+    .fechamento-details-header,
+    .fechamento-details-body,
+    .fechamento-details-footer {
+        padding: 16px;
+    }
+
+    .fechamento-details-overline {
+        font-size: 10px;
+        letter-spacing: 0.08em;
     }
 }
