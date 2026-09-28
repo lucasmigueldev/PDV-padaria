@@ -32,6 +32,8 @@ const timeFormatter = new Intl.DateTimeFormat('pt-BR', {
     timeStyle: 'short',
 })
 
+const CLOSURES_PER_PAGE = 10
+
 function formatDate(date: string): string {
     return dateFormatter.format(new Date(date))
 }
@@ -126,6 +128,12 @@ export default function HistoricoFechamentos() {
         const matchesEndDate = !endDate || !!endDateError || closureTimestamp <= (endTimestamp ?? 0)
         return matchesBakery && !hasInvalidDateRange && matchesStartDate && matchesEndDate
     })
+    const [currentPage, setCurrentPage] = useState(1)
+    const totalPages = Math.ceil(filteredClosures.length / CLOSURES_PER_PAGE)
+    const paginatedClosures = filteredClosures.slice(
+        (currentPage - 1) * CLOSURES_PER_PAGE,
+        currentPage * CLOSURES_PER_PAGE,
+    )
 
     function handleLogout() {
         sessionStorage.removeItem('isAuthenticated')
@@ -229,7 +237,10 @@ export default function HistoricoFechamentos() {
                             <select
                                 id="fechamento-history-bakery-filter"
                                 value={bakeryFilter}
-                                onChange={(event) => setBakeryFilter(event.target.value)}
+                                onChange={(event) => {
+                                    setBakeryFilter(event.target.value)
+                                    setCurrentPage(1)
+                                }}
                             >
                                 <option value="all">Todas as unidades</option>
                                 {activeBakeries.map((bakery) => (
@@ -247,7 +258,10 @@ export default function HistoricoFechamentos() {
                                 max={todayInputValue}
                                 aria-invalid={Boolean(startDateError)}
                                 aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
-                                onChange={(event) => setStartDate(event.target.value)}
+                                onChange={(event) => {
+                                    setStartDate(event.target.value)
+                                    setCurrentPage(1)
+                                }}
                             />
                         </div>
                         <div className="fechamento-history-date-field">
@@ -260,7 +274,10 @@ export default function HistoricoFechamentos() {
                                 max={todayInputValue}
                                 aria-invalid={Boolean(endDateError)}
                                 aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
-                                onChange={(event) => setEndDate(event.target.value)}
+                                onChange={(event) => {
+                                    setEndDate(event.target.value)
+                                    setCurrentPage(1)
+                                }}
                             />
                         </div>
                         <button
@@ -269,6 +286,7 @@ export default function HistoricoFechamentos() {
                             onClick={() => {
                                 setStartDate('')
                                 setEndDate('')
+                                setCurrentPage(1)
                             }}
                             disabled={!startDate && !endDate}
                         >
@@ -279,6 +297,12 @@ export default function HistoricoFechamentos() {
                                 {dateError}
                             </p>
                         )}
+                    </div>
+                    <div className="fechamento-history-results-heading">
+                        <div>
+                            <h2>Fechamentos registrados</h2>
+                            <p>{filteredClosures.length} fechamento(s) encontrado(s)</p>
+                        </div>
                     </div>
                     {closures.length === 0 ? (
                         <section className="fechamento-history-empty">
@@ -294,7 +318,7 @@ export default function HistoricoFechamentos() {
                         </section>
                     ) : (
                         <section className="fechamento-history-list" aria-label="Lista de caixas fechados">
-                            {filteredClosures.map((closure) => (
+                            {paginatedClosures.map((closure) => (
                                 <article
                                     className="fechamento-history-card"
                                     key={closure.id}
@@ -347,6 +371,25 @@ export default function HistoricoFechamentos() {
                                 </article>
                             ))}
                         </section>
+                    )}
+                    {filteredClosures.length > 0 && (
+                        <div className="fechamento-history-pagination">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                                disabled={currentPage === 1}
+                            >
+                                Anterior
+                            </button>
+                            <span>Página {currentPage} de {totalPages}</span>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Próxima
+                            </button>
+                        </div>
                     )}
                 </section>
             </main>
