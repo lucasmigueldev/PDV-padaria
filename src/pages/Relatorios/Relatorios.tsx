@@ -153,7 +153,6 @@ export default function Relatorios() {
   })
   const totalSales = filteredSales.length
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
-  const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0
   const paymentSummary = {
     cash: getPaymentSummary(filteredSales, 'cash'),
     pix: getPaymentSummary(filteredSales, 'pix'),
@@ -355,11 +354,6 @@ export default function Relatorios() {
                 <span>Faturamento total</span>
                 <strong>{currency.format(totalRevenue)}</strong>
               </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><ShoppingCart size={19} aria-hidden="true" /></div>
-                <span>Ticket médio</span>
-                <strong>{currency.format(averageTicket)}</strong>
-              </article>
             </div>
           </section>
 
@@ -409,7 +403,7 @@ export default function Relatorios() {
                     </tr>
                   </thead>
                   <tbody>
-                    {soldProducts.map((product, index) => (
+                    {soldProducts.slice(0, 5).map((product, index) => (
                       <tr key={product.productId}>
                         <td>{index + 1}</td>
                         <td className="reports-products-name">{product.name}</td>
