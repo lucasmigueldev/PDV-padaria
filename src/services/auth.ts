@@ -63,6 +63,13 @@ export async function getCurrentSession(): Promise<Session | null> {
     return data.session
 }
 
+export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
+    const session = await getCurrentSession()
+    if (!session) return null
+
+    return getUserProfile(session.user.id)
+}
+
 export function onAuthStateChange(
     callback: (event: AuthChangeEvent, session: Session | null) => void,
 ) {
