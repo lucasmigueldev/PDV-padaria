@@ -24,7 +24,7 @@ import { getBakeries } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { getSales } from '../../data/sales'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import './Dashborad.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -93,9 +93,7 @@ export default function Dashboard() {
     : '-'
 
   function handleLogout() {
-    sessionStorage.removeItem('isAuthenticated')
-    sessionStorage.removeItem('authenticatedUser')
-    navigate('/login', { replace: true })
+    void logoutAndRedirect(navigate)
   }
 
   function closeMobileMenu() {

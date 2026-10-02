@@ -23,7 +23,7 @@ import { getOpenCashRegister } from '../../data/cashRegister'
 import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
 
@@ -118,9 +118,7 @@ export default function Configuracoes() {
   }, [isBakeryModalOpen, isDeletingUser, isSavingBakery, isUserModalOpen, userPendingDeletion])
 
   function handleLogout() {
-    sessionStorage.removeItem('isAuthenticated')
-    sessionStorage.removeItem('authenticatedUser')
-    navigate('/login', { replace: true })
+    void logoutAndRedirect(navigate)
   }
 
   function closeMobileMenu() {

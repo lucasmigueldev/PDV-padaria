@@ -24,7 +24,7 @@ import { decreaseStock, getProductsForBakery } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { getAuthenticatedUser } from '../../utils/auth'
+import { getAuthenticatedUser, logoutAndRedirect } from '../../utils/auth'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -106,9 +106,7 @@ export default function PDV() {
     }, [isCheckoutOpen, paymentMethod])
 
     function handleLogout() {
-        sessionStorage.removeItem('isAuthenticated')
-        sessionStorage.removeItem('authenticatedUser')
-        navigate('/login', { replace: true })
+        void logoutAndRedirect(navigate)
     }
 
     function addProduct(event: FormEvent<HTMLFormElement>) {

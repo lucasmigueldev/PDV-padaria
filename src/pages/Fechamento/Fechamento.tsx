@@ -19,7 +19,7 @@ import { getBakeries } from '../../data/bakeries'
 import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
 import { saveCashClosure } from '../../data/cashClosures'
 import { getSales } from '../../data/sales'
-import { getAuthenticatedUser, isOwnerAuthenticated } from '../../utils/auth'
+import { getAuthenticatedUser, isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import './Fechamento.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -117,9 +117,7 @@ export default function Fechamento() {
         : countedCashInCents - (cashMovement?.expectedAmountInCents ?? 0)
 
     function handleLogout() {
-        sessionStorage.removeItem('isAuthenticated')
-        sessionStorage.removeItem('authenticatedUser')
-        navigate('/login', { replace: true })
+        void logoutAndRedirect(navigate)
     }
 
     function requestOpenCash() {

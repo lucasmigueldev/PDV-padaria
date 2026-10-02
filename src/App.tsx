@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 import Login from './pages/Login/Login'
@@ -11,20 +11,33 @@ import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
-import { getAuthenticatedUser } from './utils/auth'
+import {
+  clearAuthenticatedUser,
+  setAuthenticatedUser,
+} from './utils/auth'
+import {
+  getUserProfile,
+  onAuthStateChange,
+  signOut,
+  type AuthenticatedUser,
+} from './services/auth'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true'
+function ProtectedRoute({ children, authenticatedUser, isLoading }: {
+  children: React.ReactNode
+  authenticatedUser: AuthenticatedUser | null
+  isLoading: boolean
+}) {
+  if (isLoading) return null
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />
+  return authenticatedUser ? children : <Navigate to="/login" replace />
 }
 
-function RoleRoute({ allowedRole, redirectTo, children }: {
+function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
   allowedRole: 'owner' | 'cashier'
   redirectTo: string
   children: React.ReactNode
+  authenticatedUser: AuthenticatedUser | null
 }) {
-  const authenticatedUser = getAuthenticatedUser()
   const navigate = useNavigate()
   const hasCashierAccess = authenticatedUser?.role === 'cashier'
 
@@ -57,6 +70,51 @@ function RoleRoute({ allowedRole, redirectTo, children }: {
 
 
 function App() {
+  const [authenticatedUser, setAuthenticatedUserState] = useState<AuthenticatedUser | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState(true)
+
+  useEffect(() => {
+    let isActive = true
+    let authEventVersion = 0
+    const subscription = onAuthStateChange((_event, session) => {
+      const eventVersion = ++authEventVersion
+
+      if (!session) {
+        clearAuthenticatedUser()
+        setAuthenticatedUserState(null)
+        setIsAuthLoading(false)
+        return
+      }
+
+      setIsAuthLoading(true)
+      window.setTimeout(() => {
+        void getUserProfile(session.user.id).then((user) => {
+          if (!isActive || eventVersion !== authEventVersion) return
+          setAuthenticatedUser(user)
+          setAuthenticatedUserState(user)
+          setIsAuthLoading(false)
+        }).catch(async (error: unknown) => {
+          console.error('Não foi possível carregar o perfil do usuário.', error)
+          if (!isActive || eventVersion !== authEventVersion) return
+
+          clearAuthenticatedUser()
+          setAuthenticatedUserState(null)
+          setIsAuthLoading(false)
+          try {
+            await signOut()
+          } catch (signOutError) {
+            console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
+          }
+        })
+      }, 0)
+    })
+
+    return () => {
+      isActive = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
@@ -71,8 +129,8 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <Dashboard />
               </RoleRoute>
             </ProtectedRoute>
@@ -83,8 +141,8 @@ function App() {
         <Route
           path="/pdv"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
                 <PDV />
               </RoleRoute>
             </ProtectedRoute>
@@ -95,8 +153,8 @@ function App() {
         <Route
           path="/produtos"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
                 <Produtos />
               </RoleRoute>
             </ProtectedRoute>
@@ -107,8 +165,8 @@ function App() {
         <Route
           path="/historico-vendas"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <HistoricoVendas />
               </RoleRoute>
             </ProtectedRoute>
@@ -119,8 +177,8 @@ function App() {
         <Route
           path="/fechamento"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="cashier" redirectTo="/dashboard">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
                 <Fechamento />
               </RoleRoute>
             </ProtectedRoute>
@@ -131,8 +189,8 @@ function App() {
         <Route
           path="/historico-fechamentos"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <HistoricoFechamentos />
               </RoleRoute>
             </ProtectedRoute>
@@ -143,8 +201,8 @@ function App() {
         <Route
           path="/relatorios"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <Relatorios />
               </RoleRoute>
             </ProtectedRoute>
@@ -155,8 +213,8 @@ function App() {
         <Route
           path="/configuracoes"
           element={
-            <ProtectedRoute>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv">
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <Configuracoes />
               </RoleRoute>
             </ProtectedRoute>

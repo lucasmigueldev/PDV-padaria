@@ -21,8 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import { getBakeries } from '../../data/bakeries'
 import { addProduct, deleteProduct, getProductsForBakery, normalizeBarcode, updateProduct } from '../../data/products'
 import type { Product, ProductWithStock } from '../../types/Product'
-import { getAuthenticatedUser } from '../../utils/auth'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { getAuthenticatedUser, isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -100,9 +99,7 @@ export default function Produtos() {
     }, [productList, search])
 
     function handleLogout() {
-        sessionStorage.removeItem('isAuthenticated')
-        sessionStorage.removeItem('authenticatedUser')
-        navigate('/login', { replace: true })
+        void logoutAndRedirect(navigate)
     }
 
     function openNewProduct() {

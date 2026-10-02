@@ -1,63 +1,68 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
-import { getUsers } from '../../data/users'
-import type { User } from '../../types/User'
-import { AUTHENTICATED_USER_STORAGE_KEY } from '../../utils/auth'
+import {
+  getAuthenticatedUser,
+  signInWithEmailPassword,
+  signOut,
+  UserProfileNotFoundError,
+} from '../../services/auth'
+import { clearAuthenticatedUser, setAuthenticatedUser } from '../../utils/auth'
 import './Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const isFormReady = username.trim().length > 0 && password.length > 0
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
+  const isFormReady = email.trim().length > 0 && password.length > 0
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isSubmittingRef.current) return
 
-    const normalizedUsername = username.trim().toLocaleLowerCase()
-    const users = getUsers()
-    const authenticatedUser = normalizedUsername === 'adm'
-      ? users.find((user) => user.id === 'admin')
-      : users.find((user) => user.email.trim().toLocaleLowerCase() === normalizedUsername)
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
+    setErrorMessage('')
 
-    if (authenticatedUser && authenticatedUser.password === password) {
-      if (authenticatedUser.role === 'cashier') {
-        const bakery = authenticatedUser.bakeryId
-          ? getBakeries().find((currentBakery) => currentBakery.id === authenticatedUser.bakeryId)
-          : undefined
-
-        if (!bakery) {
-          setErrorMessage('A unidade vinculada a este usuário não foi encontrada.')
-          return
-        }
-
-        if (!bakery.active) {
-          setErrorMessage('A unidade vinculada a este usuário está inativa.')
-          return
-        }
+    try {
+      try {
+        await signInWithEmailPassword(email.trim().toLowerCase(), password)
+      } catch (error) {
+        console.error('Falha na autenticação pelo Supabase.', error)
+        const authError = error as { code?: string }
+        setErrorMessage(authError.code === 'invalid_credentials'
+          ? 'Email ou senha inválidos.'
+          : 'Não foi possível realizar o login. Tente novamente.')
+        return
       }
 
-      const sessionUser: Omit<User, 'password'> = {
-        id: authenticatedUser.id,
-        name: authenticatedUser.name,
-        email: authenticatedUser.email,
-        role: authenticatedUser.role,
-        bakeryId: authenticatedUser.bakeryId,
-      }
+      try {
+        const authenticatedUser = await getAuthenticatedUser()
+        if (!authenticatedUser) throw new UserProfileNotFoundError()
 
-      setErrorMessage('Login realizado com sucesso.')
-      sessionStorage.setItem('isAuthenticated', 'true')
-      sessionStorage.setItem(AUTHENTICATED_USER_STORAGE_KEY, JSON.stringify(sessionUser))
-      navigate(authenticatedUser.role === 'owner' ? '/dashboard' : '/pdv', { replace: true })
-      return
+        setAuthenticatedUser(authenticatedUser)
+        navigate(authenticatedUser.role === 'owner' ? '/dashboard' : '/pdv', { replace: true })
+      } catch (error) {
+        console.error('Não foi possível carregar o perfil do usuário.', error)
+        try {
+          await signOut()
+        } catch (signOutError) {
+          console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
+        }
+        clearAuthenticatedUser()
+        setErrorMessage(error instanceof UserProfileNotFoundError
+          ? 'Usuário autenticado, mas sem perfil configurado no sistema.'
+          : 'Não foi possível carregar o perfil do usuário.')
+      }
+    } finally {
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
     }
-
-    setErrorMessage('Usuário ou senha inválidos.')
   }
 
   return (
@@ -76,21 +81,21 @@ const Login = () => {
 
           {/* Usuário */}
           <div className="form-group">
-            <label htmlFor="username">Usuário</label>
+            <label htmlFor="email">Email</label>
 
             <div className="input-wrapper">
               <Mail className="input-icon" size={18} />
 
               <input
-                id="username"
-                type="text"
-                value={username}
+                id="email"
+                type="email"
+                value={email}
                 onChange={(event) => {
-                  setUsername(event.target.value)
+                  setEmail(event.target.value)
                   setErrorMessage('')
                 }}
-                placeholder="Digite seu usuário"
-                autoComplete="username"
+                placeholder="Digite seu email"
+                autoComplete="email"
                 required
               />
             </div>
@@ -134,10 +139,10 @@ const Login = () => {
           <button
             type="submit"
             className={`login-button ${isFormReady ? 'is-ready' : ''}`}
-            disabled={!isFormReady}
+            disabled={!isFormReady || isSubmitting}
           >
             <LogIn size={17} />
-            Entrar
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </button>
 
           {errorMessage && (

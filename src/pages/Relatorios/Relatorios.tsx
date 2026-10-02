@@ -21,7 +21,7 @@ import { getBakeries } from '../../data/bakeries'
 import { getProductsForBakery, getProductsWithTotalStock } from '../../data/products'
 import { getSales } from '../../data/sales'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './Relatorios.css'
 
@@ -199,9 +199,7 @@ export default function Relatorios() {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('isAuthenticated')
-    sessionStorage.removeItem('authenticatedUser')
-    navigate('/login', { replace: true })
+    void logoutAndRedirect(navigate)
   }
 
   function closeMobileMenu() {

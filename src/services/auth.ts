@@ -5,6 +5,13 @@ import type { User, UserRole } from '../types/User'
 
 export type AuthenticatedUser = Omit<User, 'password'>
 
+export class UserProfileNotFoundError extends Error {
+    constructor() {
+        super('Perfil do usuário não encontrado.')
+        this.name = 'UserProfileNotFoundError'
+    }
+}
+
 type UserProfileRecord = {
     id: string
     name: string
@@ -23,7 +30,7 @@ export function mapUserProfile(profile: UserProfileRecord): AuthenticatedUser {
         name: profile.name,
         email: profile.email,
         role: profile.role as UserRole,
-        bakeryId: profile.bakery_id,
+        bakeryId: profile.role === 'owner' ? null : profile.bakery_id,
     }
 }
 
@@ -35,7 +42,7 @@ export async function getUserProfile(userId: string): Promise<AuthenticatedUser>
         .maybeSingle()
 
     if (error) throw error
-    if (!data) throw new Error('Perfil do usuário não encontrado.')
+    if (!data) throw new UserProfileNotFoundError()
 
     return mapUserProfile(data as UserProfileRecord)
 }

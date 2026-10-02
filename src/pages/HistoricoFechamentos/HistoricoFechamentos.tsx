@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom'
 import { getBakeries } from '../../data/bakeries'
 import { getCashClosures } from '../../data/cashClosures'
 import type { CashClosure } from '../../types/CashClosure'
-import { isOwnerAuthenticated } from '../../utils/auth'
+import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
 import '../Dashboard/Dashborad.css'
 import './HistoricoFechamentos.css'
 
@@ -138,9 +138,7 @@ export default function HistoricoFechamentos() {
     )
 
     function handleLogout() {
-        sessionStorage.removeItem('isAuthenticated')
-        sessionStorage.removeItem('authenticatedUser')
-        navigate('/login', { replace: true })
+        void logoutAndRedirect(navigate)
     }
 
     function closeDetails() {
