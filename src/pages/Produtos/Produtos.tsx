@@ -18,10 +18,12 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { addProduct, deleteProduct, getProductsForBakery, normalizeBarcode, updateProduct } from '../../data/products'
 import type { Product, ProductWithStock } from '../../types/Product'
-import { getAuthenticatedUser, isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -57,13 +59,15 @@ function parsePrice(value: string): number {
 
 export default function Produtos() {
     const navigate = useNavigate()
-    const isOwner = isOwnerAuthenticated()
-    const authenticatedUser = getAuthenticatedUser()
+    const { authenticatedUser } = useAuth()
+    const isOwner = authenticatedUser?.role === 'owner'
+    const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
-        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : null
-    const [productList, setProductList] = useState<ProductWithStock[]>(() => bakeryId ? getProductsForBakery(bakeryId) : [])
+    const [productList, setProductList] = useState<ProductWithStock[]>([])
     const [search, setSearch] = useState('')
     const [form, setForm] = useState<ProductForm>(emptyForm)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -71,6 +75,17 @@ export default function Produtos() {
     const [formError, setFormError] = useState('')
     const [productPendingDeletion, setProductPendingDeletion] = useState<Product | null>(null)
     const confirmDeletionButtonRef = useRef<HTMLButtonElement>(null)
+
+    useEffect(() => {
+        let isActive = true
+        void Promise.resolve().then(() => {
+            if (isActive && localBakeryId) setProductList(getProductsForBakery(localBakeryId))
+        })
+
+        return () => {
+            isActive = false
+        }
+    }, [localBakeryId])
 
     useEffect(() => {
         if (!productPendingDeletion) return
@@ -159,7 +174,7 @@ export default function Produtos() {
             return
         }
 
-        if (!bakeryId) {
+        if (!localBakeryId) {
             setFormError('Não foi possível identificar a unidade do operador.')
             return
         }
@@ -167,9 +182,9 @@ export default function Produtos() {
         const productData = { name, barcode, price, stock }
         try {
             if (editingId) {
-                updateProduct(editingId, productData, bakeryId)
+                updateProduct(editingId, productData, localBakeryId)
             } else {
-                addProduct(productData, bakeryId)
+                addProduct(productData, localBakeryId)
             }
         } catch (error) {
             if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
@@ -180,7 +195,7 @@ export default function Produtos() {
             setFormError('Não foi possível salvar o produto.')
             return
         }
-        setProductList(getProductsForBakery(bakeryId))
+        setProductList(getProductsForBakery(localBakeryId))
         closeForm()
     }
 
@@ -191,10 +206,10 @@ export default function Produtos() {
     function confirmProductDeletion() {
         if (!productPendingDeletion) return
 
-        if (!bakeryId) return
+        if (!localBakeryId) return
 
         deleteProduct(productPendingDeletion.id)
-        setProductList(getProductsForBakery(bakeryId))
+        setProductList(getProductsForBakery(localBakeryId))
         if (editingId === productPendingDeletion.id) closeForm()
         setProductPendingDeletion(null)
     }
