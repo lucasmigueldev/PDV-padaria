@@ -20,11 +20,13 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { getSales } from '../../data/sales'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Dashborad.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -65,14 +67,17 @@ function getPaymentTotal(sales: Sale[], paymentMethod: PaymentMethod): number {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const isOwner = isOwnerAuthenticated()
+  const { authenticatedUser } = useAuth()
+  const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
-  const activeBakeries = getBakeries().filter((bakery) => bakery.active)
+  const { bakeries } = useBakeries()
+  const activeBakeries = bakeries.filter((bakery) => bakery.active)
+  const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
   const currentDate = new Date()
   const yesterday = new Date(currentDate)
   yesterday.setDate(yesterday.getDate() - 1)
-  const sales = getSales().filter((sale) => bakeryFilter === 'all' || sale.bakeryId === bakeryFilter)
+  const sales = getSales().filter((sale) => localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter)
   const salesToday = sales.filter((sale) => isSameDay(sale.date, currentDate))
   const salesYesterday = sales.filter((sale) => isSameDay(sale.date, yesterday))
   const totalSalesToday = sumSales(salesToday)
@@ -82,7 +87,7 @@ export default function Dashboard() {
   const cashSalesToday = getPaymentTotal(salesToday, 'cash')
   const cardSalesToday = getPaymentTotal(salesToday, 'card')
   const pixSalesToday = getPaymentTotal(salesToday, 'pix')
-  const cashRegister = getOpenCashRegister(bakeryFilter === 'all' ? undefined : bakeryFilter)
+  const cashRegister = getOpenCashRegister(localBakeryFilter === 'all' ? undefined : localBakeryFilter)
   const totalReceived = totalSalesToday
   const cashPercentage = totalReceived > 0 ? cashSalesToday / totalReceived : 0
   const cardPercentage = totalReceived > 0 ? cardSalesToday / totalReceived : 0
