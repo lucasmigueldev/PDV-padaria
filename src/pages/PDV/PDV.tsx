@@ -18,13 +18,15 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { decreaseStock, getProductsForBakery } from '../../data/products'
 import { deleteSale, saveSale } from '../../data/sales'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
 import type { SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { getAuthenticatedUser, logoutAndRedirect } from '../../utils/auth'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -49,10 +51,12 @@ function parseMoneyToCents(value: string): number | null {
 
 export default function PDV() {
     const navigate = useNavigate()
-    const authenticatedUser = getAuthenticatedUser()
+    const { authenticatedUser } = useAuth()
+    const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
-        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const finishButtonRef = useRef<HTMLButtonElement>(null)
@@ -115,7 +119,7 @@ export default function PDV() {
         setSaleFeedback('')
         const normalizedBarcode = barcode.trim()
         const requestedQuantity = Number(productQuantity)
-        const product = bakeryId ? getProductsForBakery(bakeryId).find((item) => item.barcode.trim() === normalizedBarcode) : undefined
+        const product = localBakeryId ? getProductsForBakery(localBakeryId).find((item) => item.barcode.trim() === normalizedBarcode) : undefined
 
         if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity < 1) {
             setErrorMessage('Informe uma quantidade válida.')
@@ -169,7 +173,7 @@ export default function PDV() {
 
     function updateQuantity(id: string, amount: number) {
         const currentItem = items.find((item) => item.id === id)
-        const catalogProduct = bakeryId ? getProductsForBakery(bakeryId).find((product) => product.id === id) : undefined
+        const catalogProduct = localBakeryId ? getProductsForBakery(localBakeryId).find((product) => product.id === id) : undefined
         const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
 
         if (amount > 0 && currentItem && currentItem.quantity >= stock) {
@@ -196,7 +200,7 @@ export default function PDV() {
 
     function openCheckout() {
         if (items.length === 0) return
-        if (!bakeryId || !getOpenCashRegister(bakeryId)) return
+        if (!localBakeryId || !getOpenCashRegister(localBakeryId)) return
 
         setPaymentMethod(null)
         setReceivedValue('')
@@ -219,7 +223,7 @@ export default function PDV() {
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-    const isCashRegisterOpen = bakeryId ? getOpenCashRegister(bakeryId) !== null : false
+    const isCashRegisterOpen = localBakeryId ? getOpenCashRegister(localBakeryId) !== null : false
     const totalInCents = Math.round(total * 100)
     const receivedInCents = parseMoneyToCents(receivedValue)
     const isCashPaymentValid = paymentMethod === 'cash'
@@ -248,13 +252,12 @@ export default function PDV() {
 
         if (paymentMethod === 'cash' && !isCashPaymentValid) return
 
-        if (!bakeryId || !getOpenCashRegister(bakeryId)) {
+        if (!localBakeryId || !getOpenCashRegister(localBakeryId)) {
             closeCheckout()
             setCheckoutMessage('Abra o caixa para finalizar a venda.')
             return
         }
 
-        const authenticatedUser = getAuthenticatedUser()
         if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.bakeryId?.trim()) {
             setCheckoutMessage('Não foi possível identificar a unidade do operador.')
             return
@@ -273,7 +276,7 @@ export default function PDV() {
             })),
             total,
             paymentMethod,
-            bakeryId: authenticatedUser.bakeryId,
+            bakeryId: getLocalBakeryId(authenticatedUser.bakeryId),
             ...(paymentMethod === 'cash' && receivedInCents !== null
                 ? {
                     receivedAmount: receivedInCents / 100,
