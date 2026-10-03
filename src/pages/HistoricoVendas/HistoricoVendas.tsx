@@ -20,10 +20,12 @@ import { useEffect, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { getSales } from '../../data/sales'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './HistoricoVendas.css'
 
@@ -75,7 +77,8 @@ function validateDateInput(value: string, today: Date): string | null {
 
 export default function HistoricoVendas() {
     const navigate = useNavigate()
-    const isOwner = isOwnerAuthenticated()
+    const { authenticatedUser } = useAuth()
+    const isOwner = authenticatedUser?.role === 'owner'
     const sales = getSales()
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
@@ -87,6 +90,7 @@ export default function HistoricoVendas() {
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+    const { bakeries } = useBakeries()
     const today = new Date()
     const currentYear = today.getFullYear()
     const todayInputValue = [
@@ -96,7 +100,7 @@ export default function HistoricoVendas() {
     ].join('-')
     const minimumDate = `${currentYear}-01-01`
     const normalizedSearch = search.trim().toLocaleLowerCase()
-    const activeBakeries = getBakeries().filter((bakery) => bakery.active)
+    const activeBakeries = bakeries.filter((bakery) => bakery.active)
     const startDateError = validateDateInput(startDate, today)
     const endDateError = validateDateInput(endDate, today)
     const startTimestamp = startDate
@@ -107,12 +111,13 @@ export default function HistoricoVendas() {
         : null
     const hasInvalidDateRange = !startDateError && !endDateError &&
         startTimestamp !== null && endTimestamp !== null && startTimestamp > endTimestamp
+    const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
-        const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
+        const matchesBakery = localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter
         const saleTimestamp = new Date(sale.date).getTime()
         const matchesStartDate = !startDate || !!startDateError || saleTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || saleTimestamp <= (endTimestamp ?? 0)
