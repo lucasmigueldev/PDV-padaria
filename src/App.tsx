@@ -11,11 +11,10 @@ import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
+import type { Session } from '@supabase/supabase-js'
+import { AuthContext } from './contexts/AuthContext'
 import {
-  clearAuthenticatedUser,
-  setAuthenticatedUser,
-} from './utils/auth'
-import {
+  getCurrentSession,
   getUserProfile,
   onAuthStateChange,
   signOut,
@@ -76,11 +75,9 @@ function App() {
   useEffect(() => {
     let isActive = true
     let authEventVersion = 0
-    const subscription = onAuthStateChange((_event, session) => {
-      const eventVersion = ++authEventVersion
 
+    function loadProfileForSession(session: Session | null, eventVersion: number) {
       if (!session) {
-        clearAuthenticatedUser()
         setAuthenticatedUserState(null)
         setIsAuthLoading(false)
         return
@@ -88,16 +85,16 @@ function App() {
 
       setIsAuthLoading(true)
       window.setTimeout(() => {
+        if (!isActive || eventVersion !== authEventVersion) return
+
         void getUserProfile(session.user.id).then((user) => {
           if (!isActive || eventVersion !== authEventVersion) return
-          setAuthenticatedUser(user)
           setAuthenticatedUserState(user)
           setIsAuthLoading(false)
         }).catch(async (error: unknown) => {
           console.error('Não foi possível carregar o perfil do usuário.', error)
           if (!isActive || eventVersion !== authEventVersion) return
 
-          clearAuthenticatedUser()
           setAuthenticatedUserState(null)
           setIsAuthLoading(false)
           try {
@@ -107,6 +104,22 @@ function App() {
           }
         })
       }, 0)
+    }
+
+    const subscription = onAuthStateChange((_event, session) => {
+      const eventVersion = ++authEventVersion
+      loadProfileForSession(session, eventVersion)
+    })
+
+    void getCurrentSession().then((session) => {
+      if (!isActive || authEventVersion > 0) return
+      const eventVersion = ++authEventVersion
+      loadProfileForSession(session, eventVersion)
+    }).catch((error: unknown) => {
+      if (!isActive || authEventVersion > 0) return
+      console.error('Não foi possível recuperar a sessão Supabase.', error)
+      setAuthenticatedUserState(null)
+      setIsAuthLoading(false)
     })
 
     return () => {
@@ -116,8 +129,9 @@ function App() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <AuthContext.Provider value={{ authenticatedUser, isAuthLoading }}>
+      <BrowserRouter>
+        <Routes>
        
         {/* Rota principal */}
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -220,8 +234,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </AuthContext.Provider>
   )
 }
 
