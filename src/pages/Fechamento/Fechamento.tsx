@@ -15,11 +15,13 @@ import {
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
 import { saveCashClosure } from '../../data/cashClosures'
 import { getSales } from '../../data/sales'
-import { getAuthenticatedUser, isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Fechamento.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -92,14 +94,16 @@ function formatOpeningDate(openedAt: string): { date: string; time: string } {
 
 export default function Fechamento() {
     const navigate = useNavigate()
-    const isOwner = isOwnerAuthenticated()
-    const authenticatedUser = getAuthenticatedUser()
+    const { authenticatedUser } = useAuth()
+    const isOwner = authenticatedUser?.role === 'owner'
+    const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
-        ? getBakeries().find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
+        ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
     const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => (
-        bakeryId ? getOpenCashRegister(bakeryId) : null
+        localBakeryId ? getOpenCashRegister(localBakeryId) : null
     ))
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
@@ -115,6 +119,17 @@ export default function Fechamento() {
     const differenceInCents = countedCashInCents === null
         ? null
         : countedCashInCents - (cashMovement?.expectedAmountInCents ?? 0)
+
+    useEffect(() => {
+        let isActive = true
+        void Promise.resolve().then(() => {
+            if (isActive) setCashRegister(localBakeryId ? getOpenCashRegister(localBakeryId) : null)
+        })
+
+        return () => {
+            isActive = false
+        }
+    }, [localBakeryId])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -149,9 +164,9 @@ export default function Fechamento() {
 
     function handleOpenCash() {
         const initialAmount = parseMoneyInput(initialAmountInput)
-        if (initialAmount === null || cashRegister || !bakeryId) return
+        if (initialAmount === null || cashRegister || !localBakeryId) return
 
-        setCashRegister(openCashRegister(initialAmount, bakeryId))
+        setCashRegister(openCashRegister(initialAmount, localBakeryId))
         closeOpeningModal()
     }
 
@@ -181,7 +196,7 @@ export default function Fechamento() {
             return
         }
 
-        const currentCashRegister = bakeryId ? getOpenCashRegister(bakeryId) : null
+        const currentCashRegister = localBakeryId ? getOpenCashRegister(localBakeryId) : null
         if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
             setCloseError('O caixa aberto não está mais disponível para fechamento.')
             return
