@@ -66,7 +66,8 @@ const initialBakeryForm: BakeryForm = {
 
 export default function Configuracoes() {
   const navigate = useNavigate()
-  const isOwner = isOwnerAuthenticated()
+  const { authenticatedUser } = useAuth()
+  const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [users, setUsers] = useState(() => getUsers())
   const [userBakeryFilter, setUserBakeryFilter] = useState('all')
