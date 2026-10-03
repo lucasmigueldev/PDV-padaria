@@ -13,10 +13,12 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { getCashClosures } from '../../data/cashClosures'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
 import type { CashClosure } from '../../types/CashClosure'
-import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './HistoricoFechamentos.css'
 
@@ -93,9 +95,11 @@ function validateDateInput(value: string, today: Date): string | null {
 
 export default function HistoricoFechamentos() {
     const navigate = useNavigate()
-    const isOwner = isOwnerAuthenticated()
+    const { authenticatedUser } = useAuth()
+    const isOwner = authenticatedUser?.role === 'owner'
     const closures = [...getCashClosures()].sort(sortByMostRecent)
-    const activeBakeries = getBakeries().filter((bakery) => bakery.active)
+    const { bakeries } = useBakeries()
+    const activeBakeries = bakeries.filter((bakery) => bakery.active)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -123,8 +127,9 @@ export default function HistoricoFechamentos() {
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
+    const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
     const filteredClosures = closures.filter((closure) => {
-        const matchesBakery = bakeryFilter === 'all' || closure.bakeryId === bakeryFilter
+        const matchesBakery = localBakeryFilter === 'all' || closure.bakeryId === localBakeryFilter
         const closureTimestamp = new Date(closure.closedAt).getTime()
         const matchesStartDate = !startDate || !!startDateError || closureTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || closureTimestamp <= (endTimestamp ?? 0)
