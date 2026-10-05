@@ -19,8 +19,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { getOpenCashRegister } from '../../data/cashRegister'
-import { getUsers, removeUser, updateUser } from '../../data/users'
-import { createAdminUser } from '../../services/adminUsers'
+import { removeUser, updateUser } from '../../data/users'
+import { createAdminUser, getAdminUsers } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
@@ -75,7 +75,9 @@ export default function Configuracoes() {
   const { authenticatedUser } = useAuth()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [users, setUsers] = useState(() => getUsers())
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
+  const [usersLoadError, setUsersLoadError] = useState('')
   const [userBakeryFilter, setUserBakeryFilter] = useState('all')
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
   const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
@@ -96,8 +98,27 @@ export default function Configuracoes() {
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
-      || (user.role === 'cashier' && user.bakeryId === getLocalBakeryId(userBakeryFilter))
+      || (user.role === 'cashier' && user.bakeryId === userBakeryFilter)
   ))
+
+  useEffect(() => {
+    let isActive = true
+
+    void getAdminUsers().then((loadedUsers) => {
+      if (!isActive) return
+      setUsers(loadedUsers)
+      setUsersLoadError('')
+    }).catch((error: unknown) => {
+      if (!isActive) return
+      setUsersLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os usuários.')
+    }).finally(() => {
+      if (isActive) setIsLoadingUsers(false)
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [authenticatedUser?.id])
 
   useEffect(() => {
     if (!isUserModalOpen && !userPendingDeletion && !isBakeryModalOpen) return
@@ -576,7 +597,11 @@ export default function Configuracoes() {
               </select>
             </div>
 
-            {filteredUsers.length === 0 ? (
+            {usersLoadError ? (
+              <p className="user-form-error" role="alert">{usersLoadError}</p>
+            ) : isLoadingUsers ? (
+              <div className="users-empty-state">Carregando usuários...</div>
+            ) : filteredUsers.length === 0 ? (
               <div className="users-empty-state">
                 {userBakeryFilter === 'all' ? 'Nenhum usuário cadastrado.' : 'Nenhum usuário cadastrado nesta unidade.'}
               </div>
