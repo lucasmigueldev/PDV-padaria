@@ -1,5 +1,4 @@
 import type { User } from '../types/User'
-import { getBakeries } from './bakeries'
 
 export const USERS_STORAGE_KEY = 'padaria-pdv-users'
 
@@ -34,9 +33,7 @@ function normalizeUserData(user: Omit<User, 'id'>): Omit<User, 'id'> {
         return { ...user, bakeryId: null }
     }
 
-    const bakery = user.bakeryId && getBakeries().find((currentBakery) => currentBakery.id === user.bakeryId)
-
-    if (!bakery || !bakery.active) {
+    if (!user.bakeryId) {
         throw new Error('Selecione uma unidade ativa válida para o operador de caixa.')
     }
 
@@ -110,7 +107,6 @@ export function updateUser(id: string, user: Omit<User, 'id'>): User | undefined
         && user.role === 'cashier'
         && currentUser.bakeryId === user.bakeryId
         && !!user.bakeryId
-        && !getBakeries().some((bakery) => bakery.id === user.bakeryId && bakery.active)
     const normalizedUser = canPreserveInactiveBakery
         ? user
         : normalizeUserData(user)
