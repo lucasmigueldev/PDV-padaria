@@ -1,9 +1,9 @@
 import type { Product, ProductStock, ProductWithStock } from '../types/Product'
 import type { SaleItemSnapshot } from '../types/Sale'
+import { defaultProductStockBakeryId } from '../utils/legacyBakeryIds'
 
 const STORAGE_KEY = 'padaria-pdv-products'
 const STOCK_STORAGE_KEY = 'padaria-pdv-product-stock'
-const LEGACY_STOCK_BAKERY_ID = 'bakery-1'
 
 const defaultProducts: Array<Product & { stock: number }> = [
     {
@@ -52,7 +52,7 @@ function readProducts(): Product[] {
     if (!storedProducts) {
         const catalog = defaultProducts.map(({ id, barcode, name, price }) => ({ id, barcode, name, price }))
         persistProducts(catalog)
-        persistStocks(defaultProducts.map(({ id, stock }) => ({ productId: id, bakeryId: LEGACY_STOCK_BAKERY_ID, quantity: stock })))
+        persistStocks(defaultProducts.map(({ id, stock }) => ({ productId: id, bakeryId: defaultProductStockBakeryId, quantity: stock })))
         return catalog
     }
 
@@ -74,7 +74,7 @@ function readProducts(): Product[] {
         if (!storedStocks) {
             const legacyStocks = parsedProducts
                 .filter((product) => typeof product.stock === 'number')
-                .map((product) => ({ productId: product.id, bakeryId: LEGACY_STOCK_BAKERY_ID, quantity: product.stock ?? 0 }))
+                .map((product) => ({ productId: product.id, bakeryId: defaultProductStockBakeryId, quantity: product.stock ?? 0 }))
             persistStocks(legacyStocks)
         }
 
