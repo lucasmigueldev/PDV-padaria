@@ -44,6 +44,14 @@ function jsonResponse(
     })
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 deno.serve(async (request: Request) => {
     const origin = request.headers.get('Origin')
     const allowedOrigins = getAllowedOrigins()
@@ -116,17 +124,115 @@ deno.serve(async (request: Request) => {
             return jsonResponse({ error: 'Corpo JSON inválido.' }, 400, corsHeaders)
         }
 
-        if (
-            !requestBody
-            || typeof requestBody !== 'object'
-            || Array.isArray(requestBody)
-            || !('action' in requestBody)
-            || requestBody.action !== 'check'
-        ) {
+        if (!isRecord(requestBody) || typeof requestBody.action !== 'string') {
             return jsonResponse({ error: 'Ação inválida.' }, 400, corsHeaders)
         }
 
-        return jsonResponse({ ok: true, role: 'owner' }, 200, corsHeaders)
+        if (requestBody.action === 'check') {
+            return jsonResponse({ ok: true, role: 'owner' }, 200, corsHeaders)
+        }
+
+        if (requestBody.action !== 'create') {
+            return jsonResponse({ error: 'Ação inválida.' }, 400, corsHeaders)
+        }
+
+        const name = typeof requestBody.name === 'string' ? requestBody.name.trim() : ''
+        const email = typeof requestBody.email === 'string' ? requestBody.email.trim().toLowerCase() : ''
+        const password = typeof requestBody.password === 'string' ? requestBody.password : ''
+        const role = requestBody.role
+        const bakeryId = requestBody.bakery_id
+        const cashierBakeryId = typeof bakeryId === 'string' ? bakeryId : null
+
+        if (!name) return jsonResponse({ error: 'Informe o nome do usuário.' }, 400, corsHeaders)
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return jsonResponse({ error: 'Informe um e-mail válido.' }, 400, corsHeaders)
+        }
+        if (!password.trim()) return jsonResponse({ error: 'Informe a senha.' }, 400, corsHeaders)
+        if (role !== 'owner' && role !== 'cashier') {
+            return jsonResponse({ error: 'Perfil de usuário inválido.' }, 400, corsHeaders)
+        }
+        if (role === 'owner' && bakeryId !== null) {
+            return jsonResponse({ error: 'Usuários owner não podem estar associados a uma unidade.' }, 400, corsHeaders)
+        }
+        if (
+            role === 'cashier'
+            && (!cashierBakeryId || !isUuid(cashierBakeryId))
+        ) {
+            return jsonResponse({ error: 'Selecione uma unidade válida.' }, 400, corsHeaders)
+        }
+
+        if (role === 'cashier') {
+            const { data: bakery, error: bakeryError } = await adminClient
+                .from('bakeries')
+                .select('id')
+                .eq('id', cashierBakeryId)
+                .maybeSingle()
+
+            if (bakeryError) {
+                console.error('Falha ao validar a unidade do novo usuário.', bakeryError.code)
+                return jsonResponse({ error: 'Não foi possível validar a unidade.' }, 500, corsHeaders)
+            }
+            if (!bakery) return jsonResponse({ error: 'A unidade selecionada não existe.' }, 400, corsHeaders)
+        }
+
+        const { data: createdAuthUser, error: createAuthError } = await adminClient.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+        })
+
+        if (createAuthError) {
+            if (createAuthError.code === 'email_exists' || createAuthError.code === 'user_already_exists') {
+                return jsonResponse({ error: 'Já existe um usuário com este e-mail.' }, 409, corsHeaders)
+            }
+            console.error('Falha ao criar credenciais para o usuário.', createAuthError.code)
+            return jsonResponse({ error: 'Não foi possível criar as credenciais do usuário.' }, 400, corsHeaders)
+        }
+
+        const authUserId = createdAuthUser.user?.id
+        if (!authUserId) {
+            console.error('Supabase Auth não retornou o ID do novo usuário.')
+            return jsonResponse({ error: 'Não foi possível criar as credenciais do usuário.' }, 500, corsHeaders)
+        }
+
+        const { data: createdProfile, error: createProfileError } = await adminClient
+            .from('users')
+            .insert({
+                id: authUserId,
+                name,
+                email,
+                role,
+                bakery_id: role === 'owner' ? null : cashierBakeryId,
+            })
+            .select('id, name, email, role, bakery_id')
+            .single()
+
+        if (createProfileError || !createdProfile) {
+            let rollbackErrorCode: string | undefined
+            try {
+                const { error: rollbackError } = await adminClient.auth.admin.deleteUser(authUserId)
+                rollbackErrorCode = rollbackError?.code
+            } catch (rollbackError) {
+                rollbackErrorCode = rollbackError instanceof Error ? rollbackError.name : 'UnknownError'
+            }
+            if (rollbackErrorCode) {
+                console.error('Falha ao excluir credenciais após erro na criação do perfil.', rollbackErrorCode)
+                return jsonResponse({ error: 'Não foi possível criar o perfil do usuário e limpar as credenciais.' }, 500, corsHeaders)
+            }
+
+            console.error('Falha ao criar o perfil do novo usuário.', createProfileError?.code)
+            return jsonResponse({ error: 'Não foi possível criar o perfil do usuário.' }, 500, corsHeaders)
+        }
+
+        return jsonResponse({
+            user: {
+                id: createdProfile.id,
+                name: createdProfile.name,
+                email: createdProfile.email,
+                role: createdProfile.role,
+                bakery_id: createdProfile.bakery_id,
+            },
+        }, 201, corsHeaders)
     } catch (error) {
         console.error('Falha interna na Edge Function admin-users.', error instanceof Error ? error.name : 'UnknownError')
         return jsonResponse({ error: 'Erro interno do serviço.' }, 500, corsHeaders)
