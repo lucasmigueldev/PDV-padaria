@@ -17,11 +17,13 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getBakeries } from '../../data/bakeries'
 import { getProductsForBakery, getProductsWithTotalStock } from '../../data/products'
 import { getSales } from '../../data/sales'
+import { useBakeries } from '../../hooks/useBakeries'
+import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { isOwnerAuthenticated, logoutAndRedirect } from '../../utils/auth'
+import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './Relatorios.css'
 
@@ -110,10 +112,12 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
 
 export default function Relatorios() {
   const navigate = useNavigate()
-  const isOwner = isOwnerAuthenticated()
+  const { authenticatedUser } = useAuth()
+  const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const sales = getSales()
-  const activeBakeries = getBakeries().filter((bakery) => bakery.active)
+  const { bakeries } = useBakeries()
+  const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const [bakeryFilter, setBakeryFilter] = useState('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -140,6 +144,7 @@ export default function Relatorios() {
   const dateError = startDateError || endDateError || (hasInvalidDateRange
     ? 'A data inicial não pode ser posterior à data final.'
     : null)
+  const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
   const appliedStartTimestamp = appliedStartDate
     ? new Date(`${appliedStartDate}T00:00:00`).getTime()
     : null
@@ -147,7 +152,7 @@ export default function Relatorios() {
     ? new Date(`${appliedEndDate}T23:59:59.999`).getTime()
     : null
   const filteredSales = sales.filter((sale) => {
-    const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
+    const matchesBakery = localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter
     const saleTimestamp = new Date(sale.date).getTime()
     const matchesStartDate = !appliedStartDate || saleTimestamp >= (appliedStartTimestamp ?? 0)
     const matchesEndDate = !appliedEndDate || saleTimestamp <= (appliedEndTimestamp ?? 0)
@@ -164,7 +169,7 @@ export default function Relatorios() {
   const soldProducts = getSoldProducts(filteredSales)
   const products = bakeryFilter === 'all'
     ? getProductsWithTotalStock()
-    : getProductsForBakery(bakeryFilter)
+    : getProductsForBakery(localBakeryFilter)
   const stockSummary = products.reduce((summary, product) => {
     summary.totalProducts += 1
     summary.totalUnits += product.stock
