@@ -8,7 +8,6 @@ import {
   signOut,
   UserProfileNotFoundError,
 } from '../../services/auth'
-import { clearAuthenticatedUser, setAuthenticatedUser } from '../../utils/auth'
 import './Login.css'
 
 const Login = () => {
@@ -45,7 +44,6 @@ const Login = () => {
         const authenticatedUser = await getAuthenticatedUser()
         if (!authenticatedUser) throw new UserProfileNotFoundError()
 
-        setAuthenticatedUser(authenticatedUser)
         navigate(authenticatedUser.role === 'owner' ? '/dashboard' : '/pdv', { replace: true })
       } catch (error) {
         console.error('Não foi possível carregar o perfil do usuário.', error)
@@ -54,7 +52,6 @@ const Login = () => {
         } catch (signOutError) {
           console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
         }
-        clearAuthenticatedUser()
         setErrorMessage(error instanceof UserProfileNotFoundError
           ? 'Usuário autenticado, mas sem perfil configurado no sistema.'
           : 'Não foi possível carregar o perfil do usuário.')
