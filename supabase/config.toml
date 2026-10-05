@@ -1,0 +1,4 @@
+project_id = "padaria-pdv"
+
+[functions.admin-users]
+verify_jwt = true
