@@ -18,13 +18,15 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { addBakery, getBakeries, updateBakery } from '../../data/bakeries'
 import { getOpenCashRegister } from '../../data/cashRegister'
 import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
+import { addBakery, updateBakery } from '../../services/bakeries'
+import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
 import { logoutAndRedirect } from '../../utils/auth'
+import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
 
@@ -35,7 +37,9 @@ function getRoleLabel(role: User['role']): string {
 function getBakeryLabel(bakeryId: User['bakeryId'], bakeries: Bakery[]): string {
   if (bakeryId === null) return 'Todas as unidades'
 
-  const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
+  const bakery = bakeries.find((currentBakery) => (
+    currentBakery.id === bakeryId || getLocalBakeryId(currentBakery.id) === bakeryId
+  ))
   return bakery?.active ? bakery.name : 'Unidade indisponível'
 }
 
@@ -76,7 +80,7 @@ export default function Configuracoes() {
   const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
-  const [bakeries, setBakeries] = useState(() => getBakeries())
+  const { bakeries, setBakeries, isLoadingBakeries, bakeriesLoadError } = useBakeries()
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
   const [isBakeryModalOpen, setIsBakeryModalOpen] = useState(false)
   const [editingBakery, setEditingBakery] = useState<Bakery | null>(null)
@@ -91,7 +95,7 @@ export default function Configuracoes() {
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
-      || (user.role === 'cashier' && user.bakeryId === userBakeryFilter)
+      || (user.role === 'cashier' && user.bakeryId === getLocalBakeryId(userBakeryFilter))
   ))
 
   useEffect(() => {
@@ -138,8 +142,16 @@ export default function Configuracoes() {
 
   function openEditUserModal(user: User) {
     const activeOptions = bakeries.filter((bakery) => bakery.active)
+    const linkedBakery = user.bakeryId
+      ? bakeries.find((bakery) => (
+        bakery.id === user.bakeryId || getLocalBakeryId(bakery.id) === user.bakeryId
+      ))
+      : undefined
     const currentInactiveBakery = user.bakeryId
-      ? bakeries.find((bakery) => bakery.id === user.bakeryId && !bakery.active)
+      ? bakeries.find((bakery) => (
+        (bakery.id === user.bakeryId || getLocalBakeryId(bakery.id) === user.bakeryId)
+        && !bakery.active
+      ))
       : undefined
     setActiveBakeries(currentInactiveBakery ? [...activeOptions, currentInactiveBakery] : activeOptions)
     setEditingUser(user)
@@ -148,7 +160,7 @@ export default function Configuracoes() {
       email: user.email,
       password: '',
       role: user.role,
-      bakeryId: user.bakeryId ?? '',
+      bakeryId: linkedBakery?.id ?? user.bakeryId ?? '',
     })
     setUserFormError('')
     setUserSuccessMessage('')
@@ -266,17 +278,20 @@ export default function Configuracoes() {
       return
     }
 
-    const currentBakeryId = editingUser?.bakeryId ?? undefined
-    const currentBakery = currentBakeryId
-      ? bakeries.find((bakery) => bakery.id === currentBakeryId)
+    const storedBakeryId = editingUser?.bakeryId ?? undefined
+    const currentBakery = storedBakeryId
+      ? bakeries.find((bakery) => (
+        bakery.id === storedBakeryId || getLocalBakeryId(bakery.id) === storedBakeryId
+      ))
       : undefined
+    const currentBakeryId = currentBakery?.id ?? storedBakeryId
     const isChangingCashierBakery = editingUser?.role === 'cashier'
       && newUserForm.role === 'cashier'
       && !!currentBakeryId
       && currentBakeryId !== newUserForm.bakeryId
       && currentBakery?.active
 
-    if (isChangingCashierBakery && getOpenCashRegister(currentBakeryId)) {
+    if (isChangingCashierBakery && getOpenCashRegister(getLocalBakeryId(currentBakeryId))) {
       setUserFormError('Não é possível alterar a unidade deste usuário enquanto houver um caixa aberto. Feche o caixa primeiro.')
       return
     }
@@ -289,7 +304,7 @@ export default function Configuracoes() {
         email,
         password: editingUser && !password.trim() ? editingUser.password : password,
         role: newUserForm.role,
-        bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+        bakeryId: newUserForm.role === 'owner' ? null : getLocalBakeryId(newUserForm.bakeryId),
       }
       const savedUser = editingUser
         ? updateUser(editingUser.id, userData)
@@ -345,7 +360,7 @@ export default function Configuracoes() {
     if (event.target === event.currentTarget) closeBakeryModal()
   }
 
-  function handleBakerySubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleBakerySubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isSavingBakery) return
 
@@ -366,7 +381,7 @@ export default function Configuracoes() {
       return
     }
 
-    if (editingBakery?.active && !bakeryForm.active && getOpenCashRegister(editingBakery.id)) {
+    if (editingBakery?.active && !bakeryForm.active && getOpenCashRegister(getLocalBakeryId(editingBakery.id))) {
       setBakeryFormError('Não é possível desativar esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
       return
     }
@@ -375,13 +390,8 @@ export default function Configuracoes() {
 
     try {
       const savedBakery = editingBakery
-        ? updateBakery(editingBakery.id, { name, active: bakeryForm.active })
-        : addBakery({ name, active: bakeryForm.active })
-
-      if (!savedBakery) {
-        setBakeryFormError('Não foi possível atualizar a unidade.')
-        return
-      }
+        ? await updateBakery(editingBakery.id, { name, active: bakeryForm.active })
+        : await addBakery({ name, active: bakeryForm.active })
 
       setBakeries((currentBakeries) => editingBakery
         ? currentBakeries.map((bakery) => bakery.id === savedBakery.id ? savedBakery : bakery)
@@ -391,8 +401,8 @@ export default function Configuracoes() {
       setEditingBakery(null)
       setBakeryForm(initialBakeryForm)
       setBakeryFormError('')
-    } catch {
-      setBakeryFormError('Não foi possível salvar a unidade.')
+    } catch (error) {
+      setBakeryFormError(error instanceof Error ? error.message : 'Não foi possível salvar a unidade.')
     } finally {
       setIsSavingBakery(false)
     }
@@ -622,7 +632,11 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            {bakeries.length === 0 ? (
+            {bakeriesLoadError ? (
+              <p className="user-form-error" role="alert">{bakeriesLoadError}</p>
+            ) : isLoadingBakeries ? (
+              <div className="users-empty-state">Carregando unidades...</div>
+            ) : bakeries.length === 0 ? (
               <div className="users-empty-state">Nenhuma unidade cadastrada.</div>
             ) : (
               <div className="users-table-wrapper">
