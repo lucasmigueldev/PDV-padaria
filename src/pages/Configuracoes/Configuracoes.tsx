@@ -19,7 +19,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { getOpenCashRegister } from '../../data/cashRegister'
-import { addUser, getUsers, removeUser, updateUser } from '../../data/users'
+import { getUsers, removeUser, updateUser } from '../../data/users'
+import { createAdminUser } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
@@ -233,7 +234,7 @@ export default function Configuracoes() {
     setUserFormError('')
   }
 
-  function handleUserSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleUserSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (isSavingUser) return
@@ -268,7 +269,7 @@ export default function Configuracoes() {
     }
 
     const normalizedEmail = email.toLocaleLowerCase()
-    const hasDuplicateEmail = users.some((user) => (
+    const hasDuplicateEmail = editingUser && users.some((user) => (
       user.id !== editingUser?.id
       && user.email.trim().toLocaleLowerCase() === normalizedEmail
     ))
@@ -299,20 +300,34 @@ export default function Configuracoes() {
     setIsSavingUser(true)
 
     try {
-      const userData = {
-        name,
-        email,
-        password: editingUser && !password.trim() ? editingUser.password : password,
-        role: newUserForm.role,
-        bakeryId: newUserForm.role === 'owner' ? null : getLocalBakeryId(newUserForm.bakeryId),
-      }
-      const savedUser = editingUser
-        ? updateUser(editingUser.id, userData)
-        : addUser(userData)
-
-      if (!savedUser) {
-        setUserFormError('Não foi possível atualizar o usuário.')
-        return
+      let savedUser: User
+      if (editingUser) {
+        const userData = {
+          name,
+          email,
+          password: password.trim() ? password : editingUser.password,
+          role: newUserForm.role,
+          bakeryId: newUserForm.role === 'owner' ? null : getLocalBakeryId(newUserForm.bakeryId),
+        }
+        const updatedUser = updateUser(editingUser.id, userData)
+        if (!updatedUser) {
+          setUserFormError('Não foi possível atualizar o usuário.')
+          return
+        }
+        savedUser = updatedUser
+      } else {
+        if (!newUserForm.role) {
+          setUserFormError('Selecione um perfil.')
+          return
+        }
+        const createdUser = await createAdminUser({
+          name,
+          email,
+          password,
+          role: newUserForm.role,
+          bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+        })
+        savedUser = { ...createdUser, password: '' }
       }
 
       setUsers((currentUsers) => editingUser
