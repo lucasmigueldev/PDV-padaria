@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { addProduct, deleteProduct, getProductsForBakery, normalizeBarcode, updateProduct } from '../../data/products'
+import { addProduct, deleteProduct, getProductsFromSupabase, normalizeBarcode, updateProduct } from '../../data/products'
 import type { Product, ProductWithStock } from '../../types/Product'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
@@ -68,6 +68,8 @@ export default function Produtos() {
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : null
     const [productList, setProductList] = useState<ProductWithStock[]>([])
+    const [isLoadingProducts, setIsLoadingProducts] = useState(true)
+    const [productsLoadError, setProductsLoadError] = useState('')
     const [search, setSearch] = useState('')
     const [form, setForm] = useState<ProductForm>(emptyForm)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -78,9 +80,23 @@ export default function Produtos() {
 
     useEffect(() => {
         let isActive = true
-        void Promise.resolve().then(() => {
-            if (isActive && localBakeryId) setProductList(getProductsForBakery(localBakeryId))
-        })
+        void (async () => {
+            await Promise.resolve()
+            if (!isActive) return
+
+            setIsLoadingProducts(true)
+            setProductsLoadError('')
+            try {
+                const products = await getProductsFromSupabase(localBakeryId)
+                if (isActive) setProductList(products)
+            } catch (error: unknown) {
+                if (isActive) {
+                    setProductsLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os produtos.')
+                }
+            } finally {
+                if (isActive) setIsLoadingProducts(false)
+            }
+        })()
 
         return () => {
             isActive = false
@@ -182,9 +198,15 @@ export default function Produtos() {
         const productData = { name, barcode, price, stock }
         try {
             if (editingId) {
-                updateProduct(editingId, productData, localBakeryId)
+                const updatedProduct = updateProduct(editingId, productData, localBakeryId)
+                if (updatedProduct) {
+                    setProductList((products) => products.map((product) => (
+                        product.id === editingId ? { ...updatedProduct, stock } : product
+                    )))
+                }
             } else {
-                addProduct(productData, localBakeryId)
+                const newProduct = addProduct(productData, localBakeryId)
+                setProductList((products) => [...products, { ...newProduct, stock }])
             }
         } catch (error) {
             if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
@@ -195,7 +217,6 @@ export default function Produtos() {
             setFormError('Não foi possível salvar o produto.')
             return
         }
-        setProductList(getProductsForBakery(localBakeryId))
         closeForm()
     }
 
@@ -209,7 +230,7 @@ export default function Produtos() {
         if (!localBakeryId) return
 
         deleteProduct(productPendingDeletion.id)
-        setProductList(getProductsForBakery(localBakeryId))
+        setProductList((products) => products.filter((product) => product.id !== productPendingDeletion.id))
         if (editingId === productPendingDeletion.id) closeForm()
         setProductPendingDeletion(null)
     }
@@ -336,10 +357,11 @@ export default function Produtos() {
                             <Package size={21} aria-hidden="true" />
                         </div>
                         <div className="products-table-wrapper">
+                            {productsLoadError && <div className="products-empty-state" role="alert">{productsLoadError}</div>}
                             <table>
                                 <thead><tr><th>Produto</th><th>Código de barras</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
                                 <tbody>
-                                    {filteredProducts.map((product) => (
+                                    {!productsLoadError && filteredProducts.map((product) => (
                                         <tr key={product.id}>
                                             <td className="products-name">{product.name}</td>
                                             <td>{product.barcode}</td>
@@ -353,7 +375,8 @@ export default function Produtos() {
                                     ))}
                                 </tbody>
                             </table>
-                            {filteredProducts.length === 0 && <div className="products-empty-state">Nenhum produto encontrado.</div>}
+                            {!productsLoadError && !isLoadingProducts && filteredProducts.length === 0 && <div className="products-empty-state">Nenhum produto encontrado.</div>}
+                            {isLoadingProducts && <div className="products-empty-state" role="status">Carregando produtos...</div>}
                         </div>
                     </section>
                 </section>
