@@ -1,5 +1,6 @@
 import type { Product, ProductStock, ProductWithStock } from '../types/Product'
 import type { SaleItemSnapshot } from '../types/Sale'
+import { getSupabaseClient } from '../lib/supabaseClient'
 import { defaultProductStockBakeryId } from '../utils/legacyBakeryIds'
 
 const STORAGE_KEY = 'padaria-pdv-products'
@@ -37,6 +38,13 @@ const defaultProducts: Array<Product & { stock: number }> = [
 ]
 
 export const normalizeBarcode = (barcode: string | number): string => String(barcode).trim()
+
+type ProductRecord = {
+    id: string
+    barcode: string
+    name: string
+    price: number
+}
 
 function persistProducts(productList: Product[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(productList))
@@ -102,6 +110,33 @@ function readStocks(): ProductStock[] {
 
 export function getProducts(): Product[] {
     return [...readProducts()]
+}
+
+export async function getProductsFromSupabase(bakeryId: string | null): Promise<ProductWithStock[]> {
+    const { data, error } = await getSupabaseClient()
+        .from('products')
+        .select('id, barcode, name, price')
+        .order('name')
+
+    if (error) {
+        console.error('Erro ao carregar produtos no Supabase.', error)
+
+        if (error.code === '42501') throw new Error('Você não tem permissão para consultar os produtos.')
+        throw new Error('Não foi possível carregar os produtos.')
+    }
+
+    const stocks = readStocks()
+    return (data as ProductRecord[]).map((record) => ({
+        id: record.id,
+        barcode: normalizeBarcode(record.barcode),
+        name: record.name,
+        price: record.price,
+        stock: bakeryId
+            ? stocks.find((stock) => stock.productId === record.id && stock.bakeryId === bakeryId)?.quantity ?? 0
+            : stocks
+                .filter((stock) => stock.productId === record.id)
+                .reduce((total, stock) => total + stock.quantity, 0),
+    }))
 }
 
 export function getProductsForBakery(bakeryId: string): ProductWithStock[] {
