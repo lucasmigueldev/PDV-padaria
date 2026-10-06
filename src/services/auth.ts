@@ -12,6 +12,13 @@ export class UserProfileNotFoundError extends Error {
     }
 }
 
+export class UnavailableBakeryError extends Error {
+    constructor() {
+        super('A unidade vinculada ao seu usuário está indisponível.')
+        this.name = 'UnavailableBakeryError'
+    }
+}
+
 type UserProfileRecord = {
     id: string
     name: string
@@ -34,6 +41,26 @@ export function mapUserProfile(profile: UserProfileRecord): AuthenticatedUser {
     }
 }
 
+export async function isCashierBakeryActive(bakeryId: string): Promise<boolean> {
+    const { data, error } = await getSupabaseClient()
+        .from('bakeries')
+        .select('id')
+        .eq('id', bakeryId)
+        .eq('active', true)
+        .maybeSingle()
+
+    if (error) throw error
+
+    return data !== null
+}
+
+async function ensureOperationalBakeryIsActive(user: AuthenticatedUser): Promise<void> {
+    if (user.role === 'owner') return
+    if (!user.bakeryId || !await isCashierBakeryActive(user.bakeryId)) {
+        throw new UnavailableBakeryError()
+    }
+}
+
 export async function getUserProfile(userId: string): Promise<AuthenticatedUser> {
     const { data, error } = await getSupabaseClient()
         .from('users')
@@ -44,7 +71,9 @@ export async function getUserProfile(userId: string): Promise<AuthenticatedUser>
     if (error) throw error
     if (!data) throw new UserProfileNotFoundError()
 
-    return mapUserProfile(data as UserProfileRecord)
+    const user = mapUserProfile(data as UserProfileRecord)
+    await ensureOperationalBakeryIsActive(user)
+    return user
 }
 
 export async function signInWithEmailPassword(
@@ -61,6 +90,11 @@ export async function signInWithEmailPassword(
 
 export async function signOut(): Promise<void> {
     const { error } = await getSupabaseClient().auth.signOut()
+    if (error) throw error
+}
+
+export async function signOutLocalSession(): Promise<void> {
+    const { error } = await getSupabaseClient().auth.signOut({ scope: 'local' })
     if (error) throw error
 }
 
