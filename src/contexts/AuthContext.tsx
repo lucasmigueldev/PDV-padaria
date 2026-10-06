@@ -5,6 +5,8 @@ import type { AuthenticatedUser } from '../services/auth'
 export type AuthContextValue = {
     authenticatedUser: AuthenticatedUser | null
     isAuthLoading: boolean
+    authMessage: string | null
+    clearAuthMessage: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
