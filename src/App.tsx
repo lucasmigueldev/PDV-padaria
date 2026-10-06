@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 import Login from './pages/Login/Login'
@@ -15,9 +15,11 @@ import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
 import {
   getCurrentSession,
+  isCashierBakeryActive,
   getUserProfile,
   onAuthStateChange,
-  signOut,
+  signOutLocalSession,
+  UnavailableBakeryError,
   type AuthenticatedUser,
 } from './services/auth'
 
@@ -67,10 +69,88 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
   return authenticatedUser?.role === allowedRole ? children : <Navigate to={redirectTo} replace />
 }
 
+function CashierSessionMonitor({ user, onUnavailable }: {
+  user: AuthenticatedUser
+  onUnavailable: (message: string) => void
+}) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user.role !== 'cashier' || !user.bakeryId) return
+    const bakeryId = user.bakeryId
+
+    let isActive = true
+    let isChecking = false
+    let hasEndedSession = false
+
+    async function endSession(message: string) {
+      if (hasEndedSession) return
+
+      hasEndedSession = true
+      onUnavailable(message)
+      navigate('/login', { replace: true })
+
+      try {
+        await signOutLocalSession()
+      } catch (error) {
+        console.error('Não foi possível encerrar a sessão local do operador.', error)
+      }
+    }
+
+    async function verifyBakeryStatus() {
+      if (isChecking || hasEndedSession) return
+      isChecking = true
+
+      try {
+        const isBakeryActive = await isCashierBakeryActive(bakeryId)
+        if (isActive && !isBakeryActive) {
+          await endSession('A unidade vinculada ao seu usuário está indisponível.')
+        }
+      } catch (error) {
+        console.error('Não foi possível verificar a disponibilidade da unidade do operador.', error)
+        if (isActive) {
+          await endSession('Não foi possível confirmar a disponibilidade da sua unidade. Entre novamente.')
+        }
+      } finally {
+        isChecking = false
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void verifyBakeryStatus()
+    }, 10_000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void verifyBakeryStatus()
+    }
+    const handleWindowFocus = () => {
+      void verifyBakeryStatus()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+
+    return () => {
+      isActive = false
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
+    }
+  }, [navigate, onUnavailable, user.bakeryId, user.role])
+
+  return null
+}
+
 
 function App() {
   const [authenticatedUser, setAuthenticatedUserState] = useState<AuthenticatedUser | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [authMessage, setAuthMessage] = useState<string | null>(null)
+  const clearAuthMessage = useCallback(() => setAuthMessage(null), [])
+  const handleCashierUnavailable = useCallback((message: string) => {
+    setAuthenticatedUserState(null)
+    setIsAuthLoading(false)
+    setAuthMessage(message)
+  }, [])
 
   useEffect(() => {
     let isActive = true
@@ -91,14 +171,16 @@ function App() {
           if (!isActive || eventVersion !== authEventVersion) return
           setAuthenticatedUserState(user)
           setIsAuthLoading(false)
+          setAuthMessage(null)
         }).catch(async (error: unknown) => {
           console.error('Não foi possível carregar o perfil do usuário.', error)
           if (!isActive || eventVersion !== authEventVersion) return
 
           setAuthenticatedUserState(null)
           setIsAuthLoading(false)
+          if (error instanceof UnavailableBakeryError) setAuthMessage(error.message)
           try {
-            await signOut()
+            await signOutLocalSession()
           } catch (signOutError) {
             console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
           }
@@ -129,8 +211,14 @@ function App() {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ authenticatedUser, isAuthLoading }}>
+    <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>
       <BrowserRouter>
+        {authenticatedUser?.role === 'cashier' && (
+          <CashierSessionMonitor
+            user={authenticatedUser}
+            onUnavailable={handleCashierUnavailable}
+          />
+        )}
         <Routes>
        
         {/* Rota principal */}
