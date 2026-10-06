@@ -256,9 +256,7 @@ function App() {
           path="/produtos"
           element={
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
-              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
-                <Produtos />
-              </RoleRoute>
+              <Produtos />
             </ProtectedRoute>
           }
         />
