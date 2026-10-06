@@ -2,16 +2,19 @@ import { useRef, useState } from 'react'
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { useAuth } from '../../contexts/AuthContext'
 import {
   getAuthenticatedUser,
   signInWithEmailPassword,
-  signOut,
+  signOutLocalSession,
+  UnavailableBakeryError,
   UserProfileNotFoundError,
 } from '../../services/auth'
 import './Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
+  const { authMessage, clearAuthMessage } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -27,6 +30,7 @@ const Login = () => {
     isSubmittingRef.current = true
     setIsSubmitting(true)
     setErrorMessage('')
+    clearAuthMessage()
 
     try {
       try {
@@ -48,13 +52,15 @@ const Login = () => {
       } catch (error) {
         console.error('Não foi possível carregar o perfil do usuário.', error)
         try {
-          await signOut()
+          await signOutLocalSession()
         } catch (signOutError) {
           console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
         }
-        setErrorMessage(error instanceof UserProfileNotFoundError
-          ? 'Usuário autenticado, mas sem perfil configurado no sistema.'
-          : 'Não foi possível carregar o perfil do usuário.')
+        setErrorMessage(error instanceof UnavailableBakeryError
+          ? error.message
+          : error instanceof UserProfileNotFoundError
+            ? 'Usuário autenticado, mas sem perfil configurado no sistema.'
+            : 'Não foi possível carregar o perfil do usuário.')
       }
     } finally {
       isSubmittingRef.current = false
@@ -142,9 +148,9 @@ const Login = () => {
             {isSubmitting ? 'Entrando...' : 'Entrar'}
           </button>
 
-          {errorMessage && (
+          {(authMessage || errorMessage) && (
             <p className="login-message" role="alert">
-              {errorMessage}
+              {authMessage ?? errorMessage}
             </p>
           )}
 
