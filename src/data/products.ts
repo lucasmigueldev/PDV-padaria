@@ -163,17 +163,52 @@ export function getProductsWithTotalStock(): ProductWithStock[] {
     }))
 }
 
-export function addProduct(product: Omit<ProductWithStock, 'id'>, bakeryId: string): Product {
+function throwProductSaveError(error: { code?: string; message: string }): never {
+    console.error('Erro ao cadastrar produto no Supabase.', error)
+
+    if (error.code === '23505') throw new Error('DUPLICATE_BARCODE')
+    if (error.code === '42501') throw new Error('PRODUCT_PERMISSION_DENIED')
+
+    throw new Error('PRODUCT_SAVE_FAILED')
+}
+
+export async function addProduct(
+    product: Omit<ProductWithStock, 'id'>,
+    bakeryId: string,
+    stockBakeryId: string,
+): Promise<{ product: Product; initialStockSaved: boolean }> {
     const normalizedBarcode = normalizeBarcode(product.barcode)
-    const products = getProducts()
+    const { data, error } = await getSupabaseClient()
+        .from('products')
+        .insert({
+            name: product.name.trim(),
+            barcode: normalizedBarcode,
+            price: product.price,
+            bakery_id: bakeryId,
+        })
+        .select('id, barcode, name, price')
+        .single()
 
-    if (products.some((item) => item.barcode === normalizedBarcode)) throw new Error('DUPLICATE_BARCODE')
+    if (error) throwProductSaveError(error)
 
-    const newProduct = { ...product, barcode: normalizedBarcode, id: crypto.randomUUID() }
-    products.push(newProduct)
-    persistProducts(products)
-    persistStocks([...readStocks(), { productId: newProduct.id, bakeryId, quantity: product.stock }])
-    return newProduct
+    const newProduct = data as ProductRecord
+    let initialStockSaved = true
+    try {
+        updateProductStock(newProduct.id, stockBakeryId, product.stock)
+    } catch (stockError: unknown) {
+        console.error('Produto cadastrado, mas não foi possível salvar o estoque inicial localmente.', stockError)
+        initialStockSaved = false
+    }
+
+    return {
+        product: {
+            id: newProduct.id,
+            barcode: normalizeBarcode(newProduct.barcode),
+            name: newProduct.name,
+            price: newProduct.price,
+        },
+        initialStockSaved,
+    }
 }
 
 export function updateProduct(id: string, product: Omit<ProductWithStock, 'id'>, bakeryId: string): Product | undefined {

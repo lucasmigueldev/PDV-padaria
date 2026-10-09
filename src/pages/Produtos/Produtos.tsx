@@ -75,8 +75,11 @@ export default function Produtos() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [formError, setFormError] = useState('')
+    const [successMessage, setSuccessMessage] = useState('')
+    const [isSavingProduct, setIsSavingProduct] = useState(false)
     const [productPendingDeletion, setProductPendingDeletion] = useState<Product | null>(null)
     const confirmDeletionButtonRef = useRef<HTMLButtonElement>(null)
+    const isSavingProductRef = useRef(false)
 
     useEffect(() => {
         let isActive = true
@@ -134,15 +137,18 @@ export default function Produtos() {
     }
 
     function openNewProduct() {
+        if (isOwner) return
         setEditingId(null)
         setIsFormOpen(true)
         setForm(emptyForm)
         setFormError('')
+        setSuccessMessage('')
     }
 
     function openEditProduct(product: ProductWithStock) {
         setEditingId(product.id)
         setIsFormOpen(true)
+        setSuccessMessage('')
         setForm({
             name: product.name,
             barcode: product.barcode,
@@ -159,8 +165,10 @@ export default function Produtos() {
         setFormError('')
     }
 
-    function saveProduct(event: FormEvent<HTMLFormElement>) {
+    async function saveProduct(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
+        if (isSavingProductRef.current) return
+
         const name = form.name.trim()
         const barcode = normalizeBarcode(form.barcode)
         const price = parsePrice(form.price)
@@ -190,12 +198,20 @@ export default function Produtos() {
             return
         }
 
-        if (!localBakeryId) {
+        if (isOwner) {
+            setFormError('O proprietário pode consultar os produtos, mas não cadastrá-los.')
+            return
+        }
+        if (!bakeryId || !localBakeryId) {
             setFormError('Não foi possível identificar a unidade do operador.')
             return
         }
 
         const productData = { name, barcode, price, stock }
+        isSavingProductRef.current = true
+        setIsSavingProduct(true)
+        setFormError('')
+        setSuccessMessage('')
         try {
             if (editingId) {
                 const updatedProduct = updateProduct(editingId, productData, localBakeryId)
@@ -205,19 +221,32 @@ export default function Produtos() {
                     )))
                 }
             } else {
-                const newProduct = addProduct(productData, localBakeryId)
+                const result = await addProduct(productData, bakeryId, localBakeryId)
+                const newProduct = result.product
                 setProductList((products) => [...products, { ...newProduct, stock }])
+                setSuccessMessage(result.initialStockSaved
+                    ? 'Produto cadastrado com sucesso.'
+                    : 'Produto cadastrado no Supabase, mas o estoque inicial não pôde ser salvo neste dispositivo.')
             }
+            closeForm()
         } catch (error) {
             if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
                 setFormError('Já existe um produto cadastrado com este código de barras.')
-                return
+            } else if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
+                setFormError('Você não tem permissão para cadastrar produtos nesta unidade.')
+            } else if (error instanceof Error && error.message === 'PRODUCT_SAVE_FAILED') {
+                setFormError('Não foi possível salvar o produto no Supabase. Verifique sua conexão e tente novamente.')
+            } else if (error instanceof TypeError) {
+                console.error('Falha de conexão ao cadastrar produto no Supabase.', error)
+                setFormError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
+            } else {
+                console.error('Erro inesperado ao cadastrar produto.', error)
+                setFormError('Não foi possível salvar o produto. Tente novamente.')
             }
-
-            setFormError('Não foi possível salvar o produto.')
-            return
+        } finally {
+            isSavingProductRef.current = false
+            setIsSavingProduct(false)
         }
-        closeForm()
     }
 
     function requestProductDeletion(product: Product) {
@@ -318,11 +347,15 @@ export default function Produtos() {
                                 aria-label="Buscar produtos"
                             />
                         </div>
-                        <button type="button" className="products-primary-button" onClick={openNewProduct}>
-                            <Plus size={20} />
-                            Novo produto
-                        </button>
+                        {!isOwner && (
+                            <button type="button" className="products-primary-button" onClick={openNewProduct}>
+                                <Plus size={20} />
+                                Novo produto
+                            </button>
+                        )}
                     </div>
+
+                    {successMessage && <p className="products-success-message" role="status">{successMessage}</p>}
 
                     {isFormOpen && (
                         <form className="product-form-panel" onSubmit={saveProduct}>
@@ -331,7 +364,7 @@ export default function Produtos() {
                                     <h2>{editingId ? 'Editar produto' : 'Novo produto'}</h2>
                                     <p>Preencha os dados do produto para atualizar o catálogo.</p>
                                 </div>
-                                <button type="button" className="products-icon-button" onClick={closeForm} aria-label="Fechar formulário" title="Fechar formulário"><X size={18} /></button>
+                                <button type="button" className="products-icon-button" onClick={closeForm} aria-label="Fechar formulário" title="Fechar formulário" disabled={isSavingProduct}><X size={18} /></button>
                             </div>
                             <div className="product-form-grid">
                                 <label>Nome do produto<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
@@ -341,11 +374,12 @@ export default function Produtos() {
                             </div>
                             {formError && <p className="products-form-error" role="alert">{formError}</p>}
                             <div className="product-form-actions">
-                                <button type="button" className="products-secondary-button" onClick={closeForm} aria-keyshortcuts="Escape">
+                                <button type="button" className="products-secondary-button" onClick={closeForm} aria-keyshortcuts="Escape" disabled={isSavingProduct}>
                                     <span>Cancelar</span><kbd className="products-button-shortcut">ESC</kbd>
                                 </button>
-                                <button type="submit" className="products-primary-button" aria-keyshortcuts="Enter">
-                                    <span>Salvar produto</span><kbd className="products-button-shortcut">ENTER</kbd>
+                                <button type="submit" className="products-primary-button" aria-keyshortcuts="Enter" disabled={isSavingProduct}>
+                                    <span>{isSavingProduct ? 'Salvando...' : 'Salvar produto'}</span>
+                                    {!isSavingProduct && <kbd className="products-button-shortcut">ENTER</kbd>}
                                 </button>
                             </div>
                         </form>
