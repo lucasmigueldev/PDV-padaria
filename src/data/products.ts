@@ -211,24 +211,46 @@ export async function addProduct(
     }
 }
 
-export function updateProduct(id: string, product: Omit<ProductWithStock, 'id'>, bakeryId: string): Product | undefined {
-    const products = getProducts()
-    const productIndex = products.findIndex((item) => item.id === id)
-    if (productIndex === -1) return undefined
-
+export async function updateProduct(
+    id: string,
+    product: Omit<ProductWithStock, 'id'>,
+    bakeryId: string,
+    stockBakeryId: string,
+): Promise<{ product: Product; stockSaved: boolean }> {
     const normalizedBarcode = normalizeBarcode(product.barcode)
-    if (products.some((item) => item.id !== id && item.barcode === normalizedBarcode)) throw new Error('DUPLICATE_BARCODE')
+    const { data, error } = await getSupabaseClient()
+        .from('products')
+        .update({
+            name: product.name.trim(),
+            barcode: normalizedBarcode,
+            price: product.price,
+        })
+        .eq('id', id)
+        .eq('bakery_id', bakeryId)
+        .select('id, barcode, name, price')
+        .maybeSingle()
 
-    const updatedProduct = {
-        id,
-        name: product.name,
-        barcode: normalizedBarcode,
-        price: product.price,
+    if (error) throwProductMutationError(error, 'PRODUCT_UPDATE_FAILED')
+    if (!data) throw new Error('PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED')
+
+    let stockSaved = true
+    try {
+        updateProductStock(id, stockBakeryId, product.stock)
+    } catch (stockError: unknown) {
+        console.error('Produto atualizado no Supabase, mas não foi possível atualizar o estoque local.', stockError)
+        stockSaved = false
     }
-    products[productIndex] = updatedProduct
-    persistProducts(products)
-    updateProductStock(id, bakeryId, product.stock)
-    return updatedProduct
+
+    const updatedProduct = data as ProductRecord
+    return {
+        product: {
+            id: updatedProduct.id,
+            barcode: normalizeBarcode(updatedProduct.barcode),
+            name: updatedProduct.name,
+            price: updatedProduct.price,
+        },
+        stockSaved,
+    }
 }
 
 function updateProductStock(productId: string, bakeryId: string, quantity: number): void {
@@ -240,9 +262,78 @@ function updateProductStock(productId: string, bakeryId: string, quantity: numbe
     persistStocks(stocks)
 }
 
-export function deleteProduct(id: string): void {
-    persistProducts(getProducts().filter((product) => product.id !== id))
-    persistStocks(readStocks().filter((stock) => stock.productId !== id))
+function throwProductMutationError(
+    error: { code?: string; message: string },
+    fallbackCode: 'PRODUCT_UPDATE_FAILED' | 'PRODUCT_DELETE_FAILED',
+): never {
+    console.error('Erro ao alterar produto no Supabase.', error)
+
+    if (error.code === '23505') throw new Error('DUPLICATE_BARCODE')
+    if (error.code === '42501') throw new Error('PRODUCT_PERMISSION_DENIED')
+
+    throw new Error(fallbackCode)
+}
+
+function removeLocalProductReferences(id: string): boolean {
+    let referencesRemoved = true
+
+    try {
+        const storedProducts = localStorage.getItem(STORAGE_KEY)
+        if (storedProducts) {
+            const parsedProducts: unknown = JSON.parse(storedProducts)
+            if (!Array.isArray(parsedProducts)) throw new Error('Formato inválido no catálogo local.')
+
+            const remainingProducts = parsedProducts.filter((product: unknown) => (
+                !product
+                || typeof product !== 'object'
+                || !('id' in product)
+                || product.id !== id
+            ))
+            persistProducts(remainingProducts as Product[])
+        }
+    } catch (error: unknown) {
+        console.error('Não foi possível remover o produto do catálogo local.', error)
+        referencesRemoved = false
+    }
+
+    try {
+        const storedStocks = localStorage.getItem(STOCK_STORAGE_KEY)
+        if (storedStocks) {
+            const parsedStocks: unknown = JSON.parse(storedStocks)
+            if (!Array.isArray(parsedStocks)) throw new Error('Formato inválido no estoque local.')
+
+            const remainingStocks = parsedStocks.filter((stock: unknown) => (
+                !stock
+                || typeof stock !== 'object'
+                || !('productId' in stock)
+                || stock.productId !== id
+            ))
+            persistStocks(remainingStocks as ProductStock[])
+        }
+    } catch (error: unknown) {
+        console.error('Não foi possível remover o estoque local do produto.', error)
+        referencesRemoved = false
+    }
+
+    return referencesRemoved
+}
+
+export async function deleteProduct(
+    id: string,
+    bakeryId: string,
+): Promise<{ localReferencesRemoved: boolean }> {
+    const { data, error } = await getSupabaseClient()
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .eq('bakery_id', bakeryId)
+        .select('id')
+        .maybeSingle()
+
+    if (error) throwProductMutationError(error, 'PRODUCT_DELETE_FAILED')
+    if (!data) throw new Error('PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED')
+
+    return { localReferencesRemoved: removeLocalProductReferences(id) }
 }
 
 export function decreaseStock(items: SaleItemSnapshot[], bakeryId: string): void {

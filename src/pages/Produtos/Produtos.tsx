@@ -78,8 +78,11 @@ export default function Produtos() {
     const [successMessage, setSuccessMessage] = useState('')
     const [isSavingProduct, setIsSavingProduct] = useState(false)
     const [productPendingDeletion, setProductPendingDeletion] = useState<Product | null>(null)
+    const [isDeletingProduct, setIsDeletingProduct] = useState(false)
+    const [deleteError, setDeleteError] = useState('')
     const confirmDeletionButtonRef = useRef<HTMLButtonElement>(null)
     const isSavingProductRef = useRef(false)
+    const isDeletingProductRef = useRef(false)
 
     useEffect(() => {
         let isActive = true
@@ -112,7 +115,7 @@ export default function Produtos() {
         confirmDeletionButtonRef.current?.focus()
 
         function handleEscape(event: KeyboardEvent) {
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' && !isDeletingProductRef.current) {
                 setProductPendingDeletion(null)
             }
         }
@@ -146,6 +149,7 @@ export default function Produtos() {
     }
 
     function openEditProduct(product: ProductWithStock) {
+        if (isOwner) return
         setEditingId(product.id)
         setIsFormOpen(true)
         setSuccessMessage('')
@@ -199,7 +203,7 @@ export default function Produtos() {
         }
 
         if (isOwner) {
-            setFormError('O proprietário pode consultar os produtos, mas não cadastrá-los.')
+            setFormError('O proprietário pode consultar os produtos, mas não cadastrá-los nem editá-los.')
             return
         }
         if (!bakeryId || !localBakeryId) {
@@ -214,12 +218,16 @@ export default function Produtos() {
         setSuccessMessage('')
         try {
             if (editingId) {
-                const updatedProduct = updateProduct(editingId, productData, localBakeryId)
-                if (updatedProduct) {
-                    setProductList((products) => products.map((product) => (
-                        product.id === editingId ? { ...updatedProduct, stock } : product
-                    )))
-                }
+                const result = await updateProduct(editingId, productData, bakeryId, localBakeryId)
+                const previousStock = productList.find((product) => product.id === editingId)?.stock ?? 0
+                setProductList((products) => products.map((product) => (
+                    product.id === editingId
+                        ? { ...result.product, stock: result.stockSaved ? stock : previousStock }
+                        : product
+                )))
+                setSuccessMessage(result.stockSaved
+                    ? 'Produto atualizado com sucesso.'
+                    : 'Produto atualizado no Supabase, mas o estoque local não pôde ser atualizado neste dispositivo.')
             } else {
                 const result = await addProduct(productData, bakeryId, localBakeryId)
                 const newProduct = result.product
@@ -233,7 +241,13 @@ export default function Produtos() {
             if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
                 setFormError('Já existe um produto cadastrado com este código de barras.')
             } else if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
-                setFormError('Você não tem permissão para cadastrar produtos nesta unidade.')
+                setFormError(editingId
+                    ? 'Você não tem permissão para alterar produtos nesta unidade.'
+                    : 'Você não tem permissão para cadastrar produtos nesta unidade.')
+            } else if (error instanceof Error && error.message === 'PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED') {
+                setFormError('O produto não foi encontrado ou você não tem permissão para alterá-lo.')
+            } else if (error instanceof Error && error.message === 'PRODUCT_UPDATE_FAILED') {
+                setFormError('Não foi possível atualizar o produto no Supabase.')
             } else if (error instanceof Error && error.message === 'PRODUCT_SAVE_FAILED') {
                 setFormError('Não foi possível salvar o produto no Supabase. Verifique sua conexão e tente novamente.')
             } else if (error instanceof TypeError) {
@@ -250,18 +264,48 @@ export default function Produtos() {
     }
 
     function requestProductDeletion(product: Product) {
+        if (isOwner || isDeletingProductRef.current) return
         setProductPendingDeletion(product)
+        setDeleteError('')
     }
 
-    function confirmProductDeletion() {
-        if (!productPendingDeletion) return
+    async function confirmProductDeletion() {
+        if (!productPendingDeletion || isOwner || isDeletingProductRef.current) return
+        if (!bakeryId) {
+            setDeleteError('Não foi possível identificar a unidade ativa do operador.')
+            return
+        }
 
-        if (!localBakeryId) return
-
-        deleteProduct(productPendingDeletion.id)
-        setProductList((products) => products.filter((product) => product.id !== productPendingDeletion.id))
-        if (editingId === productPendingDeletion.id) closeForm()
-        setProductPendingDeletion(null)
+        isDeletingProductRef.current = true
+        setIsDeletingProduct(true)
+        setDeleteError('')
+        setSuccessMessage('')
+        try {
+            const result = await deleteProduct(productPendingDeletion.id, bakeryId)
+            setProductList((products) => products.filter((product) => product.id !== productPendingDeletion.id))
+            if (editingId === productPendingDeletion.id) closeForm()
+            setProductPendingDeletion(null)
+            setSuccessMessage(result.localReferencesRemoved
+                ? 'Produto excluído com sucesso.'
+                : 'Produto excluído do Supabase, mas algumas referências locais não puderam ser removidas.')
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
+                setDeleteError('Você não tem permissão para excluir este produto.')
+            } else if (error instanceof Error && error.message === 'PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED') {
+                setDeleteError('O produto não foi encontrado ou você não tem permissão para excluí-lo.')
+            } else if (error instanceof Error && error.message === 'PRODUCT_DELETE_FAILED') {
+                setDeleteError('Não foi possível excluir o produto no Supabase.')
+            } else if (error instanceof TypeError) {
+                console.error('Falha de conexão ao excluir produto no Supabase.', error)
+                setDeleteError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
+            } else {
+                console.error('Erro inesperado ao excluir produto.', error)
+                setDeleteError('Não foi possível excluir o produto. Tente novamente.')
+            }
+        } finally {
+            isDeletingProductRef.current = false
+            setIsDeletingProduct(false)
+        }
     }
 
     return (
@@ -393,7 +437,7 @@ export default function Produtos() {
                         <div className="products-table-wrapper">
                             {productsLoadError && <div className="products-empty-state" role="alert">{productsLoadError}</div>}
                             <table>
-                                <thead><tr><th>Produto</th><th>Código de barras</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
+                                <thead><tr><th>Produto</th><th>Código de barras</th><th>Preço</th><th>Estoque</th>{!isOwner && <th>Ações</th>}</tr></thead>
                                 <tbody>
                                     {!productsLoadError && filteredProducts.map((product) => (
                                         <tr key={product.id}>
@@ -401,10 +445,12 @@ export default function Produtos() {
                                             <td>{product.barcode}</td>
                                             <td>{currency.format(product.price)}</td>
                                             <td>{product.stock}</td>
-                                            <td><div className="products-actions">
-                                                <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} />Editar</button>
-                                                <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} />Excluir</button>
-                                            </div></td>
+                                            {!isOwner && (
+                                                <td><div className="products-actions">
+                                                    <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} />Editar</button>
+                                                    <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} />Excluir</button>
+                                                </div></td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
@@ -433,11 +479,16 @@ export default function Produtos() {
                             Tem certeza que deseja excluir este produto? Esta ação não poderá ser desfeita.
                         </p>
                         <strong className="product-delete-name">{productPendingDeletion.name}</strong>
+                        {deleteError && <p className="products-form-error" role="alert">{deleteError}</p>}
                         <div className="product-delete-actions">
                             <button
                                 type="button"
                                 className="products-secondary-button"
-                                onClick={() => setProductPendingDeletion(null)}
+                                onClick={() => {
+                                    setProductPendingDeletion(null)
+                                    setDeleteError('')
+                                }}
+                                disabled={isDeletingProduct}
                             >
                                 Cancelar
                             </button>
@@ -446,9 +497,10 @@ export default function Produtos() {
                                 type="button"
                                 className="product-confirm-delete-button"
                                 onClick={confirmProductDeletion}
+                                disabled={isDeletingProduct}
                             >
                                 <Trash2 size={16} />
-                                Excluir
+                                {isDeletingProduct ? 'Excluindo...' : 'Excluir'}
                             </button>
                         </div>
                     </div>
