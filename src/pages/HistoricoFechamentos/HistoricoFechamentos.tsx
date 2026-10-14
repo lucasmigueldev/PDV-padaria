@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { getCashClosuresFromSupabase } from '../../data/cashClosures'
+import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { CashClosure } from '../../types/CashClosure'
@@ -332,13 +333,7 @@ export default function HistoricoFechamentos() {
                         <h1>Histórico de Fechamentos</h1>
                         <p>Consulte as sessões de caixa já encerradas.</p>
                     </div>
-                    <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
-                        <div>
-                            <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
-                            <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
-                        </div>
-                    </div>
+                    <UserProfileMenu user={authenticatedUser} />
                 </header>
 
                 <section className="dashboard-content fechamento-history-content p-10">
