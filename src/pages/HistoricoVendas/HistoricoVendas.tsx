@@ -11,6 +11,7 @@ import {
     LogOut,
     Menu,
     Package,
+    Printer,
     Search,
     Settings,
     ShoppingCart,
@@ -21,6 +22,7 @@ import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 
 import { getSalesFromSupabase } from '../../data/sales'
+import { ReceiptPrintDialog } from '../../components/ReceiptPrintDialog/ReceiptPrintDialog'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -89,6 +91,7 @@ export default function HistoricoVendas() {
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+    const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const { bakeries } = useBakeries()
@@ -804,6 +807,14 @@ export default function HistoricoVendas() {
                         <div className="sales-details-footer">
                             <button
                                 type="button"
+                                className="sales-details-footer-button sales-details-reprint-button"
+                                onClick={() => setReceiptSale(selectedSale)}
+                            >
+                                <Printer size={16} aria-hidden="true" />
+                                Reimprimir comprovante
+                            </button>
+                            <button
+                                type="button"
                                 className="sales-details-footer-button"
                                 onClick={() => setSelectedSale(null)}
                             >
@@ -812,6 +823,13 @@ export default function HistoricoVendas() {
                         </div>
                     </div>
                 </div>
+            )}
+            {receiptSale && (
+                <ReceiptPrintDialog
+                    sale={receiptSale}
+                    bakeryName={bakeries.find((bakery) => bakery.id === receiptSale.bakeryId)?.name ?? null}
+                    onClose={() => setReceiptSale(null)}
+                />
             )}
         </div>
     )

@@ -281,7 +281,9 @@
 
 .sales-details-footer {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    gap: 10px;
     margin-top: 32px;
     padding-top: 24px;
     border-top: 1px solid #e5e7eb;
@@ -304,6 +306,13 @@
 .sales-details-footer-button:hover {
     border-color: #94a3b8;
     background: #f8fafc;
+}
+
+.sales-details-reprint-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .sales-history-toolbar {
