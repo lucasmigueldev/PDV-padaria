@@ -42,7 +42,7 @@ Funcionalidades confirmadas no estado atual:
 - jsPDF para exportação do histórico de vendas;
 - ESLint para análise de qualidade do código.
 
-O React Compiler permanece desabilitado nesta configuração. A aplicação usa armazenamento local do navegador para os dados operacionais atuais.
+O React Compiler permanece desabilitado nesta configuração. Os dados do negócio são lidos e persistidos pelo Supabase; a sessão de autenticação é gerenciada pelo SDK Supabase.
 
 ## Estrutura do projeto
 
@@ -50,7 +50,8 @@ O React Compiler permanece desabilitado nesta configuração. A aplicação usa 
 src/
 ├── assets/                 # Imagens e arquivos visuais
 ├── components/             # Componentes reutilizáveis
-├── data/                   # Acesso e persistência local de produtos, vendas e caixas
+├── data/                   # Consultas e mapeamento de dados do Supabase
+├── services/               # Operações Supabase e RPCs do domínio
 ├── pages/                  # Telas da aplicação
 │   ├── Dashboard/
 │   ├── Fechamento/
@@ -64,7 +65,7 @@ src/
 └── main.tsx                # Ponto de entrada da aplicação
 ```
 
-As páginas concentram as experiências de cada área, enquanto `src/data` mantém as responsabilidades de leitura e persistência local. Os tipos compartilhados ficam em `src/types`, reduzindo contratos duplicados entre as telas.
+As páginas concentram as experiências de cada área, enquanto `src/data` e `src/services` consultam e persistem dados de negócio no Supabase. Os tipos compartilhados ficam em `src/types`, reduzindo contratos duplicados entre as telas.
 
 ## Como executar
 
@@ -108,12 +109,11 @@ Nenhum link de demonstração está definido neste momento.
 
 - Evoluir os fluxos administrativos conforme as necessidades do produto;
 - Consolidar regras de operação e documentação para novos colaboradores;
-- Avaliar a migração gradual da persistência local para uma arquitetura compartilhada.
+- Aplicar, com autorização, as migrations operacionais pendentes e validar a integração com o Supabase.
 
 ### Futuro
 
-- Backend e banco de dados;
-- Autenticação real, múltiplos usuários e permissões;
+- Edição e exclusão administrativas de usuários;
 - Persistência em nuvem, sincronização, backups e auditoria;
 - Suporte a múltiplas empresas.
 

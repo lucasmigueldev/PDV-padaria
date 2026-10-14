@@ -41,11 +41,11 @@ O modelo comercial ainda não está definido. São hipóteses para investigaçã
 
 ## 4. Estado atual do produto
 
-O sistema atual é um protótipo/MVP com persistência local, principalmente `localStorage`. Ele é adequado para validação local dos fluxos, mas ainda não oferece persistência centralizada, autenticação real ou operação multiusuário.
+O frontend está integrado ao Supabase para autenticação e persistência dos dados operacionais. As migrations operacionais ainda precisam ser aplicadas no projeto remoto e a integração ainda requer validação end-to-end antes do uso operacional.
 
 ### 4.1 Funcionalidades existentes
 
-- login de protótipo e proteção de rotas no cliente;
+- autenticação Supabase e proteção de rotas no cliente;
 - Dashboard;
 - PDV/Caixa;
 - cadastro, edição e exclusão de produtos;
@@ -67,13 +67,12 @@ O sistema atual é um protótipo/MVP com persistência local, principalmente `lo
 
 ### 4.2 Limites atuais
 
-- os dados operacionais ficam no navegador e não são centralizados;
-- a autenticação atual é de protótipo e não substitui autenticação real;
-- ainda não existe autorização efetiva por perfil ou unidade;
-- o sistema atual não deve ser descrito como multiunidade implementado;
+- as operações persistentes dependem das migrations pendentes e ainda não foram validadas contra o projeto Supabase remoto;
+- a interface administrativa permite consultar e criar usuários, mas edição e exclusão de usuários dependem de suporte no serviço administrativo;
+- a integração frontend ainda requer testes end-to-end após a aplicação autorizada das migrations;
 - alteração de e-mail e senha está preparada visualmente, mas ainda não realiza alterações reais;
 - não há recuperação de senha por e-mail neste momento;
-- alterações de autenticação não devem ser simuladas com `localStorage`.
+- alterações de autenticação devem usar o provedor real, sem persistência local simulada.
 
 ## 5. MVP atual
 
@@ -292,12 +291,12 @@ Não é necessário definir SQL neste documento. A finalidade é registrar as re
 - React Router para navegação;
 - páginas organizadas por domínio em `src/pages`;
 - tipos de domínio em `src/types`;
-- acesso e persistência local em `src/data`;
-- dados operacionais persistidos no navegador, principalmente em `localStorage`.
+- serviços de domínio em `src/data` e `src/services`, com persistência operacional no Supabase;
+- sessão de autenticação gerenciada pelo SDK Supabase no armazenamento de sessão do navegador; dados de negócio não são persistidos em armazenamento local do navegador.
 
 ### Evolução esperada
 
-Quando houver necessidade validada, as implementações locais de `src/data` poderão ser substituídas gradualmente por clientes de API. Regras financeiras e de autorização deverão migrar para uma camada confiável no servidor antes de uso distribuído ou comercial.
+O cliente Supabase fornece as leituras e operações persistentes. Regras financeiras e de autorização ficam no servidor, incluindo as RPCs e policies das migrations pendentes; sua aplicação remota e validação devem preceder o uso operacional.
 
 ## 14. Experiência de uso
 
@@ -312,7 +311,7 @@ Responsividade não deve ser tratada apenas como redução do tamanho do desktop
 
 ## 15. Segurança e limites de implementação
 
-O uso atual de `localStorage` e a autenticação no cliente são adequados apenas ao protótipo local. Antes de uso distribuído ou comercial, será necessário avaliar:
+O armazenamento de sessão no navegador é gerenciado pelo SDK Supabase; dados do negócio não devem usar persistência no navegador. Antes de uso distribuído ou comercial, será necessário avaliar:
 
 - autenticação real e armazenamento seguro de credenciais;
 - autorização no servidor;
@@ -335,7 +334,7 @@ Nenhuma dessas garantias futuras deve ser presumida com base na implementação 
 7. Interface desktop para operação administrativa.
 8. Boa experiência mobile para o proprietário acompanhar o negócio.
 9. Não criar funcionalidades fictícias apenas para simular backend.
-10. Evoluir do protótipo com `localStorage` para backend e banco de dados posteriormente.
+10. Manter o Supabase como única fonte persistente dos dados de negócio.
 
 ## 17. Roadmap conceitual
 
