@@ -13,12 +13,11 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getCashClosures } from '../../data/cashClosures'
+import { getCashClosuresFromSupabase } from '../../data/cashClosures'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { CashClosure } from '../../types/CashClosure'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './HistoricoFechamentos.css'
 
@@ -97,7 +96,9 @@ export default function HistoricoFechamentos() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
-    const closures = [...getCashClosures()].sort(sortByMostRecent)
+    const [closures, setClosures] = useState<CashClosure[]>([])
+    const [isLoadingClosures, setIsLoadingClosures] = useState(true)
+    const [closuresLoadError, setClosuresLoadError] = useState('')
     const { bakeries } = useBakeries()
     const activeBakeries = bakeries.filter((bakery) => bakery.active)
     const [startDate, setStartDate] = useState('')
@@ -127,9 +128,8 @@ export default function HistoricoFechamentos() {
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
-    const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
     const filteredClosures = closures.filter((closure) => {
-        const matchesBakery = localBakeryFilter === 'all' || closure.bakeryId === localBakeryFilter
+        const matchesBakery = bakeryFilter === 'all' || closure.bakeryId === bakeryFilter
         const closureTimestamp = new Date(closure.closedAt).getTime()
         const matchesStartDate = !startDate || !!startDateError || closureTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || closureTimestamp <= (endTimestamp ?? 0)
@@ -141,6 +141,30 @@ export default function HistoricoFechamentos() {
         (currentPage - 1) * CLOSURES_PER_PAGE,
         currentPage * CLOSURES_PER_PAGE,
     )
+
+    useEffect(() => {
+        let active = true
+        void (async () => {
+            await Promise.resolve()
+            if (!active) return
+            setIsLoadingClosures(true)
+            setClosuresLoadError('')
+            try {
+                const loadedClosures = await getCashClosuresFromSupabase()
+                if (active) setClosures(loadedClosures.sort(sortByMostRecent))
+            } catch (error: unknown) {
+                if (!active) return
+                console.error('Erro ao carregar o histórico de fechamentos.', error)
+                setClosuresLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os fechamentos.')
+            } finally {
+                if (active) setIsLoadingClosures(false)
+            }
+        })()
+
+        return () => {
+            active = false
+        }
+    }, [])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -309,15 +333,17 @@ export default function HistoricoFechamentos() {
                         <p>Consulte as sessões de caixa já encerradas.</p>
                     </div>
                     <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">A</div>
+                        <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
                         <div>
-                            <strong>Administrador</strong>
-                            <span>Usuário do sistema</span>
+                            <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+                            <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
                         </div>
                     </div>
                 </header>
 
                 <section className="dashboard-content fechamento-history-content p-10">
+                    {closuresLoadError && <p role="alert" className="mb-4 text-red-700">{closuresLoadError}</p>}
+                    {isLoadingClosures && <p role="status" className="mb-4">Carregando fechamentos...</p>}
                     <div className="fechamento-history-date-filter">
                         <div className="fechamento-history-filter">
                             <label htmlFor="fechamento-history-bakery-filter">Unidade</label>

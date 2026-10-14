@@ -20,12 +20,11 @@ import { useEffect, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { useNavigate } from 'react-router-dom'
 
-import { getSales } from '../../data/sales'
+import { getSalesFromSupabase } from '../../data/sales'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './HistoricoVendas.css'
 
@@ -79,7 +78,9 @@ export default function HistoricoVendas() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
-    const sales = getSales()
+    const [sales, setSales] = useState<Sale[]>([])
+    const [isLoadingSales, setIsLoadingSales] = useState(true)
+    const [salesLoadError, setSalesLoadError] = useState('')
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
     const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -111,13 +112,12 @@ export default function HistoricoVendas() {
         : null
     const hasInvalidDateRange = !startDateError && !endDateError &&
         startTimestamp !== null && endTimestamp !== null && startTimestamp > endTimestamp
-    const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
-        const matchesBakery = localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter
+        const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
         const saleTimestamp = new Date(sale.date).getTime()
         const matchesStartDate = !startDate || !!startDateError || saleTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || saleTimestamp <= (endTimestamp ?? 0)
@@ -148,6 +148,29 @@ export default function HistoricoVendas() {
         (currentPage - 1) * SALES_PER_PAGE,
         currentPage * SALES_PER_PAGE,
     )
+
+    useEffect(() => {
+        let active = true
+        void (async () => {
+            await Promise.resolve()
+            if (!active) return
+            setIsLoadingSales(true)
+            setSalesLoadError('')
+            try {
+                setSales(await getSalesFromSupabase())
+            } catch (error: unknown) {
+                if (!active) return
+                console.error('Erro ao carregar o histórico de vendas.', error)
+                setSalesLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as vendas.')
+            } finally {
+                if (active) setIsLoadingSales(false)
+            }
+        })()
+
+        return () => {
+            active = false
+        }
+    }, [])
 
     useEffect(() => {
         if (!selectedSale) return
@@ -424,12 +447,17 @@ export default function HistoricoVendas() {
                         <p>Consulte as vendas já registradas no sistema.</p>
                     </div>
                     <div className="header-user flex items-center gap-3">
-                        <div className="user-avatar">A</div>
-                        <div><strong>Administrador</strong><span>Usuário do sistema</span></div>
+                        <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
+                        <div>
+                            <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+                            <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
+                        </div>
                     </div>
                 </header>
 
                 <section className="dashboard-content p-10">
+                    {salesLoadError && <p role="alert" className="mb-4 text-red-700">{salesLoadError}</p>}
+                    {isLoadingSales && <p role="status" className="mb-4">Carregando vendas...</p>}
                     <div className="sales-history-toolbar">
                         <div className="sales-history-search">
                             <Search size={19} aria-hidden="true" />

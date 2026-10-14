@@ -17,16 +17,15 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getOpenCashRegister } from '../../data/cashRegister'
-import { getSales } from '../../data/sales'
+import { getSalesFromSupabase } from '../../data/sales'
+import { getOpenCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Dashborad.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -71,15 +70,19 @@ export default function Dashboard() {
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
+  const [sales, setSales] = useState<Sale[]>([])
+  const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
+  const [loadError, setLoadError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
-  const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
+  const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
   const currentDate = new Date()
   const yesterday = new Date(currentDate)
   yesterday.setDate(yesterday.getDate() - 1)
-  const sales = getSales().filter((sale) => localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter)
-  const salesToday = sales.filter((sale) => isSameDay(sale.date, currentDate))
-  const salesYesterday = sales.filter((sale) => isSameDay(sale.date, yesterday))
+  const filteredSales = sales.filter((sale) => !selectedBakeryId || sale.bakeryId === selectedBakeryId)
+  const salesToday = filteredSales.filter((sale) => isSameDay(sale.date, currentDate))
+  const salesYesterday = filteredSales.filter((sale) => isSameDay(sale.date, yesterday))
   const totalSalesToday = sumSales(salesToday)
   const totalSalesYesterday = sumSales(salesYesterday)
   const salesCountToday = salesToday.length
@@ -87,7 +90,6 @@ export default function Dashboard() {
   const cashSalesToday = getPaymentTotal(salesToday, 'cash')
   const cardSalesToday = getPaymentTotal(salesToday, 'card')
   const pixSalesToday = getPaymentTotal(salesToday, 'pix')
-  const cashRegister = getOpenCashRegister(localBakeryFilter === 'all' ? undefined : localBakeryFilter)
   const totalReceived = totalSalesToday
   const cashPercentage = totalReceived > 0 ? cashSalesToday / totalReceived : 0
   const cardPercentage = totalReceived > 0 ? cardSalesToday / totalReceived : 0
@@ -96,6 +98,35 @@ export default function Dashboard() {
   const openingTime = cashRegister
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
     : '-'
+
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      await Promise.resolve()
+      if (!active) return
+      setIsLoading(true)
+      setLoadError('')
+      try {
+        const [loadedSales, register] = await Promise.all([
+          getSalesFromSupabase(),
+          selectedBakeryId ? getOpenCashRegister(selectedBakeryId) : Promise.resolve(null),
+        ])
+        if (!active) return
+        setSales(loadedSales)
+        setCashRegister(register)
+      } catch (error: unknown) {
+        if (!active) return
+        console.error('Erro ao carregar os dados do dashboard.', error)
+        setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o dashboard.')
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [selectedBakeryId])
 
   function handleLogout() {
     void logoutAndRedirect(navigate)
@@ -273,16 +304,18 @@ export default function Dashboard() {
           </div>
 
           <div className="header-user flex items-center gap-3">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
 
             <div>
-              <strong>Administrador</strong>
-              <span>Usuário do sistema</span>
+              <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+              <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
             </div>
           </div>
         </header>
 
         <section className="dashboard-content p-10">
+          {loadError && <p role="alert" className="mb-4 text-red-700">{loadError}</p>}
+          {isLoading && <p role="status" className="mb-4">Carregando dados operacionais...</p>}
           <div className="dashboard-unit-filter">
             <label htmlFor="dashboard-bakery-filter">Unidade</label>
             <select
@@ -435,7 +468,7 @@ export default function Dashboard() {
                     </span>
                     Operador responsável
                   </span>
-                  <strong className="text-sm text-slate-900">Administrador</strong>
+                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
                 </div>
 
                 <div className="flex items-center justify-between py-3">

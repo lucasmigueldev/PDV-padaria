@@ -14,16 +14,15 @@ import {
   ShoppingCart,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getProductsForBakery, getProductsWithTotalStock } from '../../data/products'
-import { getSales } from '../../data/sales'
+import { getProductsFromSupabase } from '../../data/products'
+import { getSalesFromSupabase } from '../../data/sales'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './Relatorios.css'
 
@@ -87,7 +86,8 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
 
   sales.forEach((sale) => {
     sale.items.forEach((item) => {
-      const currentProduct = productsById.get(item.productId)
+      const productKey = item.productId || `historical:${item.barcode}`
+      const currentProduct = productsById.get(productKey)
 
       if (currentProduct) {
         currentProduct.quantity += item.quantity
@@ -95,8 +95,8 @@ function getSoldProducts(sales: Sale[]): SoldProductSummary[] {
         return
       }
 
-      productsById.set(item.productId, {
-        productId: item.productId,
+      productsById.set(productKey, {
+        productId: productKey,
         name: item.name,
         quantity: item.quantity,
         revenue: item.subtotal,
@@ -115,7 +115,10 @@ export default function Relatorios() {
   const { authenticatedUser } = useAuth()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const sales = getSales()
+  const [sales, setSales] = useState<Sale[]>([])
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof getProductsFromSupabase>>>([])
+  const [isLoadingReportData, setIsLoadingReportData] = useState(true)
+  const [reportLoadError, setReportLoadError] = useState('')
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -144,7 +147,6 @@ export default function Relatorios() {
   const dateError = startDateError || endDateError || (hasInvalidDateRange
     ? 'A data inicial não pode ser posterior à data final.'
     : null)
-  const localBakeryFilter = bakeryFilter === 'all' ? 'all' : getLocalBakeryId(bakeryFilter)
   const appliedStartTimestamp = appliedStartDate
     ? new Date(`${appliedStartDate}T00:00:00`).getTime()
     : null
@@ -152,7 +154,7 @@ export default function Relatorios() {
     ? new Date(`${appliedEndDate}T23:59:59.999`).getTime()
     : null
   const filteredSales = sales.filter((sale) => {
-    const matchesBakery = localBakeryFilter === 'all' || sale.bakeryId === localBakeryFilter
+    const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
     const saleTimestamp = new Date(sale.date).getTime()
     const matchesStartDate = !appliedStartDate || saleTimestamp >= (appliedStartTimestamp ?? 0)
     const matchesEndDate = !appliedEndDate || saleTimestamp <= (appliedEndTimestamp ?? 0)
@@ -167,9 +169,6 @@ export default function Relatorios() {
     card: getPaymentSummary(filteredSales, 'card'),
   }
   const soldProducts = getSoldProducts(filteredSales)
-  const products = bakeryFilter === 'all'
-    ? getProductsWithTotalStock()
-    : getProductsForBakery(localBakeryFilter)
   const stockSummary = products.reduce((summary, product) => {
     summary.totalProducts += 1
     summary.totalUnits += product.stock
@@ -189,6 +188,35 @@ export default function Relatorios() {
     totalUnits: 0,
     estimatedValue: 0,
   })
+
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      await Promise.resolve()
+      if (!active) return
+      setIsLoadingReportData(true)
+      setReportLoadError('')
+      try {
+        const [loadedSales, loadedProducts] = await Promise.all([
+          getSalesFromSupabase(),
+          getProductsFromSupabase(bakeryFilter === 'all' ? null : bakeryFilter),
+        ])
+        if (!active) return
+        setSales(loadedSales)
+        setProducts(loadedProducts)
+      } catch (error: unknown) {
+        if (!active) return
+        console.error('Erro ao carregar os dados do relatório.', error)
+        setReportLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.')
+      } finally {
+        if (active) setIsLoadingReportData(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [bakeryFilter])
   function applyPeriod() {
     if (dateError) return
 
@@ -353,15 +381,17 @@ export default function Relatorios() {
             <p>Consulte os relatórios da operação da sua padaria.</p>
           </div>
           <div className="header-user flex items-center gap-3">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
             <div>
-              <strong>Administrador</strong>
-              <span>Usuário do sistema</span>
+              <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+              <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
             </div>
           </div>
         </header>
 
         <section className="dashboard-content reports-content p-10">
+          {reportLoadError && <p role="alert" className="mb-4 text-red-700">{reportLoadError}</p>}
+          {isLoadingReportData && <p role="status" className="mb-4">Carregando dados do relatório...</p>}
           <section className="reports-section reports-filters" aria-labelledby="sales-report-title">
             <div className="reports-section-heading">
               <div>
