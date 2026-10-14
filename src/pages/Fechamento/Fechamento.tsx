@@ -15,13 +15,11 @@ import {
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { clearOpenCashRegister, getOpenCashRegister, openCashRegister, type CashRegister } from '../../data/cashRegister'
-import { saveCashClosure } from '../../data/cashClosures'
-import { getSales } from '../../data/sales'
+import type { CashRegister } from '../../types/CashRegister'
+import { closeCashRegister, getOpenCashRegister, openCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Fechamento.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -59,26 +57,6 @@ function parseMoneyInput(value: string): number | null {
     return Number.isSafeInteger(cents) ? cents / 100 : null
 }
 
-function toCents(value: number): number {
-    return Math.round(value * 100)
-}
-
-function calculateCashMovement(cashRegister: CashRegister) {
-    const openedAtTimestamp = new Date(cashRegister.openedAt).getTime()
-    const cashSalesAmountInCents = getSales()
-        .filter((sale) => sale.paymentMethod === 'cash')
-        .filter((sale) => sale.bakeryId === cashRegister.bakeryId)
-        .filter((sale) => new Date(sale.date).getTime() >= openedAtTimestamp)
-        .reduce((total, sale) => total + toCents(sale.total), 0)
-    const initialAmountInCents = toCents(cashRegister.initialAmount)
-
-    return {
-        cashSalesAmountInCents,
-        initialAmountInCents,
-        expectedAmountInCents: initialAmountInCents + cashSalesAmountInCents,
-    }
-}
-
 function formatOpeningDate(openedAt: string): { date: string; time: string } {
     const openedDate = new Date(openedAt)
 
@@ -98,13 +76,12 @@ export default function Fechamento() {
     const isOwner = authenticatedUser?.role === 'owner'
     const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
-    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
-    const [cashRegister, setCashRegister] = useState<CashRegister | null>(() => (
-        localBakeryId ? getOpenCashRegister(localBakeryId) : null
-    ))
+    const [cashRegister, setCashRegister] = useState<CashRegister | null>(null)
+    const [isLoadingCashRegister, setIsLoadingCashRegister] = useState(true)
+    const [cashLoadError, setCashLoadError] = useState('')
     const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false)
     const [initialAmountInput, setInitialAmountInput] = useState('')
     const [countedCashInput, setCountedCashInput] = useState('')
@@ -113,29 +90,42 @@ export default function Fechamento() {
     const [closeError, setCloseError] = useState('')
     const isClosingRef = useRef(false)
     const confirmCloseButtonRef = useRef<HTMLButtonElement>(null)
-    const cashMovement = cashRegister ? calculateCashMovement(cashRegister) : null
     const countedCash = parseMoneyInput(countedCashInput)
-    const countedCashInCents = countedCash === null ? null : toCents(countedCash)
-    const differenceInCents = countedCashInCents === null
-        ? null
-        : countedCashInCents - (cashMovement?.expectedAmountInCents ?? 0)
 
     useEffect(() => {
         let isActive = true
-        void Promise.resolve().then(() => {
-            if (isActive) setCashRegister(localBakeryId ? getOpenCashRegister(localBakeryId) : null)
-        })
+        void (async () => {
+            await Promise.resolve()
+            if (!isActive) return
+            setIsLoadingCashRegister(true)
+            setCashLoadError('')
+            if (!bakeryId) {
+                setCashRegister(null)
+                setIsLoadingCashRegister(false)
+                return
+            }
+            try {
+                setCashRegister(await getOpenCashRegister(bakeryId))
+            } catch (error: unknown) {
+                if (!isActive) return
+                console.error('Erro ao carregar o caixa aberto.', error)
+                setCashLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o caixa.')
+            } finally {
+                if (isActive) setIsLoadingCashRegister(false)
+            }
+        })()
 
         return () => {
             isActive = false
         }
-    }, [localBakeryId])
+    }, [bakeryId])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
     }
 
     function requestOpenCash() {
+        setCloseError('')
         setIsOpeningModalOpen(true)
     }
 
@@ -162,12 +152,19 @@ export default function Fechamento() {
         setCountedCashInput(value)
     }
 
-    function handleOpenCash() {
+    async function handleOpenCash() {
         const initialAmount = parseMoneyInput(initialAmountInput)
-        if (initialAmount === null || cashRegister || !localBakeryId) return
+        if (initialAmount === null || cashRegister || !bakeryId) return
 
-        setCashRegister(openCashRegister(initialAmount, localBakeryId))
-        closeOpeningModal()
+        setCloseError('')
+        try {
+            const register = await openCashRegister(initialAmount)
+            setCashRegister(register)
+            closeOpeningModal()
+        } catch (error) {
+            console.error('Erro ao abrir o caixa.', error)
+            setCloseError(error instanceof Error ? error.message : 'Não foi possível abrir o caixa.')
+        }
     }
 
     function handleRequestClose() {
@@ -187,7 +184,7 @@ export default function Fechamento() {
         setCloseError('')
     }
 
-    function handleConfirmClose() {
+    async function handleConfirmClose() {
         if (isClosingRef.current || !cashRegister) return
 
         const countedAmount = parseMoneyInput(countedCashInput)
@@ -196,8 +193,7 @@ export default function Fechamento() {
             return
         }
 
-        const currentCashRegister = localBakeryId ? getOpenCashRegister(localBakeryId) : null
-        if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
+        if (!bakeryId) {
             setCloseError('O caixa aberto não está mais disponível para fechamento.')
             return
         }
@@ -207,26 +203,17 @@ export default function Fechamento() {
         setCloseError('')
 
         try {
-            const currentCashMovement = calculateCashMovement(currentCashRegister)
-            const countedAmountInCents = toCents(countedAmount)
-            const closedAt = new Date().toISOString()
-
-            saveCashClosure({
-                id: currentCashRegister.id,
-                bakeryId: currentCashRegister.bakeryId,
-                openedAt: currentCashRegister.openedAt,
-                initialAmount: currentCashRegister.initialAmount,
-                closedAt,
-                countedAmount: countedAmountInCents / 100,
-                expectedAmount: currentCashMovement.expectedAmountInCents / 100,
-                differenceAmount: (countedAmountInCents - currentCashMovement.expectedAmountInCents) / 100,
-                cashSalesAmount: currentCashMovement.cashSalesAmountInCents / 100,
-            })
-            clearOpenCashRegister(currentCashRegister.id)
+            const currentCashRegister = await getOpenCashRegister(bakeryId)
+            if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
+                setCloseError('O caixa aberto não está mais disponível para fechamento.')
+                return
+            }
+            await closeCashRegister(currentCashRegister.id, countedAmount)
             setCashRegister(null)
             setCountedCashInput('')
             setIsCloseModalOpen(false)
         } catch (error) {
+            console.error('Erro ao fechar o caixa.', error)
             setCloseError(error instanceof Error ? error.message : 'Não foi possível fechar o caixa.')
         } finally {
             isClosingRef.current = false
@@ -333,7 +320,10 @@ export default function Fechamento() {
                             <p>Abertura e conferência do caixa</p>
                         </div>
                     </header>
-                    {!cashRegister ? (
+                    {cashLoadError && <p className="fechamento-close-error" role="alert">{cashLoadError}</p>}
+                    {isLoadingCashRegister ? (
+                        <p role="status">Carregando o caixa...</p>
+                    ) : !cashRegister ? (
                         <section className="fechamento-status-card fechado">
                             <div className="fechamento-status-overview">
                                 <div className="fechamento-status-icon"><Banknote size={28} /></div>
@@ -361,15 +351,14 @@ export default function Fechamento() {
                                 <div className="fechamento-opened-details">
                                     <div><span>Data de abertura</span><strong>{formatOpeningDate(cashRegister.openedAt).date}</strong></div>
                                     <div><span>Hora de abertura</span><strong>{formatOpeningDate(cashRegister.openedAt).time}</strong></div>
-                                    <div><span>Valor inicial</span><strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong></div>
+                                    <div><span>Valor inicial</span><strong>{currency.format(cashRegister.initialAmount)}</strong></div>
                                 </div>
                             </div>
                             <div className="fechamento-open-workspace">
                                 <section className="fechamento-cash-movement">
                                     <h3>Movimentação em dinheiro</h3>
-                                    <div className="fechamento-cash-movement-row"><span>Valor inicial</span><strong>{currency.format((cashMovement?.initialAmountInCents ?? 0) / 100)}</strong></div>
-                                    <div className="fechamento-cash-movement-row"><span>Vendas em dinheiro</span><strong>{currency.format((cashMovement?.cashSalesAmountInCents ?? 0) / 100)}</strong></div>
-                                    <div className="fechamento-cash-movement-row total"><span>Valor esperado</span><strong>{currency.format((cashMovement?.expectedAmountInCents ?? 0) / 100)}</strong></div>
+                                    <div className="fechamento-cash-movement-row"><span>Valor inicial</span><strong>{currency.format(cashRegister.initialAmount)}</strong></div>
+                                    <div className="fechamento-cash-movement-row total"><span>Conferência</span><strong>Calculada pelo servidor no fechamento</strong></div>
                                 </section>
                                 <div className="fechamento-counted-panel">
                                     <div className="fechamento-counted-cash">
@@ -388,24 +377,9 @@ export default function Fechamento() {
                                         </div>
                                         <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
                                     </div>
-                                    <div className={`fechamento-difference ${differenceInCents === null ? 'pending' : differenceInCents === 0 ? 'balanced' : differenceInCents > 0 ? 'surplus' : 'shortage'}`}>
-                                        <span className="fechamento-difference-label">Diferença</span>
-                                        {differenceInCents === null ? (
-                                            <p>Informe o valor contado para conferir o caixa.</p>
-                                        ) : (
-                                            <>
-                                                <strong>
-                                                    {differenceInCents === 0 && 'Caixa conferido'}
-                                                    {differenceInCents > 0 && 'Caixa com sobra'}
-                                                    {differenceInCents < 0 && 'Caixa com falta'}
-                                                </strong>
-                                                <b>
-                                                    {differenceInCents > 0 && '+ '}
-                                                    {differenceInCents < 0 && '- '}
-                                                    {currency.format(Math.abs(differenceInCents) / 100)}
-                                                </b>
-                                            </>
-                                        )}
+                                    <div className="fechamento-difference pending">
+                                        <span className="fechamento-difference-label">Conferência</span>
+                                        <p>O valor esperado e a diferença serão calculados pelo servidor ao fechar.</p>
                                     </div>
                                 </div>
                             </div>
@@ -452,6 +426,7 @@ export default function Fechamento() {
                                 />
                             </div>
                             <p>O valor e a data de abertura serão registrados nesta sessão.</p>
+                            {closeError && <p className="fechamento-close-error" role="alert">{closeError}</p>}
                         </div>
                         <div className="fechamento-modal-footer">
                             <button type="button" className="fechamento-secondary-button" onClick={closeOpeningModal}>
@@ -465,7 +440,7 @@ export default function Fechamento() {
                 </div>
             )}
 
-            {isCloseModalOpen && cashRegister && cashMovement && countedCashInCents !== null && (
+            {isCloseModalOpen && cashRegister && countedCash !== null && (
                 <div className="fechamento-modal-overlay" role="presentation" onMouseDown={(event) => {
                     if (event.target === event.currentTarget) closeClosingModal()
                 }}>
@@ -481,11 +456,9 @@ export default function Fechamento() {
                         </div>
                         <div className="fechamento-modal-body">
                             <div className="fechamento-close-summary">
-                                <div><span>Valor inicial</span><strong>{currency.format(cashMovement.initialAmountInCents / 100)}</strong></div>
-                                <div><span>Vendas em dinheiro</span><strong>{currency.format(cashMovement.cashSalesAmountInCents / 100)}</strong></div>
-                                <div><span>Valor esperado</span><strong>{currency.format(cashMovement.expectedAmountInCents / 100)}</strong></div>
-                                <div><span>Valor contado</span><strong>{currency.format(countedCashInCents / 100)}</strong></div>
-                                <div><span>Diferença</span><strong>{differenceInCents !== null && differenceInCents > 0 ? '+ ' : differenceInCents !== null && differenceInCents < 0 ? '- ' : ''}{currency.format(Math.abs(differenceInCents ?? 0) / 100)}</strong></div>
+                                <div><span>Valor inicial</span><strong>{currency.format(cashRegister.initialAmount)}</strong></div>
+                                <div><span>Valor contado</span><strong>{currency.format(countedCash)}</strong></div>
+                                <div><span>Conferência</span><strong>Calculada pelo servidor no fechamento</strong></div>
                             </div>
                             {closeError && <p className="fechamento-close-error">{closeError}</p>}
                         </div>

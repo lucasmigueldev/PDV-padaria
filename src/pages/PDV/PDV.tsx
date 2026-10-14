@@ -18,15 +18,13 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getOpenCashRegister } from '../../data/cashRegister'
-import { decreaseStock, getProductsForBakery } from '../../data/products'
-import { deleteSale, saveSale } from '../../data/sales'
+import { getProductsFromSupabase } from '../../data/products'
+import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
-import type { SaleItem } from '../../types/Product'
-import type { PaymentMethod, Sale } from '../../types/Sale'
+import type { ProductWithStock, SaleItem } from '../../types/Product'
+import type { PaymentMethod } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -54,7 +52,6 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
-    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
@@ -70,9 +67,47 @@ export default function PDV() {
     const [receivedValue, setReceivedValue] = useState('')
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
+    const [products, setProducts] = useState<ProductWithStock[]>([])
+    const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
+    const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
+    const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
+
+    useEffect(() => {
+        let active = true
+        void (async () => {
+            await Promise.resolve()
+            if (!active) return
+            if (!bakeryId) {
+                setProducts([])
+                setCashRegister(null)
+                setIsLoadingOperationalData(false)
+                return
+            }
+            setIsLoadingOperationalData(true)
+            try {
+                const [catalog, register] = await Promise.all([
+                    getProductsFromSupabase(bakeryId),
+                    getOpenCashRegister(bakeryId),
+                ])
+                if (!active) return
+                setProducts(catalog)
+                setCashRegister(register)
+            } catch (error: unknown) {
+                if (!active) return
+                console.error('Erro ao carregar os dados operacionais do PDV.', error)
+                setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar os dados do PDV.')
+            } finally {
+                if (active) setIsLoadingOperationalData(false)
+            }
+        })()
+
+        return () => {
+            active = false
+        }
+    }, [bakeryId])
 
     useEffect(() => {
         barcodeInputRef.current?.focus()
@@ -119,7 +154,7 @@ export default function PDV() {
         setSaleFeedback('')
         const normalizedBarcode = barcode.trim()
         const requestedQuantity = Number(productQuantity)
-        const product = localBakeryId ? getProductsForBakery(localBakeryId).find((item) => item.barcode.trim() === normalizedBarcode) : undefined
+        const product = products.find((item) => item.barcode.trim() === normalizedBarcode)
 
         if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity < 1) {
             setErrorMessage('Informe uma quantidade válida.')
@@ -173,7 +208,7 @@ export default function PDV() {
 
     function updateQuantity(id: string, amount: number) {
         const currentItem = items.find((item) => item.id === id)
-        const catalogProduct = localBakeryId ? getProductsForBakery(localBakeryId).find((product) => product.id === id) : undefined
+        const catalogProduct = products.find((product) => product.id === id)
         const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
 
         if (amount > 0 && currentItem && currentItem.quantity >= stock) {
@@ -200,7 +235,7 @@ export default function PDV() {
 
     function openCheckout() {
         if (items.length === 0) return
-        if (!localBakeryId || !getOpenCashRegister(localBakeryId)) return
+        if (!cashRegister) return
 
         setPaymentMethod(null)
         setReceivedValue('')
@@ -223,7 +258,7 @@ export default function PDV() {
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-    const isCashRegisterOpen = localBakeryId ? getOpenCashRegister(localBakeryId) !== null : false
+    const isCashRegisterOpen = cashRegister !== null
     const totalInCents = Math.round(total * 100)
     const receivedInCents = parseMoneyToCents(receivedValue)
     const isCashPaymentValid = paymentMethod === 'cash'
@@ -237,7 +272,7 @@ export default function PDV() {
                 ? `Valor insuficiente. Falta ${currency.format((totalInCents - receivedInCents) / 100)}.`
                 : `Troco: ${currency.format((receivedInCents - totalInCents) / 100)}`
 
-    function continueCheckout() {
+    async function continueCheckout() {
         if (isRegisteringSaleRef.current) return
 
         if (items.length === 0) {
@@ -252,7 +287,7 @@ export default function PDV() {
 
         if (paymentMethod === 'cash' && !isCashPaymentValid) return
 
-        if (!localBakeryId || !getOpenCashRegister(localBakeryId)) {
+        if (!bakeryId) {
             closeCheckout()
             setCheckoutMessage('Abra o caixa para finalizar a venda.')
             return
@@ -263,44 +298,60 @@ export default function PDV() {
             return
         }
 
-        const sale: Sale = {
-            id: crypto.randomUUID(),
-            date: new Date().toISOString(),
-            items: items.map((item) => ({
-                productId: item.id,
-                name: item.name,
-                barcode: item.barcode,
-                price: item.price,
-                quantity: item.quantity,
-                subtotal: item.quantity * item.price,
-            })),
-            total,
+        let currentRegister
+        try {
+            currentRegister = await getOpenCashRegister(authenticatedUser.bakeryId)
+        } catch (error) {
+            setCheckoutMessage(error instanceof Error ? error.message : 'Não foi possível verificar o caixa aberto.')
+            return
+        }
+        if (!currentRegister) {
+            setCashRegister(null)
+            setCheckoutMessage('Abra o caixa para finalizar a venda.')
+            return
+        }
+
+        const receivedAmount = paymentMethod === 'cash' && receivedInCents !== null
+            ? receivedInCents / 100
+            : null
+        const changeAmount = paymentMethod === 'cash' && receivedInCents !== null
+            ? (receivedInCents - totalInCents) / 100
+            : null
+        const fingerprint = JSON.stringify({
+            cashRegisterId: currentRegister.id,
             paymentMethod,
-            bakeryId: getLocalBakeryId(authenticatedUser.bakeryId),
-            ...(paymentMethod === 'cash' && receivedInCents !== null
-                ? {
-                    receivedAmount: receivedInCents / 100,
-                    change: (receivedInCents - totalInCents) / 100,
-                }
-                : {}),
+            receivedAmount,
+            changeAmount,
+            items: items.map(({ id, quantity }) => ({ product_id: id, quantity })),
+        })
+        if (idempotencyRef.current?.fingerprint !== fingerprint) {
+            idempotencyRef.current = { fingerprint, key: crypto.randomUUID() }
         }
 
         isRegisteringSaleRef.current = true
         setIsRegisteringSale(true)
 
         try {
-            saveSale(sale)
-            decreaseStock(sale.items, sale.bakeryId)
+            await createSaleWithItems({
+                cashRegisterId: currentRegister.id,
+                paymentMethod,
+                receivedAmount,
+                changeAmount,
+                items: items.map((item) => ({ productId: item.id, quantity: item.quantity })),
+                idempotencyKey: idempotencyRef.current.key,
+            })
+            idempotencyRef.current = null
             setItems([])
             closeCheckout()
             setSaleFeedback('Venda concluída com sucesso.')
-        } catch {
             try {
-                deleteSale(sale.id)
-            } catch {
-                // Keep the original error feedback when rollback also fails.
+                setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
+            } catch (error) {
+                console.error('Venda registrada, mas a atualização do estoque exibido falhou.', error)
+                setErrorMessage('Venda registrada. Não foi possível atualizar o estoque exibido; recarregue o PDV.')
             }
-            setCheckoutMessage('Não foi possível registrar a venda. Tente novamente.')
+        } catch (error) {
+            setCheckoutMessage(error instanceof Error ? error.message : 'Não foi possível registrar a venda. Tente novamente.')
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
@@ -351,7 +402,7 @@ export default function PDV() {
                         placeholder="Digite ou bip o código"
                         autoComplete="off"
                     />
-                    <button type="submit" className="pdv-primary-button">
+                    <button type="submit" className="pdv-primary-button" disabled={isLoadingOperationalData}>
                         <Plus size={18} />
                         Adicionar produto
                     </button>
@@ -485,7 +536,7 @@ export default function PDV() {
                                 ref={finishButtonRef}
                                 type="button"
                                 className="pdv-finish-button"
-                                disabled={items.length === 0 || !isCashRegisterOpen}
+                                disabled={isLoadingOperationalData || isRegisteringSale || items.length === 0 || !isCashRegisterOpen}
                                 onClick={openCheckout}
                             >
                                 <span>FINALIZAR VENDA</span>
