@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { getOpenCashRegister } from '../../services/operations'
 import { createAdminUser, getAdminUsers } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
@@ -434,13 +435,7 @@ export default function Configuracoes() {
             <h1>Configurações</h1>
             <p>Gerencie usuários e unidades do sistema.</p>
           </div>
-          <div className="header-user flex items-center gap-3">
-            <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
-            <div>
-              <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
-              <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
-            </div>
-          </div>
+          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content settings-content p-10">
