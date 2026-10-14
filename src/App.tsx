@@ -167,7 +167,7 @@ function App() {
       window.setTimeout(() => {
         if (!isActive || eventVersion !== authEventVersion) return
 
-        void getUserProfile(session.user.id).then((user) => {
+        void getUserProfile(session.user.id, session.user.created_at).then((user) => {
           if (!isActive || eventVersion !== authEventVersion) return
           setAuthenticatedUserState(user)
           setIsAuthLoading(false)
