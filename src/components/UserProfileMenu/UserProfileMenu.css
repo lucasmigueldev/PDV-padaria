@@ -1,0 +1,129 @@
+.user-profile-menu {
+  position: relative;
+  z-index: 20;
+}
+
+.user-profile-trigger {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 10px;
+  padding: 5px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-profile-trigger:hover,
+.user-profile-trigger:focus-visible,
+.user-profile-trigger[aria-expanded='true'] {
+  background: #f8fafc;
+}
+
+.user-profile-trigger:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 25%);
+  outline-offset: 2px;
+}
+
+.user-profile-trigger .user-avatar {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.user-profile-trigger-copy {
+  display: block;
+  min-width: 0;
+}
+
+.user-profile-trigger-copy strong,
+.user-profile-trigger-copy > span {
+  display: block;
+  max-width: min(240px, 45vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-profile-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(340px, calc(100vw - 32px));
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgb(15 23 42 / 16%);
+}
+
+.user-profile-popover-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.user-profile-popover-heading span + span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.user-profile-details {
+  display: grid;
+  gap: 13px;
+  margin: 14px 0 0;
+}
+
+.user-profile-details > div {
+  min-width: 0;
+}
+
+.user-profile-details dt {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.user-profile-details dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #1e293b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.user-profile-unavailable {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .dashboard-header > .user-profile-menu {
+    align-self: flex-end;
+  }
+
+  .user-profile-popover {
+    right: 0;
+    width: min(320px, calc(100vw - 24px));
+  }
+}
