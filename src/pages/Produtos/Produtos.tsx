@@ -23,7 +23,6 @@ import type { Product, ProductWithStock } from '../../types/Product'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -63,7 +62,6 @@ export default function Produtos() {
     const isOwner = authenticatedUser?.role === 'owner'
     const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
-    const localBakeryId = bakeryId ? getLocalBakeryId(bakeryId) : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : null
@@ -93,7 +91,7 @@ export default function Produtos() {
             setIsLoadingProducts(true)
             setProductsLoadError('')
             try {
-                const products = await getProductsFromSupabase(localBakeryId)
+                const products = await getProductsFromSupabase(bakeryId)
                 if (isActive) setProductList(products)
             } catch (error: unknown) {
                 if (isActive) {
@@ -107,7 +105,7 @@ export default function Produtos() {
         return () => {
             isActive = false
         }
-    }, [localBakeryId])
+    }, [bakeryId])
 
     useEffect(() => {
         if (!productPendingDeletion) return
@@ -206,7 +204,7 @@ export default function Produtos() {
             setFormError('O proprietário pode consultar os produtos, mas não cadastrá-los nem editá-los.')
             return
         }
-        if (!bakeryId || !localBakeryId) {
+        if (!bakeryId) {
             setFormError('Não foi possível identificar a unidade do operador.')
             return
         }
@@ -218,44 +216,30 @@ export default function Produtos() {
         setSuccessMessage('')
         try {
             if (editingId) {
-                const result = await updateProduct(editingId, productData, bakeryId, localBakeryId)
-                const previousStock = productList.find((product) => product.id === editingId)?.stock ?? 0
+                const updatedProduct = await updateProduct(editingId, productData)
                 setProductList((products) => products.map((product) => (
-                    product.id === editingId
-                        ? { ...result.product, stock: result.stockSaved ? stock : previousStock }
-                        : product
+                    product.id === editingId ? updatedProduct : product
                 )))
-                setSuccessMessage(result.stockSaved
-                    ? 'Produto atualizado com sucesso.'
-                    : 'Produto atualizado no Supabase, mas o estoque local não pôde ser atualizado neste dispositivo.')
+                setSuccessMessage('Produto atualizado com sucesso.')
             } else {
-                const result = await addProduct(productData, bakeryId, localBakeryId)
-                const newProduct = result.product
-                setProductList((products) => [...products, { ...newProduct, stock }])
-                setSuccessMessage(result.initialStockSaved
-                    ? 'Produto cadastrado com sucesso.'
-                    : 'Produto cadastrado no Supabase, mas o estoque inicial não pôde ser salvo neste dispositivo.')
+                const newProduct = await addProduct(productData)
+                setProductList((products) => [...products, newProduct])
+                setSuccessMessage('Produto cadastrado com sucesso.')
             }
             closeForm()
         } catch (error) {
-            if (error instanceof Error && error.message === 'DUPLICATE_BARCODE') {
+            if (error instanceof Error && error.message.includes('conflita')) {
                 setFormError('Já existe um produto cadastrado com este código de barras.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
+            } else if (error instanceof Error && error.message.includes('permissão')) {
                 setFormError(editingId
                     ? 'Você não tem permissão para alterar produtos nesta unidade.'
                     : 'Você não tem permissão para cadastrar produtos nesta unidade.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED') {
-                setFormError('O produto não foi encontrado ou você não tem permissão para alterá-lo.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_UPDATE_FAILED') {
-                setFormError('Não foi possível atualizar o produto no Supabase.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_SAVE_FAILED') {
-                setFormError('Não foi possível salvar o produto no Supabase. Verifique sua conexão e tente novamente.')
             } else if (error instanceof TypeError) {
                 console.error('Falha de conexão ao cadastrar produto no Supabase.', error)
                 setFormError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
             } else {
                 console.error('Erro inesperado ao cadastrar produto.', error)
-                setFormError('Não foi possível salvar o produto. Tente novamente.')
+                setFormError(error instanceof Error ? error.message : 'Não foi possível salvar o produto. Tente novamente.')
             }
         } finally {
             isSavingProductRef.current = false
@@ -271,23 +255,16 @@ export default function Produtos() {
 
     async function confirmProductDeletion() {
         if (!productPendingDeletion || isOwner || isDeletingProductRef.current) return
-        if (!bakeryId) {
-            setDeleteError('Não foi possível identificar a unidade ativa do operador.')
-            return
-        }
-
         isDeletingProductRef.current = true
         setIsDeletingProduct(true)
         setDeleteError('')
         setSuccessMessage('')
         try {
-            const result = await deleteProduct(productPendingDeletion.id, bakeryId)
+            await deleteProduct(productPendingDeletion.id)
             setProductList((products) => products.filter((product) => product.id !== productPendingDeletion.id))
             if (editingId === productPendingDeletion.id) closeForm()
             setProductPendingDeletion(null)
-            setSuccessMessage(result.localReferencesRemoved
-                ? 'Produto excluído com sucesso.'
-                : 'Produto excluído do Supabase, mas algumas referências locais não puderam ser removidas.')
+            setSuccessMessage('Produto excluído com sucesso.')
         } catch (error: unknown) {
             if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
                 setDeleteError('Você não tem permissão para excluir este produto.')
@@ -300,7 +277,7 @@ export default function Produtos() {
                 setDeleteError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
             } else {
                 console.error('Erro inesperado ao excluir produto.', error)
-                setDeleteError('Não foi possível excluir o produto. Tente novamente.')
+                setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o produto. Tente novamente.')
             }
         } finally {
             isDeletingProductRef.current = false
