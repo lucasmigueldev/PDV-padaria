@@ -3,7 +3,9 @@ import type { AuthChangeEvent, Session, User as AuthUser } from '@supabase/supab
 import { getSupabaseClient } from '../lib/supabaseClient'
 import type { User, UserRole } from '../types/User'
 
-export type AuthenticatedUser = Omit<User, 'password'>
+export type AuthenticatedUser = Omit<User, 'password'> & {
+    createdAt?: string
+}
 
 export class UserProfileNotFoundError extends Error {
     constructor() {
@@ -61,7 +63,7 @@ async function ensureOperationalBakeryIsActive(user: AuthenticatedUser): Promise
     }
 }
 
-export async function getUserProfile(userId: string): Promise<AuthenticatedUser> {
+export async function getUserProfile(userId: string, createdAt?: string): Promise<AuthenticatedUser> {
     const { data, error } = await getSupabaseClient()
         .from('users')
         .select('id, name, email, role, bakery_id')
@@ -71,7 +73,10 @@ export async function getUserProfile(userId: string): Promise<AuthenticatedUser>
     if (error) throw error
     if (!data) throw new UserProfileNotFoundError()
 
-    const user = mapUserProfile(data as UserProfileRecord)
+    const user = {
+        ...mapUserProfile(data as UserProfileRecord),
+        ...(createdAt ? { createdAt } : {}),
+    }
     await ensureOperationalBakeryIsActive(user)
     return user
 }
@@ -108,7 +113,7 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
     const session = await getCurrentSession()
     if (!session) return null
 
-    return getUserProfile(session.user.id)
+    return getUserProfile(session.user.id, session.user.created_at)
 }
 
 export function onAuthStateChange(
