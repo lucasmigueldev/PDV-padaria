@@ -53,8 +53,8 @@ function sumSales(sales: Sale[]): number {
   return sales.reduce((total, sale) => total + sale.total, 0)
 }
 
-function getVariation(currentValue: number, previousValue: number): string {
-  if (previousValue === 0) return 'Sem dados de ontem'
+function getVariation(currentValue: number, previousValue: number): string | null {
+  if (previousValue === 0) return null
 
   const variation = (currentValue - previousValue) / previousValue
   const sign = variation > 0 ? '+' : ''
@@ -88,6 +88,8 @@ export default function Dashboard() {
   const totalSalesYesterday = sumSales(salesYesterday)
   const salesCountToday = salesToday.length
   const salesCountYesterday = salesYesterday.length
+  const salesValueVariation = getVariation(totalSalesToday, totalSalesYesterday)
+  const salesCountVariation = getVariation(salesCountToday, salesCountYesterday)
   const cashSalesToday = getPaymentTotal(salesToday, 'cash')
   const cardSalesToday = getPaymentTotal(salesToday, 'card')
   const pixSalesToday = getPaymentTotal(salesToday, 'pix')
@@ -333,7 +335,11 @@ export default function Dashboard() {
                 </div>
               </div>
               <strong className="block text-2xl font-bold text-slate-900">{currency.format(totalSalesToday)}</strong>
-              <span className="mt-2 block text-xs font-medium text-emerald-600">{getVariation(totalSalesToday, totalSalesYesterday)}</span>
+              {salesValueVariation && (
+                <span className="mt-2 block text-xs font-medium text-emerald-600">
+                  {salesValueVariation}
+                </span>
+              )}
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -344,7 +350,11 @@ export default function Dashboard() {
                 </div>
               </div>
               <strong className="block text-2xl font-bold text-slate-900">{salesCountToday}</strong>
-              <span className="mt-2 block text-xs font-medium text-emerald-600">{getVariation(salesCountToday, salesCountYesterday)}</span>
+              {salesCountVariation && (
+                <span className="mt-2 block text-xs font-medium text-emerald-600">
+                  {salesCountVariation}
+                </span>
+              )}
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
