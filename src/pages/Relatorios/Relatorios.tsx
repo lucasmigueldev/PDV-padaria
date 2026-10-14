@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { getProductsFromSupabase } from '../../data/products'
 import { getSalesFromSupabase } from '../../data/sales'
+import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -380,13 +381,7 @@ export default function Relatorios() {
             <h1>Relatórios</h1>
             <p>Consulte os relatórios da operação da sua padaria.</p>
           </div>
-          <div className="header-user flex items-center gap-3">
-            <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
-            <div>
-              <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
-              <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
-            </div>
-          </div>
+          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content reports-content p-10">
