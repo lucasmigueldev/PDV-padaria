@@ -22,6 +22,7 @@ Funcionalidades confirmadas no estado atual:
 - Pagamentos em dinheiro, PIX e cartão;
 - Cálculo de troco para pagamentos em dinheiro;
 - Histórico de vendas com busca, filtros, ordenação e paginação;
+- Comprovante não fiscal de 58 mm, visualização, impressão e reimpressão pelo histórico;
 - Exportação do histórico de vendas em PDF;
 - Abertura de caixa com valor inicial e data/hora automáticas;
 - Movimentação em dinheiro do caixa aberto;
@@ -43,6 +44,10 @@ Funcionalidades confirmadas no estado atual:
 - ESLint para análise de qualidade do código.
 
 O React Compiler permanece desabilitado nesta configuração. Os dados do negócio são lidos e persistidos pelo Supabase; a sessão de autenticação é gerenciada pelo SDK Supabase.
+
+A preferência de impressão do comprovante (automática, manual ou desativada) é salva no Supabase e vinculada ao usuário autenticado. A migration `20261014120000_user_receipt_preferences.sql` cria a tabela e suas políticas RLS; ela ainda precisa ser aplicada no Supabase para habilitar a persistência remota. Enquanto a consulta inicial está pendente, o PDV não inicia a impressão automática. Se a consulta falhar, o operador recebe um erro e pode tentar novamente; a venda confirmada continua sem ser revertida. A impressão utiliza o diálogo do navegador e não confirma se o papel foi efetivamente impresso.
+
+Na conclusão de uma venda, a RPC retorna somente o identificador e o perfil operador não pode consultar a linha da venda pelas permissões atuais. Por isso, o comprovante imediato usa o resumo enviado pelo PDV e o identificador confirmado pela RPC; em caso de alteração concorrente de preço, os valores do resumo podem divergir dos valores persistidos. A reimpressão do histórico usa os dados persistidos disponíveis para o perfil autorizado. O nome da padaria no histórico é o nome atual, pois não há snapshot do nome associado à venda.
 
 ## Estrutura do projeto
 

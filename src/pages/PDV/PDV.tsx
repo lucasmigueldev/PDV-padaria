@@ -23,8 +23,14 @@ import { createSaleWithItems, getOpenCashRegister } from '../../services/operati
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
-import type { PaymentMethod } from '../../types/Sale'
+import type { PaymentMethod, Sale } from '../../types/Sale'
+import { ReceiptPrintDialog } from '../../components/ReceiptPrintDialog/ReceiptPrintDialog'
 import { logoutAndRedirect } from '../../utils/auth'
+import {
+    getReceiptPreference,
+    saveReceiptPreference,
+    type ReceiptPreference,
+} from '../../services/receiptPreferences'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -52,9 +58,10 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
-    const bakeryName = bakeryId
-        ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
-        : 'Unidade indisponível'
+    const receiptBakeryName = bakeryId
+        ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
+        : null
+    const bakeryName = receiptBakeryName ?? 'Unidade indisponível'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const finishButtonRef = useRef<HTMLButtonElement>(null)
     const [barcode, setBarcode] = useState('')
@@ -68,12 +75,69 @@ export default function PDV() {
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
+    const [loadedReceiptPreference, setLoadedReceiptPreference] = useState<{
+        userId: string
+        attempt: number
+        preference: ReceiptPreference
+    } | null>(null)
+    const [receiptPreferenceLoadError, setReceiptPreferenceLoadError] = useState<{
+        userId: string
+        attempt: number
+        message: string
+    } | null>(null)
+    const [isSavingReceiptPreference, setIsSavingReceiptPreference] = useState(false)
+    const [receiptPreferenceLoadAttempt, setReceiptPreferenceLoadAttempt] = useState(0)
+    const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
     const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
+    const currentUserId = authenticatedUser?.id ?? null
+    const currentReceiptPreference = loadedReceiptPreference?.userId === currentUserId
+        && loadedReceiptPreference.attempt === receiptPreferenceLoadAttempt
+        ? loadedReceiptPreference.preference
+        : null
+    const currentReceiptPreferenceError = receiptPreferenceLoadError?.userId === currentUserId
+        && receiptPreferenceLoadError.attempt === receiptPreferenceLoadAttempt
+        ? receiptPreferenceLoadError.message
+        : ''
+    const isLoadingReceiptPreference = Boolean(currentUserId)
+        && currentReceiptPreference === null
+        && !currentReceiptPreferenceError
+
+    useEffect(() => {
+        const userId = authenticatedUser?.id
+        let active = true
+
+        if (!userId) return
+
+        void getReceiptPreference(userId).then((preference) => {
+            if (!active) return
+            setLoadedReceiptPreference({
+                userId,
+                attempt: receiptPreferenceLoadAttempt,
+                preference,
+            })
+            if (preference === 'disabled') setReceiptSale(null)
+            setReceiptPreferenceLoadError(null)
+        }).catch((error: unknown) => {
+            if (!active) return
+            console.error('Erro ao carregar a preferência de impressão.', error)
+            setReceiptPreferenceLoadError({
+                userId,
+                attempt: receiptPreferenceLoadAttempt,
+                message: error instanceof Error
+                    ? error.message
+                    : 'Não foi possível carregar a preferência de impressão.',
+            })
+        })
+
+        return () => {
+            active = false
+        }
+    }, [authenticatedUser?.id, receiptPreferenceLoadAttempt])
 
     useEffect(() => {
         let active = true
@@ -256,6 +320,34 @@ export default function PDV() {
         setCheckoutMessage('')
     }
 
+    async function handleReceiptPreferenceChange(preference: ReceiptPreference) {
+        const userId = authenticatedUser?.id
+        if (!userId || isSavingReceiptPreference) return
+
+        setIsSavingReceiptPreference(true)
+        try {
+            const savedPreference = await saveReceiptPreference(userId, preference)
+            setLoadedReceiptPreference({
+                userId,
+                attempt: receiptPreferenceLoadAttempt,
+                preference: savedPreference,
+            })
+            if (savedPreference === 'disabled') setReceiptSale(null)
+            setReceiptPreferenceLoadError(null)
+        } catch (error) {
+            console.error('Erro ao atualizar a preferência de impressão.', error)
+            setReceiptPreferenceLoadError({
+                userId,
+                attempt: receiptPreferenceLoadAttempt,
+                message: error instanceof Error
+                    ? error.message
+                    : 'Não foi possível salvar a preferência de impressão.',
+            })
+        } finally {
+            setIsSavingReceiptPreference(false)
+        }
+    }
+
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
     const isCashRegisterOpen = cashRegister !== null
@@ -332,7 +424,8 @@ export default function PDV() {
         setIsRegisteringSale(true)
 
         try {
-            await createSaleWithItems({
+            const registeredAt = new Date().toISOString()
+            const saleId = await createSaleWithItems({
                 cashRegisterId: currentRegister.id,
                 paymentMethod,
                 receivedAmount,
@@ -341,9 +434,29 @@ export default function PDV() {
                 idempotencyKey: idempotencyRef.current.key,
             })
             idempotencyRef.current = null
+            const confirmedSale: Sale = {
+                id: saleId,
+                date: registeredAt,
+                items: items.map((item) => ({
+                    productId: item.id,
+                    name: item.name,
+                    barcode: item.barcode,
+                    price: item.price,
+                    quantity: item.quantity,
+                    subtotal: item.quantity * item.price,
+                })),
+                total,
+                paymentMethod,
+                bakeryId: authenticatedUser.bakeryId,
+                ...(receivedAmount !== null ? { receivedAmount } : {}),
+                ...(changeAmount !== null ? { change: changeAmount } : {}),
+            }
             setItems([])
             closeCheckout()
             setSaleFeedback('Venda concluída com sucesso.')
+            if (currentReceiptPreference !== 'disabled') {
+                setReceiptSale(confirmedSale)
+            }
             try {
                 setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
             } catch (error) {
@@ -427,6 +540,49 @@ export default function PDV() {
                         <kbd>F4</kbd>
                     </a>
                 </nav>
+
+                <div className="pdv-receipt-preference">
+                    <label htmlFor="receipt-print-preference">Impressão de comprovante</label>
+                    <select
+                        id="receipt-print-preference"
+                        value={currentReceiptPreference ?? ''}
+                        disabled={isLoadingReceiptPreference || currentReceiptPreference === null || isSavingReceiptPreference}
+                        onChange={(event) => {
+                            const preferenceValue = event.target.value
+                            if (
+                                preferenceValue !== 'automatic'
+                                && preferenceValue !== 'manual'
+                                && preferenceValue !== 'disabled'
+                            ) {
+                                return
+                            }
+                            void handleReceiptPreferenceChange(preferenceValue)
+                        }}
+                    >
+                        {currentReceiptPreference === null && (
+                            <option value="">
+                                {isLoadingReceiptPreference ? 'Carregando preferência...' : 'Preferência indisponível'}
+                            </option>
+                        )}
+                        <option value="automatic">Automática (padrão)</option>
+                        <option value="manual">Manual</option>
+                        <option value="disabled">Desativada</option>
+                    </select>
+                    <small>Preferência salva no Supabase para este usuário.</small>
+                    {isSavingReceiptPreference && <p role="status">Salvando preferência...</p>}
+                    {currentReceiptPreferenceError && <p role="alert">{currentReceiptPreferenceError}</p>}
+                    {!currentUserId && (
+                        <p role="alert">Não foi possível identificar o usuário para carregar a preferência.</p>
+                    )}
+                    {currentReceiptPreferenceError && !currentReceiptPreference && (
+                        <button
+                            type="button"
+                            onClick={() => setReceiptPreferenceLoadAttempt((attempt) => attempt + 1)}
+                        >
+                            Tentar carregar novamente
+                        </button>
+                    )}
+                </div>
             </aside>
 
             <main className="pdv-main">
@@ -698,6 +854,15 @@ export default function PDV() {
                         </div>
                     </div>
                 </div>
+            )}
+            {receiptSale && !isLoadingReceiptPreference && currentReceiptPreference !== 'disabled' && (
+                <ReceiptPrintDialog
+                    sale={receiptSale}
+                    bakeryName={receiptBakeryName}
+                    autoPrint={currentReceiptPreference === 'automatic'}
+                    contextMessage="A RPC confirmou o identificador da venda, mas não retorna os valores persistidos. Este comprovante usa o resumo enviado pelo PDV; uma alteração concorrente de preço pode causar divergência."
+                    onClose={() => setReceiptSale(null)}
+                />
             )}
         </div>
     )

@@ -597,6 +597,54 @@
 	cursor: not-allowed;
 }
 
+.pdv-receipt-preference {
+	display: grid;
+	gap: 8px;
+	margin: 20px 16px 0;
+}
+
+.pdv-receipt-preference label {
+	color: #cbd5e1;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.pdv-receipt-preference select {
+	width: 100%;
+	min-height: 38px;
+	border: 1px solid rgb(255 255 255 / 25%);
+	border-radius: 6px;
+	padding: 0 9px;
+	background: #ffffff;
+	color: #1e293b;
+	font: inherit;
+	font-size: 12px;
+}
+
+.pdv-receipt-preference small,
+.pdv-receipt-preference p {
+	color: #cbd5e1;
+	font-size: 11px;
+	line-height: 1.45;
+}
+
+.pdv-receipt-preference p {
+	color: #fecaca;
+}
+
+.pdv-receipt-preference button {
+	justify-self: start;
+	border: 1px solid rgb(255 255 255 / 35%);
+	border-radius: 6px;
+	padding: 7px 9px;
+	background: transparent;
+	color: #ffffff;
+	font: inherit;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
 .pdv-checkout-close:focus-visible,
 .pdv-payment-option:focus-visible,
 .pdv-checkout-cancel:focus-visible,
