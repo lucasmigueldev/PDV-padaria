@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import {
-  AlertTriangle,
   BarChart3,
   Building2,
   Calculator,
@@ -12,14 +11,12 @@ import {
   Pencil,
   Settings,
   ShoppingCart,
-  Trash2,
   Users,
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { getOpenCashRegister } from '../../data/cashRegister'
-import { removeUser, updateUser } from '../../data/users'
+import { getOpenCashRegister } from '../../services/operations'
 import { createAdminUser, getAdminUsers } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useBakeries } from '../../hooks/useBakeries'
@@ -27,7 +24,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import type { Bakery } from '../../types/Bakery'
 import type { User } from '../../types/User'
 import { logoutAndRedirect } from '../../utils/auth'
-import { getLocalBakeryId } from '../../utils/legacyBakeryIds'
 import '../Dashboard/Dashborad.css'
 import './Configuracoes.css'
 
@@ -38,9 +34,7 @@ function getRoleLabel(role: User['role']): string {
 function getBakeryLabel(bakeryId: User['bakeryId'], bakeries: Bakery[]): string {
   if (bakeryId === null) return 'Todas as unidades'
 
-  const bakery = bakeries.find((currentBakery) => (
-    currentBakery.id === bakeryId || getLocalBakeryId(currentBakery.id) === bakeryId
-  ))
+  const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
   return bakery?.active ? bakery.name : 'Unidade indisponível'
 }
 
@@ -80,8 +74,6 @@ export default function Configuracoes() {
   const [usersLoadError, setUsersLoadError] = useState('')
   const [userBakeryFilter, setUserBakeryFilter] = useState('all')
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
-  const [userPendingDeletion, setUserPendingDeletion] = useState<User | null>(null)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
   const { bakeries, setBakeries, isLoadingBakeries, bakeriesLoadError } = useBakeries()
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
@@ -93,8 +85,6 @@ export default function Configuracoes() {
   const [userFormError, setUserFormError] = useState('')
   const [userSuccessMessage, setUserSuccessMessage] = useState('')
   const [isSavingUser, setIsSavingUser] = useState(false)
-  const [isDeletingUser, setIsDeletingUser] = useState(false)
-  const isDeletingUserRef = useRef(false)
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
@@ -121,18 +111,16 @@ export default function Configuracoes() {
   }, [authenticatedUser?.id])
 
   useEffect(() => {
-    if (!isUserModalOpen && !userPendingDeletion && !isBakeryModalOpen) return
+    if (!isUserModalOpen && !isBakeryModalOpen) return
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
 
       if (isUserModalOpen) {
         setIsUserModalOpen(false)
-        setEditingUser(null)
         setNewUserForm(initialNewUserForm)
         setUserFormError('')
       }
-      if (userPendingDeletion && !isDeletingUser) setUserPendingDeletion(null)
       if (isBakeryModalOpen && !isSavingBakery) {
         setIsBakeryModalOpen(false)
         setEditingBakery(null)
@@ -143,7 +131,7 @@ export default function Configuracoes() {
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isBakeryModalOpen, isDeletingUser, isSavingBakery, isUserModalOpen, userPendingDeletion])
+  }, [isBakeryModalOpen, isSavingBakery, isUserModalOpen])
 
   function handleLogout() {
     void logoutAndRedirect(navigate)
@@ -155,35 +143,7 @@ export default function Configuracoes() {
 
   function openUserModal() {
     setActiveBakeries(bakeries.filter((bakery) => bakery.active))
-    setEditingUser(null)
     setNewUserForm(initialNewUserForm)
-    setUserFormError('')
-    setUserSuccessMessage('')
-    setIsUserModalOpen(true)
-  }
-
-  function openEditUserModal(user: User) {
-    const activeOptions = bakeries.filter((bakery) => bakery.active)
-    const linkedBakery = user.bakeryId
-      ? bakeries.find((bakery) => (
-        bakery.id === user.bakeryId || getLocalBakeryId(bakery.id) === user.bakeryId
-      ))
-      : undefined
-    const currentInactiveBakery = user.bakeryId
-      ? bakeries.find((bakery) => (
-        (bakery.id === user.bakeryId || getLocalBakeryId(bakery.id) === user.bakeryId)
-        && !bakery.active
-      ))
-      : undefined
-    setActiveBakeries(currentInactiveBakery ? [...activeOptions, currentInactiveBakery] : activeOptions)
-    setEditingUser(user)
-    setNewUserForm({
-      name: user.name,
-      email: user.email,
-      password: '',
-      role: user.role,
-      bakeryId: linkedBakery?.id ?? user.bakeryId ?? '',
-    })
     setUserFormError('')
     setUserSuccessMessage('')
     setIsUserModalOpen(true)
@@ -193,57 +153,12 @@ export default function Configuracoes() {
     if (isSavingUser) return
 
     setIsUserModalOpen(false)
-    setEditingUser(null)
     setNewUserForm(initialNewUserForm)
     setUserFormError('')
   }
 
   function handleUserOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) closeUserModal()
-  }
-
-  function openUserDeletionModal(user: User) {
-    setUserFormError('')
-    setUserPendingDeletion(user)
-  }
-
-  function closeUserDeletionModal() {
-    if (isDeletingUser) return
-
-    setUserPendingDeletion(null)
-    setUserFormError('')
-  }
-
-  function handleUserDeletionOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) closeUserDeletionModal()
-  }
-
-  function handleUserDeletion() {
-    if (!userPendingDeletion || isDeletingUserRef.current) return
-
-    if (
-      userPendingDeletion.role === 'cashier'
-      && userPendingDeletion.bakeryId
-      && getOpenCashRegister(userPendingDeletion.bakeryId)
-    ) {
-      setUserFormError('Não é possível excluir este usuário enquanto houver um caixa aberto. Feche o caixa primeiro.')
-      return
-    }
-
-    isDeletingUserRef.current = true
-    setIsDeletingUser(true)
-
-    try {
-      removeUser(userPendingDeletion.id)
-      setUsers((currentUsers) => currentUsers.filter((user) => user.id !== userPendingDeletion.id))
-      setUserPendingDeletion(null)
-      setUserSuccessMessage('Usuário excluído com sucesso.')
-    } catch {
-      setUserFormError('Não foi possível excluir o usuário.')
-    } finally {
-      isDeletingUserRef.current = false
-      setIsDeletingUser(false)
-    }
   }
 
   function updateNewUserField(field: keyof NewUserForm, value: string) {
@@ -274,7 +189,7 @@ export default function Configuracoes() {
       return
     }
 
-    if (!editingUser && !password.trim()) {
+    if (!password.trim()) {
       setUserFormError('Informe a senha.')
       return
     }
@@ -290,9 +205,8 @@ export default function Configuracoes() {
     }
 
     const normalizedEmail = email.toLocaleLowerCase()
-    const hasDuplicateEmail = editingUser && users.some((user) => (
-      user.id !== editingUser?.id
-      && user.email.trim().toLocaleLowerCase() === normalizedEmail
+    const hasDuplicateEmail = users.some((user) => (
+      user.email.trim().toLocaleLowerCase() === normalizedEmail
     ))
 
     if (hasDuplicateEmail) {
@@ -300,68 +214,23 @@ export default function Configuracoes() {
       return
     }
 
-    const storedBakeryId = editingUser?.bakeryId ?? undefined
-    const currentBakery = storedBakeryId
-      ? bakeries.find((bakery) => (
-        bakery.id === storedBakeryId || getLocalBakeryId(bakery.id) === storedBakeryId
-      ))
-      : undefined
-    const currentBakeryId = currentBakery?.id ?? storedBakeryId
-    const isChangingCashierBakery = editingUser?.role === 'cashier'
-      && newUserForm.role === 'cashier'
-      && !!currentBakeryId
-      && currentBakeryId !== newUserForm.bakeryId
-      && currentBakery?.active
-
-    if (isChangingCashierBakery && getOpenCashRegister(getLocalBakeryId(currentBakeryId))) {
-      setUserFormError('Não é possível alterar a unidade deste usuário enquanto houver um caixa aberto. Feche o caixa primeiro.')
-      return
-    }
-
     setIsSavingUser(true)
 
     try {
-      let savedUser: User
-      if (editingUser) {
-        const userData = {
-          name,
-          email,
-          password: password.trim() ? password : editingUser.password,
-          role: newUserForm.role,
-          bakeryId: newUserForm.role === 'owner' ? null : getLocalBakeryId(newUserForm.bakeryId),
-        }
-        const updatedUser = updateUser(editingUser.id, userData)
-        if (!updatedUser) {
-          setUserFormError('Não foi possível atualizar o usuário.')
-          return
-        }
-        savedUser = updatedUser
-      } else {
-        if (!newUserForm.role) {
-          setUserFormError('Selecione um perfil.')
-          return
-        }
-        const createdUser = await createAdminUser({
-          name,
-          email,
-          password,
-          role: newUserForm.role,
-          bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
-        })
-        savedUser = { ...createdUser, password: '' }
-      }
+      const createdUser = await createAdminUser({
+        name,
+        email,
+        password,
+        role: newUserForm.role,
+        bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+      })
+      const savedUser = { ...createdUser, password: '' }
 
-      setUsers((currentUsers) => editingUser
-        ? currentUsers.map((user) => user.id === savedUser.id ? savedUser : user)
-        : [...currentUsers, savedUser])
-      const successMessage = editingUser
-        ? 'Usuário atualizado com sucesso.'
-        : 'Usuário criado com sucesso.'
+      setUsers((currentUsers) => [...currentUsers, savedUser])
       setNewUserForm(initialNewUserForm)
-      setEditingUser(null)
       setUserFormError('')
       setIsUserModalOpen(false)
-      setUserSuccessMessage(successMessage)
+      setUserSuccessMessage('Usuário criado com sucesso.')
     } catch (error) {
       setUserFormError(error instanceof Error ? error.message : 'Não foi possível salvar o usuário.')
     } finally {
@@ -417,9 +286,16 @@ export default function Configuracoes() {
       return
     }
 
-    if (editingBakery?.active && !bakeryForm.active && getOpenCashRegister(getLocalBakeryId(editingBakery.id))) {
-      setBakeryFormError('Não é possível desativar esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
-      return
+    if (editingBakery?.active && !bakeryForm.active) {
+      try {
+        if (await getOpenCashRegister(editingBakery.id)) {
+          setBakeryFormError('Não é possível desativar esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
+          return
+        }
+      } catch (error) {
+        setBakeryFormError(error instanceof Error ? error.message : 'Não foi possível verificar o caixa aberto.')
+        return
+      }
     }
 
     setIsSavingBakery(true)
@@ -559,8 +435,11 @@ export default function Configuracoes() {
             <p>Gerencie usuários e unidades do sistema.</p>
           </div>
           <div className="header-user flex items-center gap-3">
-            <div className="user-avatar">A</div>
-            <div><strong>Administrador</strong><span>Usuário do sistema</span></div>
+            <div className="user-avatar">{authenticatedUser?.name.trim().charAt(0).toLocaleUpperCase() || '?'}</div>
+            <div>
+              <strong>{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+              <span>{authenticatedUser?.role === 'owner' ? 'Proprietário' : 'Operador de caixa'}</span>
+            </div>
           </div>
         </header>
 
@@ -614,7 +493,7 @@ export default function Configuracoes() {
                       <th scope="col">E-mail</th>
                       <th scope="col">Perfil</th>
                       <th scope="col">Unidade</th>
-                      <th scope="col">Ações</th>
+                      <th scope="col">Gerenciamento</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -626,27 +505,10 @@ export default function Configuracoes() {
                           <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
                         </td>
                         <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
-                        <td data-label="Ações">
-                          <button
-                            type="button"
-                            className="user-actions-button"
-                            onClick={() => openEditUserModal(user)}
-                            aria-label={`Editar ${user.name}`}
-                            title={`Editar ${user.name}`}
-                          >
-                            <Pencil size={16} aria-hidden="true" />
-                          </button>
-                          {user.id !== 'admin' && (
-                            <button
-                              type="button"
-                              className="user-actions-button user-delete-button"
-                              onClick={() => openUserDeletionModal(user)}
-                              aria-label={`Excluir ${user.name}`}
-                              title={`Excluir ${user.name}`}
-                            >
-                              <Trash2 size={16} aria-hidden="true" />
-                            </button>
-                          )}
+                        <td data-label="Gerenciamento">
+                          <span title="O serviço administrativo atual permite consultar e criar usuários.">
+                            Edição e exclusão indisponíveis
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -798,8 +660,8 @@ export default function Configuracoes() {
               <div className="user-modal-header">
                 <div>
                   <span className="settings-card-overline">ACESSO AO SISTEMA</span>
-                  <h2 id="new-user-modal-title">{editingUser ? 'Editar usuário' : 'Novo usuário'}</h2>
-                  <p>{editingUser ? 'Atualize os dados do usuário cadastrado.' : 'Cadastre um usuário para acessar o sistema.'}</p>
+                  <h2 id="new-user-modal-title">Novo usuário</h2>
+                  <p>Cadastre um usuário para acessar o sistema.</p>
                 </div>
                 <button type="button" className="user-modal-close" onClick={closeUserModal} aria-label="Fechar cadastro de usuário">
                   <X size={20} aria-hidden="true" />
@@ -838,7 +700,6 @@ export default function Configuracoes() {
                       value={newUserForm.password}
                       onChange={(event) => updateNewUserField('password', event.target.value)}
                       autoComplete="new-password"
-                      placeholder={editingUser ? 'Deixe vazio para manter a senha atual' : undefined}
                     />
                   </div>
 
@@ -880,7 +741,7 @@ export default function Configuracoes() {
                     Cancelar
                   </button>
                   <button type="submit" className="settings-button" disabled={isSavingUser}>
-                    {isSavingUser ? 'Salvando...' : editingUser ? 'Atualizar' : 'Salvar'}
+                    {isSavingUser ? 'Salvando...' : 'Salvar'}
                   </button>
                 </div>
               </form>
@@ -888,44 +749,6 @@ export default function Configuracoes() {
           </div>
         )}
 
-        {userPendingDeletion && (
-          <div
-            className="user-modal-overlay"
-            role="presentation"
-            onMouseDown={handleUserDeletionOverlayMouseDown}
-          >
-            <section
-              className="user-modal user-deletion-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="delete-user-modal-title"
-              onMouseDown={(event) => event.stopPropagation()}
-            >
-              <div className="user-modal-header">
-                <div>
-                  <span className="settings-card-overline user-deletion-overline"><AlertTriangle size={15} aria-hidden="true" /> AÇÃO PERMANENTE</span>
-                  <h2 id="delete-user-modal-title">Excluir usuário?</h2>
-                  <p>Tem certeza que deseja excluir o usuário {userPendingDeletion.name}? Essa ação é permanente.</p>
-                </div>
-                <button type="button" className="user-modal-close" onClick={closeUserDeletionModal} disabled={isDeletingUser} aria-label="Fechar confirmação de exclusão">
-                  <X size={20} aria-hidden="true" />
-                </button>
-              </div>
-
-              {userFormError && <p className="user-form-error" role="alert">{userFormError}</p>}
-
-              <div className="user-modal-actions">
-                <button type="button" className="user-modal-cancel" onClick={closeUserDeletionModal} disabled={isDeletingUser}>
-                  Cancelar
-                </button>
-                <button type="button" className="settings-button user-confirm-delete" onClick={handleUserDeletion} disabled={isDeletingUser}>
-                  <Trash2 size={17} />
-                  {isDeletingUser ? 'Excluindo...' : 'Excluir'}
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
       </main>
     </div>
   )

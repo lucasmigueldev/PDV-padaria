@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 
 import { getBakeries } from '../services/bakeries'
 import type { Bakery } from '../types/Bakery'
-import { registerLegacyBakeryIds } from '../utils/legacyBakeryIds'
 
 export function useBakeries() {
     const [bakeries, setBakeries] = useState<Bakery[]>([])
@@ -14,7 +13,6 @@ export function useBakeries() {
 
         void getBakeries().then((loadedBakeries) => {
             if (!isActive) return
-            registerLegacyBakeryIds(loadedBakeries)
             setBakeries(loadedBakeries)
             setBakeriesLoadError('')
         }).catch((error: unknown) => {
