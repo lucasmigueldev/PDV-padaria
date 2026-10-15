@@ -96,20 +96,20 @@ deno.serve(async (request: Request) => {
     }
 
     if (origin && originIsAllowed) corsHeaders['Access-Control-Allow-Origin'] = origin
-    if (!originIsAllowed) return jsonResponse({ error: 'Origem não permitida.' }, 403)
+    if (!originIsAllowed) return jsonResponse({ error: 'Não foi possível concluir a solicitação. Atualize a tela e tente novamente.' }, 403)
 
     if (request.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: corsHeaders })
     }
 
     if (request.method !== 'POST') {
-        return jsonResponse({ error: 'Método não permitido.' }, 405, corsHeaders)
+        return jsonResponse({ error: 'Não foi possível concluir a solicitação. Atualize a tela e tente novamente.' }, 405, corsHeaders)
     }
 
     const authorizationHeader = request.headers.get('Authorization')
     const bearerMatch = authorizationHeader?.match(/^Bearer\s+([^\s]+)$/i)
     if (!bearerMatch) {
-        return jsonResponse({ error: 'Autenticação obrigatória.' }, 401, corsHeaders)
+        return jsonResponse({ error: 'Sua sessão expirou. Entre novamente para continuar.' }, 401, corsHeaders)
     }
 
     const supabaseUrl = deno.env.get('SUPABASE_URL')
@@ -132,7 +132,7 @@ deno.serve(async (request: Request) => {
 
         const { data: authData, error: authError } = await authenticatedClient.auth.getUser(bearerMatch[1])
         if (authError || !authData.user) {
-            return jsonResponse({ error: 'Autenticação inválida ou expirada.' }, 401, corsHeaders)
+            return jsonResponse({ error: 'Sua sessão expirou. Entre novamente para continuar.' }, 401, corsHeaders)
         }
 
         const { data: profile, error: profileError } = await adminClient
@@ -154,7 +154,7 @@ deno.serve(async (request: Request) => {
         try {
             requestBody = await request.json()
         } catch {
-            return jsonResponse({ error: 'Não foi possível ler os dados enviados. Atualize a tela e tente novamente.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível processar os dados enviados. Atualize a tela e tente novamente.' }, 400, corsHeaders)
         }
 
         if (!isRecord(requestBody) || typeof requestBody.action !== 'string') {
@@ -486,7 +486,7 @@ deno.serve(async (request: Request) => {
         }
 
         if (requestBody.action !== 'create') {
-            return jsonResponse({ error: 'Ação inválida.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível identificar a operação solicitada. Atualize a tela e tente novamente.' }, 400, corsHeaders)
         }
 
         const name = typeof requestBody.name === 'string' ? requestBody.name.trim() : ''
