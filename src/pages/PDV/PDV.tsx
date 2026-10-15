@@ -148,7 +148,6 @@ export default function PDV() {
                 attempt: receiptPreferenceLoadAttempt,
                 preference,
             })
-            if (preference === 'disabled') setReceiptSale(null)
             setReceiptPreferenceLoadError(null)
         }).catch((error: unknown) => {
             if (!active) return
@@ -367,7 +366,6 @@ export default function PDV() {
                 attempt: receiptPreferenceLoadAttempt,
                 preference: savedPreference,
             })
-            if (savedPreference === 'disabled') setReceiptSale(null)
             setReceiptPreferenceLoadError(null)
         } catch (error) {
             console.error('Erro ao atualizar a preferência de impressão.', error)
@@ -488,7 +486,6 @@ export default function PDV() {
             }
             setItems([])
             setCompletedSale(confirmedSale)
-            setReceiptSale(confirmedSale)
             setCheckoutStep('completed')
             setModalPrintFeedback(null)
             setSaleFeedback('Venda concluída com sucesso.')
