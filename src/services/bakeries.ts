@@ -11,13 +11,25 @@ type BakeryRecord = {
 
 function throwBakeryError(error: { code?: string; message: string }, operation: 'carregar' | 'salvar'): never {
     console.error(`Erro ao ${operation} unidades no Supabase.`, error)
+    const message = error.message.toLowerCase()
 
     if (error.code === '23505') throw new Error('Esta unidade já está cadastrada.')
-    if (error.code === '42501') throw new Error('Você não tem permissão para alterar unidades.')
+    if (error.code === '42501') {
+        throw new Error('Seu acesso não permite alterar unidades. Solicite ajuda ao proprietário.')
+    }
+    if (error.code === '23514' && message.includes('cash register')) {
+        throw new Error('Não é possível desativar esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
+    }
+    if (error.code === '23514' && /(stock|inventory)/i.test(message)) {
+        throw new Error('Não é possível desativar esta unidade enquanto houver produtos com estoque. Zere os estoques primeiro.')
+    }
+    if (error.code === '23503') {
+        throw new Error('A unidade selecionada não está mais disponível. Atualize a lista e tente novamente.')
+    }
 
     throw new Error(operation === 'carregar'
-        ? 'Não foi possível carregar as unidades.'
-        : 'Não foi possível salvar a unidade.')
+        ? 'Não foi possível carregar as unidades. Atualize a tela e tente novamente.'
+        : 'Não foi possível salvar as alterações da unidade. Confira os dados e tente novamente; se o problema continuar, solicite ajuda ao proprietário.')
 }
 
 function mapBakery(record: BakeryRecord): Bakery {
@@ -62,7 +74,9 @@ export async function updateBakery(id: string, bakery: Omit<Bakery, 'id'>): Prom
         .maybeSingle()
 
     if (error) throwBakeryError(error, 'salvar')
-    if (!data) throw new Error('A unidade não foi encontrada ou você não tem permissão para alterá-la.')
+    if (!data) {
+        throw new Error('A unidade não está disponível para alteração. Atualize a lista e tente novamente.')
+    }
 
     return mapBakery(data as BakeryRecord)
 }
