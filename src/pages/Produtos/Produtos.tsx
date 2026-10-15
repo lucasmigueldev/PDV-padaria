@@ -315,7 +315,7 @@ export default function Produtos() {
                     {isOwner ? (
                         <>
                             <span className="products-sidebar-label">Administração</span>
-                            <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>
+                            <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Painel</span></Link>
                             <Link to="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></Link>
                             <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
                             <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
