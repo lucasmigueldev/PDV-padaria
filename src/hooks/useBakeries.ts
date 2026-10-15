@@ -17,7 +17,10 @@ export function useBakeries() {
             setBakeriesLoadError('')
         }).catch((error: unknown) => {
             if (!isActive) return
-            setBakeriesLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as unidades.')
+            console.error('Erro ao carregar as unidades disponíveis.', error)
+            setBakeriesLoadError(error instanceof TypeError
+                ? 'Não foi possível conectar ao sistema para carregar as unidades. Verifique sua conexão e tente novamente.'
+                : 'Não foi possível carregar as unidades. Atualize a tela e tente novamente.')
         }).finally(() => {
             if (isActive) setIsLoadingBakeries(false)
         })
