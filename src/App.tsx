@@ -55,10 +55,19 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
         F2: '/produtos',
         F3: '/fechamento',
         F4: '/pdv',
+        F6: '/historico-vendas',
       }
       const target = targetByKey[event.key]
 
       if (!target) return
+      if (
+        event.key === 'F6' &&
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable ||
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement)
+      ) return
 
       event.preventDefault()
       navigate(target)
@@ -275,7 +284,7 @@ function App() {
           path="/historico-vendas"
           element={
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
                 <HistoricoVendas />
               </RoleRoute>
             </ProtectedRoute>
