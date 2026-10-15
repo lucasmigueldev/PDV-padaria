@@ -490,127 +490,6 @@ export default function HistoricoVendas() {
                 <section className="dashboard-content p-10">
                     {salesLoadError && <p role="alert" className="mb-4 text-red-700">{salesLoadError}</p>}
                     {isLoadingSales && <p role="status" className="mb-4">Carregando vendas...</p>}
-                    <div className="sales-history-toolbar">
-                        <div className="sales-history-search">
-                            <Search size={19} aria-hidden="true" />
-                            <label htmlFor="sales-history-search-input">Buscar vendas</label>
-                            <input
-                                id="sales-history-search-input"
-                                type="search"
-                                value={search}
-                                onChange={(event) => {
-                                    setSearch(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                                placeholder="Buscar por ID, produto ou código de barras"
-                            />
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-payment-filter">Forma de pagamento</label>
-                            <select
-                                id="sales-history-payment-filter"
-                                value={paymentFilter}
-                                onChange={(event) => {
-                                    setPaymentFilter(event.target.value as PaymentMethod | 'all')
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="all">Todas</option>
-                                <option value="cash">Dinheiro</option>
-                                <option value="pix">PIX</option>
-                                <option value="card">Cartão</option>
-                            </select>
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-bakery-filter">Unidade</label>
-                            <select
-                                id="sales-history-bakery-filter"
-                                value={bakeryFilter}
-                                onChange={(event) => {
-                                    setBakeryFilter(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="all">Todas as unidades</option>
-                                {activeBakeries.map((bakery) => (
-                                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-sort-order">Ordenar por</label>
-                            <select
-                                id="sales-history-sort-order"
-                                value={sortOrder}
-                                onChange={(event) => {
-                                    setSortOrder(event.target.value as typeof sortOrder)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="recent">Mais recentes primeiro</option>
-                                <option value="oldest">Mais antigas primeiro</option>
-                                <option value="highest">Maior valor</option>
-                                <option value="lowest">Menor valor</option>
-                            </select>
-                        </div>
-
-                        <div className="sales-history-date-filter">
-                            <div className="sales-history-date-field">
-                                <label htmlFor="sales-history-start-date">Data inicial</label>
-                                <input
-                                    id="sales-history-start-date"
-                                    type="date"
-                                    value={startDate}
-                                    min={minimumDate}
-                                    max={todayInputValue}
-                                    aria-invalid={Boolean(startDateError)}
-                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => {
-                                        setStartDate(event.target.value)
-                                        setCurrentPage(1)
-                                    }}
-                                />
-                            </div>
-                            <div className="sales-history-date-field">
-                                <label htmlFor="sales-history-end-date">Data final</label>
-                                <input
-                                    id="sales-history-end-date"
-                                    type="date"
-                                    value={endDate}
-                                    min={minimumDate}
-                                    max={todayInputValue}
-                                    aria-invalid={Boolean(endDateError)}
-                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => {
-                                        setEndDate(event.target.value)
-                                        setCurrentPage(1)
-                                    }}
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                className="sales-history-clear-dates"
-                                onClick={() => {
-                                    setStartDate('')
-                                    setEndDate('')
-                                    setBakeryFilter('all')
-                                    setCurrentPage(1)
-                                }}
-                                disabled={!startDate && !endDate && bakeryFilter === 'all'}
-                            >
-                                Limpar datas
-                            </button>
-                            {dateError && (
-                                <p id="sales-history-date-error" className="sales-history-date-error" role="alert">
-                                    {dateError}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
                     <section className="sales-history-summary" aria-label="Resumo das vendas filtradas">
                         <div className="sales-history-summary-heading">
                             <div>
@@ -652,6 +531,132 @@ export default function HistoricoVendas() {
                                 <div className="sales-history-summary-icon"><CreditCard size={18} aria-hidden="true" /></div>
                                 <span>Cartão</span>
                                 <strong>{filteredSalesSummary.card}</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="sales-history-filter-card" aria-labelledby="sales-history-filters-title">
+                        <div className="sales-history-filter-heading">
+                            <h2 id="sales-history-filters-title">Filtros de pesquisa</h2>
+                        </div>
+                        <div className="sales-history-toolbar">
+                            <div className="sales-history-search">
+                                <Search size={19} aria-hidden="true" />
+                                <label htmlFor="sales-history-search-input">Buscar vendas</label>
+                                <input
+                                    id="sales-history-search-input"
+                                    type="search"
+                                    value={search}
+                                    onChange={(event) => {
+                                        setSearch(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                    placeholder="Buscar por ID, produto ou código de barras"
+                                />
+                            </div>
+
+                            <div className="sales-history-filter">
+                                <label htmlFor="sales-history-payment-filter">Forma de pagamento</label>
+                                <select
+                                    id="sales-history-payment-filter"
+                                    value={paymentFilter}
+                                    onChange={(event) => {
+                                        setPaymentFilter(event.target.value as PaymentMethod | 'all')
+                                        setCurrentPage(1)
+                                    }}
+                                >
+                                    <option value="all">Todas</option>
+                                    <option value="cash">Dinheiro</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="card">Cartão</option>
+                                </select>
+                            </div>
+
+                            <div className="sales-history-filter">
+                                <label htmlFor="sales-history-bakery-filter">Unidade</label>
+                                <select
+                                    id="sales-history-bakery-filter"
+                                    value={bakeryFilter}
+                                    onChange={(event) => {
+                                        setBakeryFilter(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                >
+                                    <option value="all">Todas as unidades</option>
+                                    {activeBakeries.map((bakery) => (
+                                        <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="sales-history-filter sales-history-sort-filter">
+                                <label htmlFor="sales-history-sort-order">Ordenar por</label>
+                                <select
+                                    id="sales-history-sort-order"
+                                    value={sortOrder}
+                                    onChange={(event) => {
+                                        setSortOrder(event.target.value as typeof sortOrder)
+                                        setCurrentPage(1)
+                                    }}
+                                >
+                                    <option value="recent">Mais recentes primeiro</option>
+                                    <option value="oldest">Mais antigas primeiro</option>
+                                    <option value="highest">Maior valor</option>
+                                    <option value="lowest">Menor valor</option>
+                                </select>
+                            </div>
+
+                            <div className="sales-history-date-filter">
+                                <div className="sales-history-date-field">
+                                    <label htmlFor="sales-history-start-date">Data inicial</label>
+                                    <input
+                                        id="sales-history-start-date"
+                                        type="date"
+                                        value={startDate}
+                                        min={minimumDate}
+                                        max={todayInputValue}
+                                        aria-invalid={Boolean(startDateError)}
+                                        aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                        onChange={(event) => {
+                                            setStartDate(event.target.value)
+                                            setCurrentPage(1)
+                                        }}
+                                    />
+                                </div>
+                                <div className="sales-history-date-field">
+                                    <label htmlFor="sales-history-end-date">Data final</label>
+                                    <input
+                                        id="sales-history-end-date"
+                                        type="date"
+                                        value={endDate}
+                                        min={minimumDate}
+                                        max={todayInputValue}
+                                        aria-invalid={Boolean(endDateError)}
+                                        aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                        onChange={(event) => {
+                                            setEndDate(event.target.value)
+                                            setCurrentPage(1)
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="sales-history-clear-dates"
+                                    onClick={() => {
+                                        setStartDate('')
+                                        setEndDate('')
+                                        setBakeryFilter('all')
+                                        setCurrentPage(1)
+                                    }}
+                                    disabled={!startDate && !endDate && bakeryFilter === 'all'}
+                                >
+                                    Limpar datas e unidade
+                                </button>
+                                {dateError && (
+                                    <p id="sales-history-date-error" className="sales-history-date-error" role="alert">
+                                        {dateError}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </section>
