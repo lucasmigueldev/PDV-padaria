@@ -160,7 +160,7 @@ export default function Dashboard() {
         <nav className="sidebar-menu flex flex-col gap-2">
           {isOwner && <Link to="/dashboard" className="sidebar-link active">
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
 
           {!isOwner && <Link to="/pdv" className="sidebar-link">
@@ -234,7 +234,7 @@ export default function Dashboard() {
         <nav className="mobile-drawer-menu">
           {isOwner && <Link to="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
 
           {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
@@ -305,7 +305,7 @@ export default function Dashboard() {
           <div className="mobile-page-heading">
             <span className="header-overline">VISÃO GERAL</span>
 
-            <h1>Dashboard</h1>
+            <h1>Painel</h1>
 
             <p>Acompanhe os principais dados da sua padaria.</p>
           </div>
@@ -476,7 +476,7 @@ export default function Dashboard() {
                     </span>
                     Operador responsável
                   </span>
-                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Conta indisponível'}</strong>
                 </div>
 
                 <div className="flex items-center justify-between py-3">
