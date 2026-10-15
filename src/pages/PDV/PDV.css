@@ -17,6 +17,59 @@
 	font-weight: 600;
 }
 
+.pdv-sale-success-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin: 0;
+	border: 1px solid #bbf7d0;
+	border-radius: 9px;
+	padding: 14px 18px;
+	background: #f0fdf4;
+	color: #15803d;
+	flex-wrap: wrap;
+}
+
+.pdv-sale-success-text {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.pdv-print-receipt-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid #16a34a;
+	border-radius: 8px;
+	padding: 10px 18px;
+	background: #16a34a;
+	color: #ffffff;
+	font: inherit;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+	transition: background-color 0.2s, transform 0.1s;
+}
+
+.pdv-print-receipt-button:hover:not(:disabled) {
+	background: #15803d;
+	border-color: #15803d;
+}
+
+.pdv-print-receipt-button:active:not(:disabled) {
+	transform: scale(0.98);
+}
+
+.pdv-print-receipt-button:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
 .pdv-add-product,
 .pdv-sale-panel,
 .pdv-summary {
@@ -1184,4 +1237,249 @@
 .pdv-layout :focus-visible {
 	outline: 3px solid #f2c14e;
 	outline-offset: 2px;
+}
+
+/* ── Impressora Bluetooth ─────────────────────────────────────────── */
+
+.pdv-bluetooth-printer {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 4px;
+}
+
+.pdv-bluetooth-button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	border: 1px solid #cbd5e1;
+	border-radius: 10px;
+	padding: 9px 12px;
+	background: #f8fafc;
+	color: #475569;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	text-align: left;
+	transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.pdv-bluetooth-button:hover:not(:disabled) {
+	background: #f1f5f9;
+	border-color: #94a3b8;
+}
+
+.pdv-bluetooth-button.is-connected {
+	border-color: #16a34a;
+	background: #f0fdf4;
+	color: #15803d;
+}
+
+.pdv-bluetooth-button.is-connected:hover:not(:disabled) {
+	background: #dcfce7;
+}
+
+.pdv-bluetooth-button.is-error {
+	border-color: #dc2626;
+	background: #fef2f2;
+	color: #dc2626;
+}
+
+.pdv-bluetooth-button:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.pdv-bluetooth-hint {
+	color: #64748b;
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.pdv-bluetooth-error {
+	color: #dc2626;
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+/* Badge no modal de checkout quando impressora conectada */
+.pdv-checkout-bluetooth-badge {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border-radius: 8px;
+	padding: 10px 14px;
+	background: #f0fdf4;
+	border: 1px solid #bbf7d0;
+	color: #15803d;
+	font-size: 13px;
+}
+
+.pdv-bluetooth-unavailable {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	border-radius: 8px;
+	padding: 9px 11px;
+	background: rgb(255 255 255 / 8%);
+	color: rgb(255 255 255 / 55%);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+/* ── Modal de Venda Concluída (Impressão de Cupom) ─────────────────── */
+
+.pdv-checkout-completed-body {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	margin-top: 6px;
+}
+
+.pdv-checkout-completed-banner {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 16px;
+	border-radius: 12px;
+	background: #f0fdf4;
+	border: 1px solid #bbf7d0;
+}
+
+.pdv-checkout-completed-icon {
+	color: #16a34a;
+	flex-shrink: 0;
+}
+
+.pdv-checkout-completed-banner h3 {
+	margin: 0;
+	color: #14532d;
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.pdv-checkout-completed-banner p {
+	margin: 4px 0 0;
+	color: #15803d;
+	font-size: 13px;
+}
+
+.pdv-checkout-completed-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 16px;
+	border-radius: 12px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+}
+
+.pdv-checkout-completed-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 14px;
+	color: #475569;
+}
+
+.pdv-checkout-completed-row strong {
+	color: #0f172a;
+	font-size: 16px;
+}
+
+.pdv-checkout-completed-change {
+	padding-top: 10px;
+	border-top: 1px dashed #cbd5e1;
+	color: #15803d;
+}
+
+.pdv-checkout-completed-change strong {
+	color: #15803d;
+	font-size: 18px;
+	font-weight: 800;
+}
+
+.pdv-checkout-print-feedback {
+	margin: 0;
+	padding: 10px 14px;
+	border-radius: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	text-align: center;
+}
+
+.pdv-checkout-print-feedback.is-success {
+	background: #f0fdf4;
+	color: #15803d;
+	border: 1px solid #bbf7d0;
+}
+
+.pdv-checkout-print-feedback.is-error {
+	background: #fef2f2;
+	color: #dc2626;
+	border: 1px solid #fecaca;
+}
+
+.pdv-checkout-completed-actions {
+	display: flex;
+	gap: 12px;
+	margin-top: 4px;
+}
+
+.pdv-checkout-btn-print {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 48px;
+	border: 1px solid #16a34a;
+	border-radius: 10px;
+	padding: 0 16px;
+	background: #16a34a;
+	color: #ffffff;
+	font: inherit;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: 0 2px 4px rgb(22 163 74 / 20%);
+	transition: background-color 0.15s, transform 0.1s;
+}
+
+.pdv-checkout-btn-print:hover:not(:disabled) {
+	background: #15803d;
+	border-color: #15803d;
+}
+
+.pdv-checkout-btn-print:active:not(:disabled) {
+	transform: scale(0.99);
+}
+
+.pdv-checkout-btn-print:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
+.pdv-checkout-btn-done {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 48px;
+	border: 1px solid #cbd5e1;
+	border-radius: 10px;
+	padding: 0 20px;
+	background: #ffffff;
+	color: #334155;
+	font: inherit;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+
+.pdv-checkout-btn-done:hover {
+	background: #f1f5f9;
+	border-color: #94a3b8;
 }
