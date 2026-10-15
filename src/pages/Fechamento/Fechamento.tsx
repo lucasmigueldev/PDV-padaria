@@ -294,6 +294,9 @@ export default function Fechamento() {
                     <Link to="/fechamento" className="fechamento-shortcut active" aria-current="page">
                         <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
                     </Link>
+                    <Link to="/historico-vendas" className="fechamento-shortcut">
+                        <History size={19} /><span>Histórico de Vendas</span>
+                    </Link>
                     <Link to="/pdv" className="fechamento-shortcut">
                         <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                     </Link>
@@ -302,7 +305,6 @@ export default function Fechamento() {
                 {isOwner && <nav className="fechamento-shortcuts" aria-label="Navegação administrativa">
                     <span className="fechamento-sidebar-label">Administração</span>
                     <Link to="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Painel</span></Link>
-                    <Link to="/historico-vendas" className="fechamento-shortcut"><History size={19} /><span>Histórico de Vendas</span></Link>
                     <Link to="/historico-fechamentos" className="fechamento-shortcut"><History size={19} /><span>Histórico de Fechamentos</span></Link>
                     <Link to="/relatorios" className="fechamento-shortcut"><BarChart3 size={19} /><span>Relatórios</span></Link>
                 </nav>}
