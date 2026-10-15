@@ -449,7 +449,7 @@ export default function PDV() {
             console.error('Erro ao imprimir via Bluetooth:', error)
             setModalPrintFeedback({
                 isError: true,
-                message: error instanceof Error ? error.message : 'Erro ao imprimir na impressora térmica.',
+                message: 'Não foi possível concluir a impressão. Verifique a conexão com a impressora e tente novamente.',
             })
         }
     }
