@@ -277,10 +277,6 @@ export default function Relatorios() {
             <Package size={19} />
             <span>Produtos</span>
           </Link>}
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link">
-            <History size={19} />
-            <span>Histórico de Vendas</span>
-          </Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Fechamentos</span>
@@ -337,10 +333,6 @@ export default function Relatorios() {
           {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
             <Package size={19} />
             <span>Produtos</span>
-          </Link>}
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
-            <History size={19} />
-            <span>Histórico de Vendas</span>
           </Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
