@@ -165,7 +165,11 @@ export default function HistoricoVendas() {
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar o histórico de vendas.', error)
-                setSalesLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as vendas.')
+                const fallback = error instanceof TypeError
+                    ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+                    : 'Não foi possível carregar as vendas. Atualize a tela e tente novamente.'
+                const message = error instanceof Error ? error.message : ''
+                setSalesLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
             } finally {
                 if (active) setIsLoadingSales(false)
             }
