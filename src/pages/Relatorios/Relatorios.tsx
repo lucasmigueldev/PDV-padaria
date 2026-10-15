@@ -2,7 +2,7 @@ import {
   BarChart3,
   Banknote,
   Calculator,
-  CalendarDays,
+  ChevronDown,
   CreditCard,
   DollarSign,
   History,
@@ -116,6 +116,7 @@ export default function Relatorios() {
   const { authenticatedUser } = useAuth()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [showAllSoldProducts, setShowAllSoldProducts] = useState(false)
   const [sales, setSales] = useState<Sale[]>([])
   const [products, setProducts] = useState<Awaited<ReturnType<typeof getProductsFromSupabase>>>([])
   const [isLoadingReportData, setIsLoadingReportData] = useState(true)
@@ -208,7 +209,11 @@ export default function Relatorios() {
       } catch (error: unknown) {
         if (!active) return
         console.error('Erro ao carregar os dados do relatório.', error)
-        setReportLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.')
+        const fallback = error instanceof TypeError
+          ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+          : 'Não foi possível carregar os relatórios. Atualize a tela e tente novamente.'
+        const message = error instanceof Error ? error.message : ''
+        setReportLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
       } finally {
         if (active) setIsLoadingReportData(false)
       }
@@ -223,6 +228,7 @@ export default function Relatorios() {
 
     setAppliedStartDate(startDate)
     setAppliedEndDate(endDate)
+    setShowAllSoldProducts(false)
   }
 
   function clearPeriod() {
@@ -230,6 +236,7 @@ export default function Relatorios() {
     setEndDate('')
     setAppliedStartDate('')
     setAppliedEndDate('')
+    setShowAllSoldProducts(false)
   }
 
   function handleLogout() {
@@ -256,7 +263,7 @@ export default function Relatorios() {
         <nav className="sidebar-menu flex flex-col gap-2">
           {isOwner && <Link to="/dashboard" className="sidebar-link">
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
           {!isOwner && <Link to="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
@@ -269,10 +276,6 @@ export default function Relatorios() {
           {!isOwner && <Link to="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
-          </Link>}
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link">
-            <History size={19} />
-            <span>Histórico de Vendas</span>
           </Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link">
             <History size={19} />
@@ -317,7 +320,7 @@ export default function Relatorios() {
         <nav className="mobile-drawer-menu">
           {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
           {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
             <ShoppingCart size={19} />
@@ -330,10 +333,6 @@ export default function Relatorios() {
           {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
             <Package size={19} />
             <span>Produtos</span>
-          </Link>}
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
-            <History size={19} />
-            <span>Histórico de Vendas</span>
           </Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
@@ -387,14 +386,32 @@ export default function Relatorios() {
         <section className="dashboard-content reports-content p-10">
           {reportLoadError && <p role="alert" className="mb-4 text-red-700">{reportLoadError}</p>}
           {isLoadingReportData && <p role="status" className="mb-4">Carregando dados do relatório...</p>}
-          <section className="reports-section reports-filters" aria-labelledby="sales-report-title">
-            <div className="reports-section-heading">
+          <section className="reports-section reports-summary" aria-labelledby="sales-indicators-title">
+            <div className="reports-section-heading reports-section-heading-compact">
               <div>
-                <span className="reports-section-overline">RELATÓRIO OPERACIONAL</span>
-                <h2 id="sales-report-title">Relatório de Vendas</h2>
-                <p>Consolide as vendas registradas em um período.</p>
+                <h2 id="sales-indicators-title">Resumo dos resultados</h2>
+                <p>Resultados correspondentes às vendas filtradas.</p>
               </div>
-              <CalendarDays className="reports-section-icon" size={22} aria-hidden="true" />
+            </div>
+            <div className="reports-indicators-grid">
+              <article className="reports-indicator-card">
+                <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
+                <span>Faturamento total</span>
+                <strong>{currency.format(totalRevenue)}</strong>
+              </article>
+              <article className="reports-indicator-card reports-indicator-card-highlight">
+                <div className="reports-indicator-icon"><BarChart3 size={19} aria-hidden="true" /></div>
+                <span>Quantidade de vendas</span>
+                <strong>{totalSales}</strong>
+              </article>
+            </div>
+          </section>
+
+          <section className="reports-section reports-filters" aria-labelledby="reports-filters-title">
+            <div className="reports-section-heading reports-section-heading-compact">
+              <div>
+                <h2 id="reports-filters-title">Filtros de pesquisa</h2>
+              </div>
             </div>
 
             <div className="reports-date-fields">
@@ -403,7 +420,10 @@ export default function Relatorios() {
                 <select
                   id="reports-bakery-filter"
                   value={bakeryFilter}
-                  onChange={(event) => setBakeryFilter(event.target.value)}
+                  onChange={(event) => {
+                    setBakeryFilter(event.target.value)
+                    setShowAllSoldProducts(false)
+                  }}
                 >
                   <option value="all">Todas as unidades</option>
                   {activeBakeries.map((bakery) => (
@@ -449,131 +469,120 @@ export default function Relatorios() {
             {dateError && <p id="reports-date-error" className="reports-date-error" role="alert">{dateError}</p>}
           </section>
 
-          <section className="reports-section" aria-labelledby="sales-indicators-title">
-            <div className="reports-section-heading reports-section-heading-compact">
-              <div>
-                <h2 id="sales-indicators-title">Indicadores de vendas</h2>
-                <p>Resultados correspondentes às vendas filtradas.</p>
+          <details className="reports-section reports-accordion">
+            <summary className="reports-accordion-summary">
+              <span>Resumo por forma de pagamento</span>
+              <ChevronDown className="reports-accordion-icon" size={20} aria-hidden="true" />
+            </summary>
+            <div className="reports-accordion-content">
+              <p className="reports-accordion-description">Quantidade e valor das vendas no período selecionado.</p>
+              <div className="reports-payment-grid">
+                {(Object.entries(paymentSummary) as [PaymentMethod, { count: number; total: number }][]).map(([paymentMethod, summary]) => (
+                  <article className="reports-payment-card" key={paymentMethod}>
+                    <div className="reports-payment-card-heading">
+                      {paymentMethod === 'cash' && <Banknote size={19} aria-hidden="true" />}
+                      {paymentMethod === 'pix' && <BarChart3 size={19} aria-hidden="true" />}
+                      {paymentMethod === 'card' && <CreditCard size={19} aria-hidden="true" />}
+                      <h3>{paymentMethodLabels[paymentMethod]}</h3>
+                    </div>
+                    <div className="reports-payment-values">
+                      <div><span>Quantidade de vendas</span><strong>{summary.count}</strong></div>
+                      <div><span>Valor total</span><strong>{currency.format(summary.total)}</strong></div>
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
-            <div className="reports-indicators-grid">
-              <article className="reports-indicator-card reports-indicator-card-highlight">
-                <div className="reports-indicator-icon"><BarChart3 size={19} aria-hidden="true" /></div>
-                <span>Total de vendas</span>
-                <strong>{totalSales}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
-                <span>Faturamento total</span>
-                <strong>{currency.format(totalRevenue)}</strong>
-              </article>
-            </div>
-          </section>
+          </details>
 
-          <section className="reports-section" aria-labelledby="payment-summary-title">
-            <div className="reports-section-heading reports-section-heading-compact">
-              <div>
-                <h2 id="payment-summary-title">Resumo por forma de pagamento</h2>
-                <p>Quantidade e valor das vendas no período selecionado.</p>
-              </div>
+          <details className="reports-section reports-accordion">
+            <summary className="reports-accordion-summary">
+              <span>Produtos mais vendidos</span>
+              <ChevronDown className="reports-accordion-icon" size={20} aria-hidden="true" />
+            </summary>
+            <div className="reports-accordion-content">
+              <p className="reports-accordion-description">Produtos ordenados pela quantidade vendida no período selecionado.</p>
+              {soldProducts.length > 0 ? (
+                <>
+                  <div className="reports-products-table-wrapper">
+                    <table className="reports-products-table">
+                      <thead>
+                        <tr>
+                          <th>Posição</th>
+                          <th>Produto</th>
+                          <th className="reports-products-number">Quantidade vendida</th>
+                          <th className="reports-products-number">Faturamento</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {soldProducts.slice(0, showAllSoldProducts ? soldProducts.length : 5).map((product, index) => (
+                          <tr key={product.productId}>
+                            <td data-label="Posição">{index + 1}</td>
+                            <td className="reports-products-name" data-label="Produto">{product.name}</td>
+                            <td className="reports-products-number" data-label="Quantidade vendida">{product.quantity}</td>
+                            <td className="reports-products-number" data-label="Faturamento">{currency.format(product.revenue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {soldProducts.length > 5 && (
+                    <button
+                      type="button"
+                      className="reports-show-products-button"
+                      aria-expanded={showAllSoldProducts}
+                      onClick={() => setShowAllSoldProducts((showAll) => !showAll)}
+                    >
+                      {showAllSoldProducts ? 'Mostrar menos' : `Mostrar todos os produtos (${soldProducts.length})`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="reports-empty-state" aria-live="polite">
+                  <Package size={28} aria-hidden="true" />
+                  <h2>Nenhum produto vendido</h2>
+                  <p>Não existem produtos vendidos no período selecionado.</p>
+                </div>
+              )}
             </div>
-            <div className="reports-payment-grid">
-              {(Object.entries(paymentSummary) as [PaymentMethod, { count: number; total: number }][]).map(([paymentMethod, summary]) => (
-                <article className="reports-payment-card" key={paymentMethod}>
-                  <div className="reports-payment-card-heading">
-                    {paymentMethod === 'cash' && <Banknote size={19} aria-hidden="true" />}
-                    {paymentMethod === 'pix' && <BarChart3 size={19} aria-hidden="true" />}
-                    {paymentMethod === 'card' && <CreditCard size={19} aria-hidden="true" />}
-                    <h3>{paymentMethodLabels[paymentMethod]}</h3>
-                  </div>
-                  <div className="reports-payment-values">
-                    <div><span>Quantidade de vendas</span><strong>{summary.count}</strong></div>
-                    <div><span>Valor total</span><strong>{currency.format(summary.total)}</strong></div>
-                  </div>
+          </details>
+
+          <details className="reports-section reports-accordion">
+            <summary className="reports-accordion-summary">
+              <span>Estoque</span>
+              <ChevronDown className="reports-accordion-icon" size={20} aria-hidden="true" />
+            </summary>
+            <div className="reports-accordion-content">
+              <p className="reports-accordion-description">Resumo do estoque atual dos produtos cadastrados.</p>
+              <div className="reports-indicators-grid reports-stock-indicators-grid">
+                <article className="reports-indicator-card reports-indicator-card-highlight">
+                  <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                  <span>Total de produtos cadastrados</span>
+                  <strong>{stockSummary.totalProducts}</strong>
                 </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="reports-section" aria-labelledby="best-selling-products-title">
-            <div className="reports-section-heading reports-section-heading-compact">
-              <div>
-                <h2 id="best-selling-products-title">Produtos mais vendidos</h2>
-                <p>Produtos ordenados pela quantidade vendida no período selecionado.</p>
+                <article className="reports-indicator-card">
+                  <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                  <span>Produtos com estoque disponível</span>
+                  <strong>{stockSummary.availableProducts}</strong>
+                </article>
+                <article className="reports-indicator-card">
+                  <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                  <span>Produtos sem estoque</span>
+                  <strong>{stockSummary.outOfStockProducts}</strong>
+                </article>
+                <article className="reports-indicator-card">
+                  <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
+                  <span>Unidades em estoque</span>
+                  <strong>{stockSummary.totalUnits}</strong>
+                </article>
+                <article className="reports-indicator-card">
+                  <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
+                  <span>Valor estimado do estoque</span>
+                  <strong>{currency.format(stockSummary.estimatedValue)}</strong>
+                </article>
               </div>
-              <Package className="reports-section-icon" size={22} aria-hidden="true" />
             </div>
-
-            {soldProducts.length > 0 ? (
-              <div className="reports-products-table-wrapper">
-                <table className="reports-products-table">
-                  <thead>
-                    <tr>
-                      <th>Posição</th>
-                      <th>Produto</th>
-                      <th className="reports-products-number">Quantidade vendida</th>
-                      <th className="reports-products-number">Faturamento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {soldProducts.slice(0, 5).map((product, index) => (
-                      <tr key={product.productId}>
-                        <td data-label="Posição">{index + 1}</td>
-                        <td className="reports-products-name" data-label="Produto">{product.name}</td>
-                        <td className="reports-products-number" data-label="Quantidade vendida">{product.quantity}</td>
-                        <td className="reports-products-number" data-label="Faturamento">{currency.format(product.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="reports-empty-state" aria-live="polite">
-                <Package size={28} aria-hidden="true" />
-                <h2>Nenhum produto vendido</h2>
-                <p>Não existem produtos vendidos no período selecionado.</p>
-              </div>
-            )}
-          </section>
-
-          <section className="reports-section" aria-labelledby="stock-report-title">
-            <div className="reports-section-heading reports-section-heading-compact">
-              <div>
-                <span className="reports-section-overline">VISÃO DO CATÁLOGO</span>
-                <h2 id="stock-report-title">Estoque</h2>
-                <p>Resumo do estoque atual dos produtos cadastrados.</p>
-              </div>
-              <Package className="reports-section-icon" size={22} aria-hidden="true" />
-            </div>
-
-            <div className="reports-indicators-grid reports-stock-indicators-grid">
-              <article className="reports-indicator-card reports-indicator-card-highlight">
-                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
-                <span>Total de produtos cadastrados</span>
-                <strong>{stockSummary.totalProducts}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
-                <span>Produtos com estoque disponível</span>
-                <strong>{stockSummary.availableProducts}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
-                <span>Produtos sem estoque</span>
-                <strong>{stockSummary.outOfStockProducts}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><Package size={19} aria-hidden="true" /></div>
-                <span>Unidades em estoque</span>
-                <strong>{stockSummary.totalUnits}</strong>
-              </article>
-              <article className="reports-indicator-card">
-                <div className="reports-indicator-icon"><DollarSign size={19} aria-hidden="true" /></div>
-                <span>Valor estimado do estoque</span>
-                <strong>{currency.format(stockSummary.estimatedValue)}</strong>
-              </article>
-            </div>
-          </section>
+          </details>
         </section>
       </main>
     </div>

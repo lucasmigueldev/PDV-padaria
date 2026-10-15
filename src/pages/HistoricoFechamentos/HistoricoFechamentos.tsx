@@ -156,7 +156,11 @@ export default function HistoricoFechamentos() {
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar o histórico de fechamentos.', error)
-                setClosuresLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os fechamentos.')
+                const fallback = error instanceof TypeError
+                    ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+                    : 'Não foi possível carregar os fechamentos. Atualize a tela e tente novamente.'
+                const message = error instanceof Error ? error.message : ''
+                setClosuresLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
             } finally {
                 if (active) setIsLoadingClosures(false)
             }
@@ -208,7 +212,7 @@ export default function HistoricoFechamentos() {
                 <nav className="sidebar-menu flex flex-col gap-2">
                     {isOwner && <Link to="/dashboard" className="sidebar-link">
                         <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
+                        <span>Painel</span>
                     </Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link">
                         <ShoppingCart size={19} />
@@ -221,10 +225,6 @@ export default function HistoricoFechamentos() {
                     {!isOwner && <Link to="/produtos" className="sidebar-link">
                         <Package size={19} />
                         <span>Produtos</span>
-                    </Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
                     </Link>}
                     {isOwner && <Link to="/historico-fechamentos" className="sidebar-link active">
                         <History size={19} />
@@ -269,7 +269,7 @@ export default function HistoricoFechamentos() {
                 <nav className="mobile-drawer-menu">
                     {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
                         <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
+                        <span>Painel</span>
                     </Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
                         <ShoppingCart size={19} />
@@ -282,10 +282,6 @@ export default function HistoricoFechamentos() {
                     {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
                         <Package size={19} />
                         <span>Produtos</span>
-                    </Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
                     </Link>}
                     {isOwner && <Link to="/historico-fechamentos" className="sidebar-link active" onClick={closeMobileMenu}>
                         <History size={19} />

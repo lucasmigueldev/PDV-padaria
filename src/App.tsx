@@ -21,6 +21,7 @@ import {
   onAuthStateChange,
   signOutLocalSession,
   UnavailableBakeryError,
+  UserProfileNotFoundError,
   type AuthenticatedUser,
 } from './services/auth'
 
@@ -54,10 +55,19 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
         F2: '/produtos',
         F3: '/fechamento',
         F4: '/pdv',
+        F6: '/historico-vendas',
       }
       const target = targetByKey[event.key]
 
       if (!target) return
+      if (
+        event.key === 'F6' &&
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable ||
+          event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement)
+      ) return
 
       event.preventDefault()
       navigate(target)
@@ -178,7 +188,13 @@ function App() {
 
           setAuthenticatedUserState(null)
           setIsAuthLoading(false)
-          if (error instanceof UnavailableBakeryError) setAuthMessage(error.message)
+          if (error instanceof UnavailableBakeryError) {
+            setAuthMessage('A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.')
+          } else if (error instanceof UserProfileNotFoundError) {
+            setAuthMessage('Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.')
+          } else {
+            setAuthMessage('Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
+          }
           try {
             await signOutLocalSession()
           } catch (signOutError) {
@@ -202,6 +218,7 @@ function App() {
       console.error('Não foi possível recuperar a sessão Supabase.', error)
       setAuthenticatedUserState(null)
       setIsAuthLoading(false)
+      setAuthMessage('Não foi possível verificar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
     })
 
     return () => {
@@ -267,7 +284,7 @@ function App() {
           path="/historico-vendas"
           element={
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
-              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
+              <RoleRoute allowedRole="cashier" redirectTo="/dashboard" authenticatedUser={authenticatedUser}>
                 <HistoricoVendas />
               </RoleRoute>
             </ProtectedRoute>

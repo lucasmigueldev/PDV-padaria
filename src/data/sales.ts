@@ -21,14 +21,35 @@ type SaleRow = {
 }
 
 export async function getSalesFromSupabase(): Promise<Sale[]> {
-    const { data, error } = await getSupabaseClient()
-        .from('sales')
-        .select('id, date, bakery_id, total, payment_method, received_amount, change_amount, sale_items(id, product_id, name, barcode, price, quantity, subtotal)')
-        .order('date', { ascending: false })
+    let data
+    try {
+        const result = await getSupabaseClient()
+            .from('sales')
+            .select('id, date, bakery_id, total, payment_method, received_amount, change_amount, sale_items(id, product_id, name, barcode, price, quantity, subtotal)')
+            .order('date', { ascending: false })
+        data = result.data
+        const { error } = result
 
-    if (error) {
-        console.error('Erro ao carregar vendas do Supabase.', error)
-        throw new Error('Não foi possível carregar o histórico de vendas.')
+        if (error) {
+            console.error('Erro ao carregar o histórico de vendas.', error)
+            if (error.code === '42501') {
+                throw new Error('Seu acesso não permite consultar o histórico de vendas. Solicite ajuda ao proprietário.')
+            }
+            if (typeof error.code === 'string' && /^(5|PGRST5)/.test(error.code)) {
+                throw new Error('O histórico de vendas está temporariamente indisponível. Tente novamente mais tarde.')
+            }
+            throw new Error('Não foi possível carregar o histórico de vendas. Atualize a tela e tente novamente.')
+        }
+    } catch (error) {
+        if (error instanceof Error && error.message.startsWith('Seu acesso não permite')) throw error
+        if (error instanceof Error && error.message.includes('temporariamente indisponível')) throw error
+        if (error instanceof TypeError) {
+            console.error('Falha de conexão ao carregar o histórico de vendas.', error)
+            throw new Error('Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.', { cause: error })
+        }
+        if (error instanceof Error && error.message.startsWith('Não foi possível carregar o histórico')) throw error
+        console.error('Falha inesperada ao carregar o histórico de vendas.', error)
+        throw new Error('Não foi possível carregar o histórico de vendas. Atualize a tela e tente novamente.', { cause: error })
     }
 
     return ((data ?? []) as SaleRow[]).map((sale) => ({

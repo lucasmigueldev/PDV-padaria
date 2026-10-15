@@ -120,7 +120,11 @@ export default function Dashboard() {
       } catch (error: unknown) {
         if (!active) return
         console.error('Erro ao carregar os dados do dashboard.', error)
-        setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o dashboard.')
+        const fallback = error instanceof TypeError
+          ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+          : 'Não foi possível carregar os indicadores. Atualize a tela e tente novamente.'
+        const message = error instanceof Error ? error.message : ''
+        setLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
       } finally {
         if (active) setIsLoading(false)
       }
@@ -156,7 +160,7 @@ export default function Dashboard() {
         <nav className="sidebar-menu flex flex-col gap-2">
           {isOwner && <Link to="/dashboard" className="sidebar-link active">
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
 
           {!isOwner && <Link to="/pdv" className="sidebar-link">
@@ -172,11 +176,6 @@ export default function Dashboard() {
           {!isOwner && <Link to="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
-          </Link>}
-
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link">
-            <History size={19} />
-            <span>Histórico de Vendas</span>
           </Link>}
 
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link">
@@ -230,7 +229,7 @@ export default function Dashboard() {
         <nav className="mobile-drawer-menu">
           {isOwner && <Link to="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
 
           {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
@@ -246,11 +245,6 @@ export default function Dashboard() {
           {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
             <Package size={19} />
             <span>Produtos</span>
-          </Link>}
-
-          {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
-            <History size={19} />
-            <span>Histórico de Vendas</span>
           </Link>}
 
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
@@ -301,7 +295,7 @@ export default function Dashboard() {
           <div className="mobile-page-heading">
             <span className="header-overline">VISÃO GERAL</span>
 
-            <h1>Dashboard</h1>
+            <h1>Painel</h1>
 
             <p>Acompanhe os principais dados da sua padaria.</p>
           </div>
@@ -472,7 +466,7 @@ export default function Dashboard() {
                     </span>
                     Operador responsável
                   </span>
-                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Usuário não identificado'}</strong>
+                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Conta indisponível'}</strong>
                 </div>
 
                 <div className="flex items-center justify-between py-3">

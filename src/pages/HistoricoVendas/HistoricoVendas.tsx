@@ -1,19 +1,16 @@
 import {
-    BarChart3,
     Banknote,
-    Calculator,
+    Check,
     Clock3,
+    Copy,
     CreditCard,
     DollarSign,
     FileDown,
     History,
-    LayoutDashboard,
-    LogOut,
-    Menu,
     Package,
     Printer,
+    Receipt,
     Search,
-    Settings,
     ShoppingCart,
     X,
 } from 'lucide-react'
@@ -22,13 +19,13 @@ import { jsPDF } from 'jspdf'
 import { useNavigate, Link } from 'react-router-dom'
 
 import { getSalesFromSupabase } from '../../data/sales'
+import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import { ReceiptPrintDialog } from '../../components/ReceiptPrintDialog/ReceiptPrintDialog'
-import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
-import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
+import { useBakeries } from '../../hooks/useBakeries'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
-import '../Dashboard/Dashborad.css'
+import '../PDV/PDV.css'
 import './HistoricoVendas.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -80,22 +77,23 @@ function validateDateInput(value: string, today: Date): string | null {
 export default function HistoricoVendas() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
-    const isOwner = authenticatedUser?.role === 'owner'
     const [sales, setSales] = useState<Sale[]>([])
     const [isLoadingSales, setIsLoadingSales] = useState(true)
     const [salesLoadError, setSalesLoadError] = useState('')
     const [search, setSearch] = useState('')
     const [paymentFilter, setPaymentFilter] = useState<PaymentMethod | 'all'>('all')
-    const [bakeryFilter, setBakeryFilter] = useState('all')
     const [sortOrder, setSortOrder] = useState<'recent' | 'oldest' | 'highest' | 'lowest'>('recent')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
+    const [copiedSaleId, setCopiedSaleId] = useState<string | null>(null)
+    const [copyStatusMessage, setCopyStatusMessage] = useState('')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
+    const copyFeedbackTimeoutRef = useRef<number | null>(null)
     const { bakeries } = useBakeries()
+    const bakeryName = bakeries.find((bakery) => bakery.id === authenticatedUser?.bakeryId)?.name ?? null
     const today = new Date()
     const currentYear = today.getFullYear()
     const todayInputValue = [
@@ -105,7 +103,6 @@ export default function HistoricoVendas() {
     ].join('-')
     const minimumDate = `${currentYear}-01-01`
     const normalizedSearch = search.trim().toLocaleLowerCase()
-    const activeBakeries = bakeries.filter((bakery) => bakery.active)
     const startDateError = validateDateInput(startDate, today)
     const endDateError = validateDateInput(endDate, today)
     const startTimestamp = startDate
@@ -119,9 +116,12 @@ export default function HistoricoVendas() {
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
+    const authenticatedBakeryId = authenticatedUser?.bakeryId
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
-        const matchesBakery = bakeryFilter === 'all' || sale.bakeryId === bakeryFilter
+        const matchesBakery = authenticatedBakeryId !== null &&
+            authenticatedBakeryId !== undefined &&
+            sale.bakeryId === authenticatedBakeryId
         const saleTimestamp = new Date(sale.date).getTime()
         const matchesStartDate = !startDate || !!startDateError || saleTimestamp >= (startTimestamp ?? 0)
         const matchesEndDate = !endDate || !!endDateError || saleTimestamp <= (endTimestamp ?? 0)
@@ -165,7 +165,11 @@ export default function HistoricoVendas() {
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar o histórico de vendas.', error)
-                setSalesLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as vendas.')
+                const fallback = error instanceof TypeError
+                    ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+                    : 'Não foi possível carregar as vendas. Atualize a tela e tente novamente.'
+                const message = error instanceof Error ? error.message : ''
+                setSalesLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
             } finally {
                 if (active) setIsLoadingSales(false)
             }
@@ -189,16 +193,37 @@ export default function HistoricoVendas() {
         return () => window.removeEventListener('keydown', handleEscape)
     }, [selectedSale])
 
+    useEffect(() => () => {
+        if (copyFeedbackTimeoutRef.current !== null) {
+            window.clearTimeout(copyFeedbackTimeoutRef.current)
+        }
+    }, [])
+
     function handleLogout() {
         void logoutAndRedirect(navigate)
     }
 
-    function closeMobileMenu() {
-        setIsMobileMenuOpen(false)
-    }
-
     function openSaleDetails(sale: Sale) {
         setSelectedSale(sale)
+    }
+
+    async function copySaleId(saleId: string) {
+        try {
+            await navigator.clipboard.writeText(saleId)
+            setCopiedSaleId(saleId)
+            setCopyStatusMessage('Identificador completo copiado.')
+            if (copyFeedbackTimeoutRef.current !== null) {
+                window.clearTimeout(copyFeedbackTimeoutRef.current)
+            }
+            copyFeedbackTimeoutRef.current = window.setTimeout(() => {
+                setCopiedSaleId(null)
+                copyFeedbackTimeoutRef.current = null
+            }, 1800)
+        } catch (error) {
+            console.error('Não foi possível copiar o identificador completo da venda.', error)
+            setCopiedSaleId(null)
+            setCopyStatusMessage('Não foi possível copiar o identificador completo.')
+        }
     }
 
     function exportSales() {
@@ -337,246 +362,41 @@ export default function HistoricoVendas() {
     }
 
     return (
-        <div className="dashboard-layout flex min-h-screen">
-            <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
-                <div className="sidebar-logo mb-10 flex items-center gap-3 px-2">
-                    <div className="logo-icon flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
-                        <ShoppingCart size={22} />
-                    </div>
-                    <div>
-                        <strong>Padaria PDV</strong>
-                        <span>Sistema de vendas</span>
-                    </div>
+        <div className="pdv-layout sales-history-page">
+            <AppTopbar
+                userName={authenticatedUser?.name}
+                bakeryName={bakeryName}
+                userRole="Operador"
+                onLogout={handleLogout}
+            />
+
+            <aside className="pdv-sidebar">
+                <div className="pdv-brand">
+                    <div className="pdv-logo-icon"><ShoppingCart size={22} /></div>
+                    <div><strong>Padaria PDV</strong><span>Sistema de vendas</span></div>
                 </div>
 
-                <nav className="sidebar-menu flex flex-col gap-2">
-                    {isOwner && <Link to="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>}
-                    {!isOwner && <Link to="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></Link>}
-                    {!isOwner && <Link to="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></Link>}
-                    {!isOwner && <Link to="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link active"><History size={19} /><span>Histórico de Vendas</span></Link>}
-                    {isOwner && <Link to="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>}
-                    {isOwner && <Link to="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></Link>}
+                <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
+                    <span className="pdv-sidebar-label">Operação</span>
+                    <Link to="/produtos" className="pdv-shortcut">
+                        <Package size={19} /><span>Produtos</span><kbd>F2</kbd>
+                    </Link>
+                    <Link to="/fechamento" className="pdv-shortcut">
+                        <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
+                    </Link>
+                    <Link to="/pdv" className="pdv-shortcut">
+                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                    </Link>
+                    <Link to="/historico-vendas" className="pdv-shortcut active" aria-current="page">
+                        <History size={19} /><span>Histórico de Vendas</span><kbd>F6</kbd>
+                    </Link>
                 </nav>
-
-                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    {isOwner && <Link to="/configuracoes" className="sidebar-link"><Settings size={19} /><span>Configurações</span></Link>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button"><LogOut size={19} /><span>Sair</span></button>
-                </div>
             </aside>
 
-            <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
-
-            <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
-                <div className="mobile-drawer-header">
-                    <div className="sidebar-logo">
-                        <div className="logo-icon">
-                            <ShoppingCart size={22} />
-                        </div>
-                        <div>
-                            <strong>Padaria PDV</strong>
-                            <span>Sistema de vendas</span>
-                        </div>
-                    </div>
-                    <button type="button" className="mobile-close-button" onClick={closeMobileMenu} aria-label="Fechar menu">
-                        <X size={22} />
-                    </button>
-                </div>
-
-                <nav className="mobile-drawer-menu">
-                    {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
-                        <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
-                    </Link>}
-                    {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
-                        <ShoppingCart size={19} />
-                        <span>Caixa</span>
-                    </Link>}
-                    {!isOwner && <Link to="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
-                        <Calculator size={19} />
-                        <span>Fechamento</span>
-                    </Link>}
-                    {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
-                        <Package size={19} />
-                        <span>Produtos</span>
-                    </Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link active" onClick={closeMobileMenu}>
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
-                    </Link>}
-                    {isOwner && <Link to="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
-                        <History size={19} />
-                        <span>Histórico de Fechamentos</span>
-                    </Link>}
-                    {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
-                        <BarChart3 size={19} />
-                        <span>Relatórios</span>
-                    </Link>}
-                </nav>
-
-                <div className="mobile-drawer-bottom">
-                    {isOwner && <Link to="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </Link>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} />
-                        <span>Sair</span>
-                    </button>
-                </div>
-            </aside>
-
-            <main className="dashboard-main ml-64 min-h-screen flex-1">
-                <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
-                    <div className="mobile-topbar">
-                        <div className="mobile-header-brand" aria-label="Padaria PDV">
-                            <div className="logo-icon">
-                                <ShoppingCart size={17} />
-                            </div>
-                            <span>Padaria PDV</span>
-                        </div>
-                        <button
-                            type="button"
-                            className="mobile-menu-button"
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            aria-label="Abrir menu"
-                            aria-expanded={isMobileMenuOpen}
-                        >
-                            <Menu size={23} />
-                        </button>
-                    </div>
-                    <div className="mobile-page-heading">
-                        <span className="header-overline">OPERAÇÃO DE VENDAS</span>
-                        <h1>Histórico de Vendas</h1>
-                        <p>Consulte as vendas já registradas no sistema.</p>
-                    </div>
-                    <UserProfileMenu user={authenticatedUser} />
-                </header>
-
-                <section className="dashboard-content p-10">
+            <main className="pdv-main sales-history-main">
+                <section className="sales-history-content">
                     {salesLoadError && <p role="alert" className="mb-4 text-red-700">{salesLoadError}</p>}
                     {isLoadingSales && <p role="status" className="mb-4">Carregando vendas...</p>}
-                    <div className="sales-history-toolbar">
-                        <div className="sales-history-search">
-                            <Search size={19} aria-hidden="true" />
-                            <label htmlFor="sales-history-search-input">Buscar vendas</label>
-                            <input
-                                id="sales-history-search-input"
-                                type="search"
-                                value={search}
-                                onChange={(event) => {
-                                    setSearch(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                                placeholder="Buscar por ID, produto ou código de barras"
-                            />
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-payment-filter">Forma de pagamento</label>
-                            <select
-                                id="sales-history-payment-filter"
-                                value={paymentFilter}
-                                onChange={(event) => {
-                                    setPaymentFilter(event.target.value as PaymentMethod | 'all')
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="all">Todas</option>
-                                <option value="cash">Dinheiro</option>
-                                <option value="pix">PIX</option>
-                                <option value="card">Cartão</option>
-                            </select>
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-bakery-filter">Unidade</label>
-                            <select
-                                id="sales-history-bakery-filter"
-                                value={bakeryFilter}
-                                onChange={(event) => {
-                                    setBakeryFilter(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="all">Todas as unidades</option>
-                                {activeBakeries.map((bakery) => (
-                                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="sales-history-filter">
-                            <label htmlFor="sales-history-sort-order">Ordenar por</label>
-                            <select
-                                id="sales-history-sort-order"
-                                value={sortOrder}
-                                onChange={(event) => {
-                                    setSortOrder(event.target.value as typeof sortOrder)
-                                    setCurrentPage(1)
-                                }}
-                            >
-                                <option value="recent">Mais recentes primeiro</option>
-                                <option value="oldest">Mais antigas primeiro</option>
-                                <option value="highest">Maior valor</option>
-                                <option value="lowest">Menor valor</option>
-                            </select>
-                        </div>
-
-                        <div className="sales-history-date-filter">
-                            <div className="sales-history-date-field">
-                                <label htmlFor="sales-history-start-date">Data inicial</label>
-                                <input
-                                    id="sales-history-start-date"
-                                    type="date"
-                                    value={startDate}
-                                    min={minimumDate}
-                                    max={todayInputValue}
-                                    aria-invalid={Boolean(startDateError)}
-                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => {
-                                        setStartDate(event.target.value)
-                                        setCurrentPage(1)
-                                    }}
-                                />
-                            </div>
-                            <div className="sales-history-date-field">
-                                <label htmlFor="sales-history-end-date">Data final</label>
-                                <input
-                                    id="sales-history-end-date"
-                                    type="date"
-                                    value={endDate}
-                                    min={minimumDate}
-                                    max={todayInputValue}
-                                    aria-invalid={Boolean(endDateError)}
-                                    aria-describedby={dateError ? 'sales-history-date-error' : undefined}
-                                    onChange={(event) => {
-                                        setEndDate(event.target.value)
-                                        setCurrentPage(1)
-                                    }}
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                className="sales-history-clear-dates"
-                                onClick={() => {
-                                    setStartDate('')
-                                    setEndDate('')
-                                    setBakeryFilter('all')
-                                    setCurrentPage(1)
-                                }}
-                                disabled={!startDate && !endDate && bakeryFilter === 'all'}
-                            >
-                                Limpar datas
-                            </button>
-                            {dateError && (
-                                <p id="sales-history-date-error" className="sales-history-date-error" role="alert">
-                                    {dateError}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
                     <section className="sales-history-summary" aria-label="Resumo das vendas filtradas">
                         <div className="sales-history-summary-heading">
                             <div>
@@ -622,7 +442,115 @@ export default function HistoricoVendas() {
                         </div>
                     </section>
 
-                    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <section className="sales-history-filter-card" aria-labelledby="sales-history-filters-title">
+                        <div className="sales-history-filter-heading">
+                            <h2 id="sales-history-filters-title">Filtros de pesquisa</h2>
+                        </div>
+                        <div className="sales-history-toolbar">
+                            <div className="sales-history-search">
+                                <Search size={19} aria-hidden="true" />
+                                <label htmlFor="sales-history-search-input">Buscar vendas</label>
+                                <input
+                                    id="sales-history-search-input"
+                                    type="search"
+                                    value={search}
+                                    onChange={(event) => {
+                                        setSearch(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                    placeholder="Buscar por ID, produto ou código de barras"
+                                />
+                            </div>
+
+                            <div className="sales-history-filter">
+                                <label htmlFor="sales-history-payment-filter">Forma de pagamento</label>
+                                <select
+                                    id="sales-history-payment-filter"
+                                    value={paymentFilter}
+                                    onChange={(event) => {
+                                        setPaymentFilter(event.target.value as PaymentMethod | 'all')
+                                        setCurrentPage(1)
+                                    }}
+                                >
+                                    <option value="all">Todas</option>
+                                    <option value="cash">Dinheiro</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="card">Cartão</option>
+                                </select>
+                            </div>
+
+                            <div className="sales-history-filter sales-history-sort-filter">
+                                <label htmlFor="sales-history-sort-order">Ordenar por</label>
+                                <select
+                                    id="sales-history-sort-order"
+                                    value={sortOrder}
+                                    onChange={(event) => {
+                                        setSortOrder(event.target.value as typeof sortOrder)
+                                        setCurrentPage(1)
+                                    }}
+                                >
+                                    <option value="recent">Mais recentes primeiro</option>
+                                    <option value="oldest">Mais antigas primeiro</option>
+                                    <option value="highest">Maior valor</option>
+                                    <option value="lowest">Menor valor</option>
+                                </select>
+                            </div>
+
+                            <div className="sales-history-date-filter">
+                                <div className="sales-history-date-field">
+                                    <label htmlFor="sales-history-start-date">Data inicial</label>
+                                    <input
+                                        id="sales-history-start-date"
+                                        type="date"
+                                        value={startDate}
+                                        min={minimumDate}
+                                        max={todayInputValue}
+                                        aria-invalid={Boolean(startDateError)}
+                                        aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                        onChange={(event) => {
+                                            setStartDate(event.target.value)
+                                            setCurrentPage(1)
+                                        }}
+                                    />
+                                </div>
+                                <div className="sales-history-date-field">
+                                    <label htmlFor="sales-history-end-date">Data final</label>
+                                    <input
+                                        id="sales-history-end-date"
+                                        type="date"
+                                        value={endDate}
+                                        min={minimumDate}
+                                        max={todayInputValue}
+                                        aria-invalid={Boolean(endDateError)}
+                                        aria-describedby={dateError ? 'sales-history-date-error' : undefined}
+                                        onChange={(event) => {
+                                            setEndDate(event.target.value)
+                                            setCurrentPage(1)
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="sales-history-clear-dates"
+                                    onClick={() => {
+                                        setStartDate('')
+                                        setEndDate('')
+                                        setCurrentPage(1)
+                                    }}
+                                    disabled={!startDate && !endDate}
+                                >
+                                    Limpar datas
+                                </button>
+                                {dateError && (
+                                    <p id="sales-history-date-error" className="sales-history-date-error" role="alert">
+                                        {dateError}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="sales-history-registered overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-100 p-6">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-900">Vendas registradas</h2>
@@ -634,13 +562,13 @@ export default function HistoricoVendas() {
                         {sales.length > 0 && filteredSales.length > 0 ? (
                             <>
                                 <div className="sales-history-table-container overflow-x-auto">
-                                    <table className="sales-history-table w-full min-w-160 text-left text-sm">
+                                    <table className="sales-history-table w-full min-w-[38rem] text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
-                                            <th className="px-6 py-4 font-semibold">Data e hora</th>
-                                            <th className="px-6 py-4 font-semibold">ID da venda</th>
-                                            <th className="px-6 py-4 font-semibold">Forma de pagamento</th>
-                                            <th className="px-6 py-4 text-right font-semibold">Valor total</th>
+                                            <th className="px-4 py-4 font-semibold">Data e hora</th>
+                                            <th className="px-4 py-4 font-semibold">Venda</th>
+                                            <th className="px-4 py-4 font-semibold">Forma de pagamento</th>
+                                            <th className="px-4 py-4 text-right font-semibold">Valor total</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -659,15 +587,35 @@ export default function HistoricoVendas() {
                                                 tabIndex={0}
                                                 aria-label={`Visualizar detalhes da venda ${sale.id}`}
                                             >
-                                                <td data-label="Data e hora" className="whitespace-nowrap px-6 py-4">{dateTime.format(new Date(sale.date))}</td>
-                                                <td data-label="ID da venda" className="px-6 py-4 font-medium text-slate-900">{sale.id}</td>
-                                                <td data-label="Forma de pagamento" className="px-6 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
-                                                <td data-label="Valor total" className="whitespace-nowrap px-6 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
+                                                <td data-label="Data e hora" className="whitespace-nowrap px-4 py-4">{dateTime.format(new Date(sale.date))}</td>
+                                                <td data-label="Venda" className="px-4 py-4 font-medium text-slate-900">
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <span>#{sale.id.slice(0, 7)}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
+                                                            aria-label={`${copiedSaleId === sale.id ? 'Identificador copiado' : 'Copiar identificador completo'} da venda ${sale.id}`}
+                                                            title="Copiar identificador completo"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation()
+                                                                void copySaleId(sale.id)
+                                                            }}
+                                                            onKeyDown={(event) => event.stopPropagation()}
+                                                        >
+                                                            {copiedSaleId === sale.id
+                                                                ? <Check size={15} aria-hidden="true" />
+                                                                : <Copy size={15} aria-hidden="true" />}
+                                                        </button>
+                                                    </span>
+                                                </td>
+                                                <td data-label="Forma de pagamento" className="px-4 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
+                                                <td data-label="Valor total" className="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     </table>
                                 </div>
+                                <span className="sr-only" role="status" aria-live="polite">{copyStatusMessage}</span>
                                 {totalPages > 1 && (
                                     <div className="sales-history-pagination">
                                         <button

@@ -12,7 +12,8 @@ export function getSupabaseClient(): SupabaseClient {
     ].filter(Boolean)
 
     if (missingVariables.length > 0) {
-        throw new Error(`Supabase não configurado. Preencha no .env: ${missingVariables.join(', ')}.`)
+        console.error('Configuração de conexão incompleta.', { missingVariables })
+        throw new Error('O acesso ao sistema está temporariamente indisponível. Tente novamente mais tarde ou solicite ajuda ao suporte.')
     }
 
     if (!supabaseClient) {

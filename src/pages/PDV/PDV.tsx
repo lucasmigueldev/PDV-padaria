@@ -4,6 +4,7 @@ import {
     CircleAlert,
     CircleCheck,
     CreditCard,
+    History,
     Minus,
     Package,
     Plus,
@@ -34,6 +35,18 @@ const currency = new Intl.NumberFormat('pt-BR', {
 })
 
 const moneyInputPattern = /^\d*(?:[,.]\d{0,2})?$/
+
+function getOperationalErrorMessage(error: unknown, fallback: string, connectionMessage: string): string {
+    if (error instanceof TypeError) return connectionMessage
+
+    if (error instanceof Error) {
+        const containsTechnicalDetails = /(supabase|rpc|postgres|pgrst|jwt|\.env)/i.test(error.message)
+            || /\b[0-9A-Z]{5}\b/.test(error.message)
+        if (!containsTechnicalDetails) return error.message
+    }
+
+    return fallback
+}
 
 function parseMoneyToCents(value: string): number | null {
     if (!value || !moneyInputPattern.test(value)) return null
@@ -122,7 +135,11 @@ export default function PDV() {
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar os dados operacionais do PDV.', error)
-                setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar os dados do PDV.')
+                setErrorMessage(getOperationalErrorMessage(
+                    error,
+                    'Não foi possível carregar os dados do PDV. Atualize a tela e tente novamente.',
+                    'Não foi possível carregar os dados do PDV. Verifique a conexão e tente novamente.',
+                ))
             } finally {
                 if (active) setIsLoadingOperationalData(false)
             }
@@ -333,7 +350,11 @@ export default function PDV() {
         try {
             currentRegister = await getOpenCashRegister(authenticatedUser.bakeryId)
         } catch (error) {
-            setCheckoutMessage(error instanceof Error ? error.message : 'Não foi possível verificar o caixa aberto.')
+            setCheckoutMessage(getOperationalErrorMessage(
+                error,
+                'Não foi possível verificar se há um caixa aberto. Atualize a tela e tente novamente.',
+                'Não foi possível verificar o caixa aberto. Verifique a conexão e tente novamente.',
+            ))
             return
         }
         if (!currentRegister) {
@@ -400,10 +421,14 @@ export default function PDV() {
                 setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
             } catch (error) {
                 console.error('Venda registrada, mas a atualização do estoque exibido falhou.', error)
-                setErrorMessage('Venda registrada. Não foi possível atualizar o estoque exibido; recarregue o PDV.')
+                setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
             }
         } catch (error) {
-            setCheckoutMessage(error instanceof Error ? error.message : 'Não foi possível registrar a venda. Tente novamente.')
+            setCheckoutMessage(getOperationalErrorMessage(
+                error,
+                'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
+                'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
+            ))
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
@@ -425,7 +450,7 @@ export default function PDV() {
             console.error('Erro ao imprimir via Bluetooth:', error)
             setModalPrintFeedback({
                 isError: true,
-                message: error instanceof Error ? error.message : 'Erro ao imprimir na impressora térmica.',
+                message: 'Não foi possível concluir a impressão. Verifique a conexão com a impressora e tente novamente.',
             })
         }
     }
@@ -479,6 +504,11 @@ export default function PDV() {
                         <Receipt size={19} />
                         <span>Fechamento</span>
                         <kbd>F3</kbd>
+                    </Link>
+                    <Link to="/historico-vendas" className="pdv-shortcut">
+                        <History size={19} />
+                        <span>Histórico de Vendas</span>
+                        <kbd>F6</kbd>
                     </Link>
                     <Link to="/pdv" className="pdv-shortcut active" aria-current="page">
                         <ShoppingCart size={19} />

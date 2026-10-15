@@ -19,6 +19,10 @@ type CreateAdminUserResponse = {
     }
 }
 
+type AdminUserActionResponse = {
+    user_id: string
+}
+
 type AdminUserRecord = {
     id: string
     name: string
@@ -34,9 +38,23 @@ function isErrorResponse(value: unknown): value is { error: string } {
         && typeof value.error === 'string'
 }
 
+function isMissingActiveColumnError(error: { code?: string; message?: string }): boolean {
+    return (error.code === '42703' && /\bactive\b.*does not exist/i.test(error.message ?? ''))
+        || (error.code === 'PGRST204' && /\bactive\b.*schema cache/i.test(error.message ?? ''))
+}
+
+async function getFunctionErrorMessage(error: { context?: unknown }, fallback: string): Promise<string> {
+    if (error.context instanceof Response) {
+        const responseBody: unknown = await error.context.clone().json().catch(() => null)
+        if (isErrorResponse(responseBody)) return responseBody.error
+    }
+
+    return fallback
+}
+
 function mapAdminUser(record: AdminUserRecord): User {
     if (record.role !== 'owner' && record.role !== 'cashier') {
-        throw new Error('O Supabase retornou um perfil de usuário inválido.')
+        throw new Error('Não foi possível identificar o tipo de acesso deste usuário. Atualize a lista e tente novamente.')
     }
 
     return {
@@ -50,18 +68,33 @@ function mapAdminUser(record: AdminUserRecord): User {
 }
 
 export async function getAdminUsers(): Promise<User[]> {
-    const { data, error } = await getSupabaseClient()
-        .from('users')
-        .select('id, name, email, role, bakery_id')
-        .order('name')
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client
+            .from('users')
+            .select('id, name, email, role, bakery_id')
+            .eq('active', true)
+            .order('name')
+        if (result.error && isMissingActiveColumnError(result.error)) {
+            result = await client
+                .from('users')
+                .select('id, name, email, role, bakery_id')
+                .order('name')
+        }
+    } catch (requestError) {
+        console.error('Falha inesperada ao carregar usuários.', requestError)
+        throw new Error('Não foi possível carregar a lista de usuários. Atualize a tela e tente novamente.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) {
         console.error('Erro ao carregar usuários no Supabase.', error)
 
         if (error.code === '42501') {
-            throw new Error('Você não tem permissão para consultar os usuários.')
+            throw new Error('Seu acesso não permite consultar os usuários. Solicite ajuda ao proprietário.')
         }
-        throw new Error('Não foi possível carregar os usuários.')
+        throw new Error('Não foi possível carregar a lista de usuários. Atualize a tela e tente novamente.')
     }
 
     return (data as AdminUserRecord[]).map(mapAdminUser)
@@ -89,14 +122,12 @@ export async function createAdminUser(user: {
     )
 
     if (error) {
-        if (error.context instanceof Response) {
-            const responseBody: unknown = await error.context.clone().json().catch(() => null)
-            if (isErrorResponse(responseBody)) throw new Error(responseBody.error)
-        }
-        throw new Error('Não foi possível criar o usuário no Supabase.')
+        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível cadastrar o usuário. Verifique os dados e tente novamente.'))
     }
 
-    if (!data?.user) throw new Error('O Supabase não retornou o perfil do usuário criado.')
+    if (!data?.user) {
+        throw new Error('Não foi possível confirmar o cadastro do usuário. Atualize a lista antes de tentar novamente.')
+    }
 
     return {
         id: data.user.id,
@@ -104,5 +135,67 @@ export async function createAdminUser(user: {
         email: data.user.email,
         role: data.user.role,
         bakeryId: data.user.bakery_id,
+    }
+}
+
+export async function updateAdminUser(user: {
+    id: string
+    name: string
+    bakeryId: string
+    email?: string
+    password?: string
+}): Promise<void> {
+    const body: {
+        action: 'update'
+        user_id: string
+        name: string
+        bakery_id: string
+        email?: string
+        password?: string
+    } = {
+        action: 'update',
+        user_id: user.id,
+        name: user.name,
+        bakery_id: user.bakeryId,
+    }
+
+    if (user.email !== undefined) body.email = user.email
+    if (user.password) body.password = user.password
+
+    const { data, error } = await getSupabaseClient().functions.invoke<AdminUserActionResponse>(
+        'admin-users',
+        { body },
+    )
+
+    if (error) {
+        throw new Error(await getFunctionErrorMessage(
+            error,
+            'Não foi possível atualizar o operador. Verifique os dados e tente novamente; se o problema continuar, solicite ajuda ao proprietário.',
+        ))
+    }
+    if (data?.user_id !== user.id) {
+        throw new Error('Não foi possível confirmar a atualização do operador. Atualize a lista antes de tentar novamente.')
+    }
+}
+
+export async function deactivateAdminUser(userId: string): Promise<void> {
+    const { data, error } = await getSupabaseClient().functions.invoke<AdminUserActionResponse>(
+        'admin-users',
+        {
+            body: {
+                action: 'deactivate',
+                user_id: userId,
+            },
+        },
+    )
+
+    if (error) {
+        throw new Error(await getFunctionErrorMessage(
+            error,
+            'Não foi possível desativar o operador. Atualize a lista e tente novamente; se o problema continuar, solicite ajuda ao proprietário.',
+        ))
+    }
+    if (data?.user_id !== userId) {
+        throw new Error('Não foi possível confirmar a desativação do operador. Atualize a lista antes de tentar novamente.')
     }
 }

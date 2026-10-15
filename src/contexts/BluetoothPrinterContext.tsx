@@ -31,6 +31,25 @@ export interface BluetoothPrinterContextValue {
     print: (data: ReceiptData) => Promise<void>
 }
 
+function getPrinterErrorMessage(error: unknown, fallback: string): string {
+    console.error('Falha na operação da impressora Bluetooth.', error)
+    if (!(error instanceof Error)) return fallback
+
+    const knownMessages = [
+        'Seleção cancelada.',
+        'A conexão Bluetooth não está disponível neste navegador.',
+        'A permissão para conectar à impressora não foi concedida.',
+        'Não foi possível iniciar a conexão Bluetooth.',
+        'Não foi possível selecionar a impressora.',
+        'Não foi possível conectar à impressora.',
+        'Não foi possível localizar um serviço de impressão compatível.',
+        'Não foi possível enviar o comprovante à impressora.',
+    ]
+    return knownMessages.some((knownMessage) => error.message.startsWith(knownMessage))
+        ? error.message
+        : fallback
+}
+
 export const BluetoothPrinterContext = createContext<BluetoothPrinterContextValue | null>(null)
 
 export function BluetoothPrinterProvider({ children }: { children: ReactNode }) {
@@ -76,12 +95,13 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
             setErrorMessage(null)
         } catch (error) {
             printerRef.current = null
-            setStatus('error')
+            const isSelectionCancelled = error instanceof Error && error.message.startsWith('Seleção cancelada.')
+            setStatus(isSelectionCancelled ? 'disconnected' : 'error')
             setDeviceName(null)
             setErrorMessage(
-                error instanceof Error
+                isSelectionCancelled
                     ? error.message
-                    : 'Não foi possível conectar à impressora.',
+                    : getPrinterErrorMessage(error, 'Não foi possível conectar à impressora. Verifique se ela está ligada e tente novamente.'),
             )
         }
     }, [status, handleDisconnect])
@@ -121,11 +141,10 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
             setStatus('connected')
         } catch (error) {
             setStatus('error')
-            setErrorMessage(
-                error instanceof Error
-                    ? error.message
-                    : 'Erro ao enviar dados para a impressora.',
-            )
+            setErrorMessage(getPrinterErrorMessage(
+                error,
+                'Não foi possível enviar o comprovante à impressora. Verifique a conexão e tente novamente.',
+            ))
         }
     }, [])
 

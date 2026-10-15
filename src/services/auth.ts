@@ -88,7 +88,7 @@ export async function signInWithEmailPassword(
     const { data, error } = await getSupabaseClient().auth.signInWithPassword({ email, password })
 
     if (error) throw error
-    if (!data.session || !data.user) throw new Error('O Supabase Auth não retornou uma sessão válida.')
+    if (!data.session || !data.user) throw new Error('Não foi possível iniciar a sessão. Tente novamente.')
 
     return { session: data.session, authUser: data.user }
 }

@@ -96,6 +96,7 @@ export default function Produtos() {
                 if (isActive) setProductList(products)
             } catch (error: unknown) {
                 if (isActive) {
+                    console.error('Erro ao carregar o catálogo de produtos.', error)
                     setProductsLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os produtos.')
                 }
             } finally {
@@ -229,18 +230,17 @@ export default function Produtos() {
             }
             closeForm()
         } catch (error) {
-            if (error instanceof Error && error.message.includes('conflita')) {
-                setFormError('Já existe um produto cadastrado com este código de barras.')
-            } else if (error instanceof Error && error.message.includes('permissão')) {
-                setFormError(editingId
-                    ? 'Você não tem permissão para alterar produtos nesta unidade.'
-                    : 'Você não tem permissão para cadastrar produtos nesta unidade.')
+            if (error instanceof Error && error.message.startsWith('O produto foi salvo, mas')) {
+                setSuccessMessage(error.message)
+                closeForm()
             } else if (error instanceof TypeError) {
-                console.error('Falha de conexão ao cadastrar produto no Supabase.', error)
-                setFormError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
+                console.error('Não foi possível confirmar o salvamento do produto.', error)
+                setFormError('Não foi possível confirmar se o produto foi salvo. Atualize a lista antes de tentar novamente, para evitar duplicidades.')
             } else {
                 console.error('Erro inesperado ao cadastrar produto.', error)
-                setFormError(error instanceof Error ? error.message : 'Não foi possível salvar o produto. Tente novamente.')
+                setFormError(error instanceof Error
+                    ? error.message
+                    : 'Não foi possível salvar o produto. Confira os dados e tente novamente.')
             }
         } finally {
             isSavingProductRef.current = false
@@ -267,18 +267,14 @@ export default function Produtos() {
             setProductPendingDeletion(null)
             setSuccessMessage('Produto excluído com sucesso.')
         } catch (error: unknown) {
-            if (error instanceof Error && error.message === 'PRODUCT_PERMISSION_DENIED') {
-                setDeleteError('Você não tem permissão para excluir este produto.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_NOT_FOUND_OR_PERMISSION_DENIED') {
-                setDeleteError('O produto não foi encontrado ou você não tem permissão para excluí-lo.')
-            } else if (error instanceof Error && error.message === 'PRODUCT_DELETE_FAILED') {
-                setDeleteError('Não foi possível excluir o produto no Supabase.')
-            } else if (error instanceof TypeError) {
-                console.error('Falha de conexão ao excluir produto no Supabase.', error)
-                setDeleteError('Falha de conexão com o Supabase. Verifique sua conexão e tente novamente.')
+            if (error instanceof TypeError) {
+                console.error('Não foi possível confirmar a exclusão do produto.', error)
+                setDeleteError('Não foi possível confirmar se o produto foi excluído. Atualize a lista antes de tentar novamente.')
             } else {
                 console.error('Erro inesperado ao excluir produto.', error)
-                setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o produto. Tente novamente.')
+                setDeleteError(error instanceof Error
+                    ? error.message
+                    : 'Não foi possível excluir o produto. Atualize a lista e tente novamente.')
             }
         } finally {
             isDeletingProductRef.current = false
@@ -319,8 +315,7 @@ export default function Produtos() {
                     {isOwner ? (
                         <>
                             <span className="products-sidebar-label">Administração</span>
-                            <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>
-                            <Link to="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></Link>
+                            <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Painel</span></Link>
                             <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
                             <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
                         </>
@@ -332,6 +327,9 @@ export default function Produtos() {
                             </Link>
                             <Link to="/fechamento" className="products-shortcut-link">
                                 <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
+                            </Link>
+                            <Link to="/historico-vendas" className="products-shortcut-link">
+                                <History size={20} /><span>Histórico de Vendas</span>
                             </Link>
                             <Link to="/pdv" className="products-shortcut-link">
                                 <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>

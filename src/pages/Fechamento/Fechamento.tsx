@@ -55,6 +55,15 @@ function parseMoneyInput(value: string): number | null {
     return Number.isSafeInteger(cents) ? cents / 100 : null
 }
 
+function getCashOperationErrorMessage(error: unknown, fallback: string, connectionMessage: string): string {
+    if (error instanceof TypeError) return connectionMessage
+    if (!(error instanceof Error)) return fallback
+
+    const containsTechnicalDetails = /(supabase|rpc|postgres|pgrst|jwt|\.env)/i.test(error.message)
+        || /\b[0-9A-Z]{5}\b/.test(error.message)
+    return containsTechnicalDetails ? fallback : error.message
+}
+
 function formatOpeningDate(openedAt: string): { date: string; time: string } {
     const openedDate = new Date(openedAt)
 
@@ -161,7 +170,11 @@ export default function Fechamento() {
             closeOpeningModal()
         } catch (error) {
             console.error('Erro ao abrir o caixa.', error)
-            setCloseError(error instanceof Error ? error.message : 'Não foi possível abrir o caixa.')
+            setCloseError(getCashOperationErrorMessage(
+                error,
+                'Não foi possível confirmar se o caixa foi aberto. Atualize o status do caixa antes de tentar novamente.',
+                'A conexão foi interrompida durante a abertura do caixa. Atualize o status antes de tentar novamente.',
+            ))
         }
     }
 
@@ -212,7 +225,11 @@ export default function Fechamento() {
             setIsCloseModalOpen(false)
         } catch (error) {
             console.error('Erro ao fechar o caixa.', error)
-            setCloseError(error instanceof Error ? error.message : 'Não foi possível fechar o caixa.')
+            setCloseError(getCashOperationErrorMessage(
+                error,
+                'Não foi possível confirmar se o caixa foi fechado. Atualize o histórico antes de tentar novamente.',
+                'A conexão foi interrompida durante o fechamento. Consulte o histórico antes de tentar novamente.',
+            ))
         } finally {
             isClosingRef.current = false
             setIsClosing(false)
@@ -277,6 +294,9 @@ export default function Fechamento() {
                     <Link to="/fechamento" className="fechamento-shortcut active" aria-current="page">
                         <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
                     </Link>
+                    <Link to="/historico-vendas" className="fechamento-shortcut">
+                        <History size={19} /><span>Histórico de Vendas</span>
+                    </Link>
                     <Link to="/pdv" className="fechamento-shortcut">
                         <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                     </Link>
@@ -284,8 +304,7 @@ export default function Fechamento() {
 
                 {isOwner && <nav className="fechamento-shortcuts" aria-label="Navegação administrativa">
                     <span className="fechamento-sidebar-label">Administração</span>
-                    <Link to="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Dashboard</span></Link>
-                    <Link to="/historico-vendas" className="fechamento-shortcut"><History size={19} /><span>Histórico de Vendas</span></Link>
+                    <Link to="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Painel</span></Link>
                     <Link to="/historico-fechamentos" className="fechamento-shortcut"><History size={19} /><span>Histórico de Fechamentos</span></Link>
                     <Link to="/relatorios" className="fechamento-shortcut"><BarChart3 size={19} /><span>Relatórios</span></Link>
                 </nav>}
