@@ -13,6 +13,7 @@ import Relatorios from './pages/Relatorios/Relatorios'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
+import { BluetoothPrinterProvider } from './contexts/BluetoothPrinterContext'
 import {
   getCurrentSession,
   isCashierBakeryActive,
@@ -212,7 +213,8 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>
-      <BrowserRouter>
+      <BluetoothPrinterProvider>
+        <BrowserRouter>
         {authenticatedUser?.role === 'cashier' && (
           <CashierSessionMonitor
             user={authenticatedUser}
@@ -321,7 +323,8 @@ function App() {
           }
         />
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </BluetoothPrinterProvider>
     </AuthContext.Provider>
   )
 }
