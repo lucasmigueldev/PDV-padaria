@@ -226,10 +226,6 @@ export default function HistoricoFechamentos() {
                         <Package size={19} />
                         <span>Produtos</span>
                     </Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link">
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
-                    </Link>}
                     {isOwner && <Link to="/historico-fechamentos" className="sidebar-link active">
                         <History size={19} />
                         <span>Histórico de Fechamentos</span>
@@ -286,10 +282,6 @@ export default function HistoricoFechamentos() {
                     {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
                         <Package size={19} />
                         <span>Produtos</span>
-                    </Link>}
-                    {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
-                        <History size={19} />
-                        <span>Histórico de Vendas</span>
                     </Link>}
                     {isOwner && <Link to="/historico-fechamentos" className="sidebar-link active" onClick={closeMobileMenu}>
                         <History size={19} />
