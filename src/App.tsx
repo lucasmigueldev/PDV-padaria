@@ -21,6 +21,7 @@ import {
   onAuthStateChange,
   signOutLocalSession,
   UnavailableBakeryError,
+  UserProfileNotFoundError,
   type AuthenticatedUser,
 } from './services/auth'
 
@@ -178,7 +179,13 @@ function App() {
 
           setAuthenticatedUserState(null)
           setIsAuthLoading(false)
-          if (error instanceof UnavailableBakeryError) setAuthMessage(error.message)
+          if (error instanceof UnavailableBakeryError) {
+            setAuthMessage('A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.')
+          } else if (error instanceof UserProfileNotFoundError) {
+            setAuthMessage('Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.')
+          } else {
+            setAuthMessage('Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
+          }
           try {
             await signOutLocalSession()
           } catch (signOutError) {
@@ -202,6 +209,7 @@ function App() {
       console.error('Não foi possível recuperar a sessão Supabase.', error)
       setAuthenticatedUserState(null)
       setIsAuthLoading(false)
+      setAuthMessage('Não foi possível verificar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
     })
 
     return () => {
