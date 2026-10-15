@@ -317,9 +317,27 @@
 
 .sales-history-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 230px 230px;
-    gap: 16px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sales-history-filter-card {
     margin-bottom: 24px;
+    padding: 20px 24px 24px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+.sales-history-filter-heading {
+    margin-bottom: 14px;
+}
+
+.sales-history-filter-heading h2 {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .sales-history-search,
@@ -328,7 +346,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 0;
     padding: 0 16px;
     border: 1px solid #dbe2ea;
     border-radius: 10px;
@@ -404,6 +422,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
     gap: 12px;
     align-items: end;
+    padding-top: 2px;
 }
 
 .sales-history-date-field {
@@ -535,7 +554,7 @@
 
 .sales-history-summary-grid {
     display: grid;
-    grid-template-columns: 1.25fr 1.5fr repeat(3, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -659,13 +678,23 @@
 
 @media (min-width: 721px) and (max-width: 900px) {
     .sales-history-toolbar {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
+    }
+
+    .sales-history-search,
+    .sales-history-sort-filter,
+    .sales-history-date-filter {
+        grid-column: 1 / -1;
     }
 
     .sales-history-search,
     .sales-history-filter {
         margin-bottom: 0;
+    }
+
+    .sales-history-summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -724,6 +753,12 @@
     }
 
     .sales-history-search,
+    .sales-history-sort-filter,
+    .sales-history-date-filter {
+        grid-column: auto;
+    }
+
+    .sales-history-search,
     .sales-history-filter {
         min-width: 0;
         min-height: 48px;
@@ -755,6 +790,10 @@
 
     .sales-history-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sales-history-filter-card {
+        padding: 18px;
     }
 
     .sales-history-clear-dates {
