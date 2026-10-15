@@ -120,7 +120,11 @@ export default function Dashboard() {
       } catch (error: unknown) {
         if (!active) return
         console.error('Erro ao carregar os dados do dashboard.', error)
-        setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o dashboard.')
+        const fallback = error instanceof TypeError
+          ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+          : 'Não foi possível carregar os indicadores. Atualize a tela e tente novamente.'
+        const message = error instanceof Error ? error.message : ''
+        setLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
       } finally {
         if (active) setIsLoading(false)
       }
