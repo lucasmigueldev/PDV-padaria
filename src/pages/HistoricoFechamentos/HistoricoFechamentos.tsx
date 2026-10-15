@@ -212,7 +212,7 @@ export default function HistoricoFechamentos() {
                 <nav className="sidebar-menu flex flex-col gap-2">
                     {isOwner && <Link to="/dashboard" className="sidebar-link">
                         <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
+                        <span>Painel</span>
                     </Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link">
                         <ShoppingCart size={19} />
@@ -273,7 +273,7 @@ export default function HistoricoFechamentos() {
                 <nav className="mobile-drawer-menu">
                     {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
                         <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
+                        <span>Painel</span>
                     </Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
                         <ShoppingCart size={19} />
