@@ -284,7 +284,7 @@ export type PrinterDevice = {
 export async function connectBluetoothPrinter(): Promise<PrinterDevice> {
     if (!navigator.bluetooth) {
         throw new Error(
-            'Web Bluetooth API não disponível. Use Chrome ou Edge no desktop ou Android.',
+            'A conexão Bluetooth não está disponível neste navegador. Use Chrome ou Edge em um computador ou dispositivo Android.',
         )
     }
 
@@ -301,12 +301,28 @@ export async function connectBluetoothPrinter(): Promise<PrinterDevice> {
         })
     } catch (error) {
         if (error instanceof DOMException && error.name === 'NotFoundError') {
-            throw new Error('Nenhum dispositivo selecionado.')
+            throw new Error('Seleção cancelada. Nenhuma impressora foi conectada.', { cause: error })
         }
-        throw error
+        if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+            console.error('A permissão para selecionar dispositivos Bluetooth foi negada.', error.name)
+            throw new Error('A permissão para conectar à impressora não foi concedida. Permita o acesso ao Bluetooth e tente novamente.', { cause: error })
+        }
+        if (error instanceof TypeError) {
+            console.error('Falha ao abrir a seleção de impressora Bluetooth.', error.name)
+            throw new Error('Não foi possível iniciar a conexão Bluetooth. Verifique se o navegador permite esse recurso e tente novamente.', { cause: error })
+        }
+        console.error('Falha ao selecionar a impressora Bluetooth.', error instanceof Error ? error.name : 'UnknownError')
+        throw new Error('Não foi possível selecionar a impressora. Verifique se o Bluetooth está ativado e tente novamente.', { cause: error })
     }
 
-    const server = await device.gatt!.connect()
+    let server: BluetoothRemoteGATTServer
+    try {
+        if (!device.gatt) throw new Error('GATT_NOT_AVAILABLE')
+        server = await device.gatt.connect()
+    } catch (error) {
+        console.error('Falha ao conectar à impressora Bluetooth.', error instanceof Error ? error.name : 'UnknownError')
+        throw new Error('Não foi possível conectar à impressora. Verifique se ela está ligada, próxima e com o Bluetooth ativado.', { cause: error })
+    }
 
     // Tenta cada UUID de serviço até encontrar um compatível
     let characteristic: BluetoothRemoteGATTCharacteristic | null = null
@@ -344,10 +360,13 @@ export async function connectBluetoothPrinter(): Promise<PrinterDevice> {
 
     if (!characteristic) {
         server.disconnect()
+        console.error(
+            'A impressora não disponibilizou um serviço de impressão compatível.',
+            lastError instanceof Error ? lastError.name : 'UnknownError',
+        )
         throw new Error(
-            'Não foi possível encontrar o serviço de impressão na impressora. '
-            + 'Certifique-se de que a impressora está ligada e próxima. '
-            + (lastError instanceof Error ? lastError.message : ''),
+            'Não foi possível localizar um serviço de impressão compatível. Verifique se a impressora está ligada e próxima.',
+            { cause: lastError },
         )
     }
 
@@ -364,6 +383,11 @@ export async function printReceiptViaBluetooth(
     characteristic: BluetoothRemoteGATTCharacteristic,
     data: ReceiptData,
 ): Promise<void> {
-    const buffer = buildReceiptBuffer(data)
-    await writeInChunks(characteristic, buffer)
+    try {
+        const buffer = buildReceiptBuffer(data)
+        await writeInChunks(characteristic, buffer)
+    } catch (error) {
+        console.error('Falha ao enviar o comprovante à impressora Bluetooth.', error instanceof Error ? error.name : 'UnknownError')
+        throw new Error('Não foi possível enviar o comprovante à impressora. Verifique a conexão e tente imprimir novamente.', { cause: error })
+    }
 }
