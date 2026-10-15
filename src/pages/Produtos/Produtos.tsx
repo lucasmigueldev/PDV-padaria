@@ -316,7 +316,6 @@ export default function Produtos() {
                         <>
                             <span className="products-sidebar-label">Administração</span>
                             <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Painel</span></Link>
-                            <Link to="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></Link>
                             <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
                             <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
                         </>
@@ -328,6 +327,9 @@ export default function Produtos() {
                             </Link>
                             <Link to="/fechamento" className="products-shortcut-link">
                                 <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
+                            </Link>
+                            <Link to="/historico-vendas" className="products-shortcut-link">
+                                <History size={20} /><span>Histórico de Vendas</span>
                             </Link>
                             <Link to="/pdv" className="products-shortcut-link">
                                 <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
