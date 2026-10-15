@@ -17,9 +17,13 @@ type ProductDataError = {
 
 function getProductDataError(error: ProductDataError, action: string): Error {
     console.error(`Erro ao ${action} produtos ou estoque.`, error)
+    const operationTarget = action === 'excluir' ? 'o produto' : 'os produtos e seus estoques'
 
     if (error.code === '42501') {
-        return new Error('Seu acesso não permite consultar ou alterar produtos nesta unidade. Solicite ajuda ao proprietário.')
+        if (action === 'excluir') {
+            return new Error('Seu acesso não permite excluir produtos nesta unidade. Solicite ajuda ao proprietário.')
+        }
+        return new Error('Seu acesso não permite consultar produtos ou estoque nesta unidade. Solicite ajuda ao proprietário.')
     }
     if (error.code === '23505' && /barcode/i.test(error.message)) {
         return new Error('Já existe um produto cadastrado com este código de barras.')
@@ -28,7 +32,7 @@ function getProductDataError(error: ProductDataError, action: string): Error {
         return new Error('O produto possui registros associados e não pode ser excluído.')
     }
 
-    return new Error(`Não foi possível ${action} produtos ou estoque. Atualize a tela e tente novamente.`)
+    return new Error(`Não foi possível ${action} ${operationTarget}. Atualize a tela e tente novamente.`)
 }
 
 export function normalizeBarcode(value: string): string {
@@ -44,11 +48,18 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
 
     if (bakeryId) productQuery = productQuery.eq('bakery_id', bakeryId)
 
-    const [{ data: productRows, error: productError }, { data: stockRows, error: stockError }] =
-        await Promise.all([
-            productQuery,
-            client.from('product_stock').select('product_id, bakery_id, quantity'),
-        ])
+    const results = await Promise.all([
+        productQuery,
+        client.from('product_stock').select('product_id, bakery_id, quantity'),
+    ]).catch((error: unknown) => {
+        console.error('Falha inesperada ao carregar produtos e estoque.', error)
+        if (error instanceof TypeError) {
+            throw new Error('Não foi possível conectar ao sistema para carregar os produtos. Verifique sua conexão e tente novamente.', { cause: error })
+        }
+        throw new Error('Não foi possível carregar os produtos e seus estoques. Atualize a tela e tente novamente.', { cause: error })
+    })
+
+    const [{ data: productRows, error: productError }, { data: stockRows, error: stockError }] = results
 
     if (productError) {
         throw getProductDataError(productError, 'carregar')
@@ -106,7 +117,15 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
-    const { error } = await getSupabaseClient().from('products').delete().eq('id', productId)
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client.from('products').delete().eq('id', productId)
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado da exclusão do produto.', requestError)
+        throw new Error('Não foi possível confirmar se o produto foi excluído. Atualize a lista antes de tentar novamente.', { cause: requestError })
+    }
+    const { error } = result
     if (error) {
         throw getProductDataError(error, 'excluir')
     }
@@ -114,7 +133,7 @@ export async function deleteProduct(productId: string): Promise<void> {
 
 async function loadProduct(productId: string): Promise<ProductWithStock> {
     const client = getSupabaseClient()
-    const [{ data: product, error: productError }, { data: stock, error: stockError }] = await Promise.all([
+    const results = await Promise.all([
         client
             .from('products')
             .select('id, bakery_id, name, barcode, price')
@@ -125,7 +144,11 @@ async function loadProduct(productId: string): Promise<ProductWithStock> {
             .select('quantity')
             .eq('product_id', productId)
             .maybeSingle(),
-    ])
+    ]).catch((error: unknown) => {
+        console.error('O produto foi salvo, mas não foi possível recarregar seus dados.', error)
+        throw new Error('O produto foi salvo, mas não foi possível atualizar os dados exibidos. Atualize a lista antes de tentar novamente, para evitar duplicidades.', { cause: error })
+    })
+    const [{ data: product, error: productError }, { data: stock, error: stockError }] = results
 
     if (productError) {
         console.error('Erro ao carregar o produto salvo no Supabase.', productError)
