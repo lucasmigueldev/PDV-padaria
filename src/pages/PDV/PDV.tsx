@@ -4,6 +4,7 @@ import {
     CircleAlert,
     CircleCheck,
     CreditCard,
+    History,
     Minus,
     Package,
     Plus,
@@ -503,6 +504,11 @@ export default function PDV() {
                         <Receipt size={19} />
                         <span>Fechamento</span>
                         <kbd>F3</kbd>
+                    </Link>
+                    <Link to="/historico-vendas" className="pdv-shortcut">
+                        <History size={19} />
+                        <span>Histórico de Vendas</span>
+                        <kbd>F6</kbd>
                     </Link>
                     <Link to="/pdv" className="pdv-shortcut active" aria-current="page">
                         <ShoppingCart size={19} />
