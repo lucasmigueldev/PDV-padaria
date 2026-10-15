@@ -54,7 +54,7 @@ async function getFunctionErrorMessage(error: { context?: unknown }, fallback: s
 
 function mapAdminUser(record: AdminUserRecord): User {
     if (record.role !== 'owner' && record.role !== 'cashier') {
-        throw new Error('O Supabase retornou um perfil de usuário inválido.')
+        throw new Error('Não foi possível identificar o tipo de acesso deste usuário. Atualize a lista e tente novamente.')
     }
 
     return {
@@ -86,9 +86,9 @@ export async function getAdminUsers(): Promise<User[]> {
         console.error('Erro ao carregar usuários no Supabase.', error)
 
         if (error.code === '42501') {
-            throw new Error('Você não tem permissão para consultar os usuários.')
+            throw new Error('Seu acesso não permite consultar os usuários. Solicite ajuda ao proprietário.')
         }
-        throw new Error('Não foi possível carregar os usuários.')
+        throw new Error('Não foi possível carregar a lista de usuários. Verifique a conexão e tente novamente.')
     }
 
     return (data as AdminUserRecord[]).map(mapAdminUser)
@@ -116,10 +116,12 @@ export async function createAdminUser(user: {
     )
 
     if (error) {
-        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível criar o usuário no Supabase.'))
+        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível cadastrar o usuário. Verifique os dados e tente novamente.'))
     }
 
-    if (!data?.user) throw new Error('O Supabase não retornou o perfil do usuário criado.')
+    if (!data?.user) {
+        throw new Error('Não foi possível confirmar o cadastro do usuário. Atualize a lista antes de tentar novamente.')
+    }
 
     return {
         id: data.user.id,
@@ -160,10 +162,13 @@ export async function updateAdminUser(user: {
     )
 
     if (error) {
-        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível atualizar o operador.'))
+        throw new Error(await getFunctionErrorMessage(
+            error,
+            'Não foi possível atualizar o operador. Verifique os dados e tente novamente; se o problema continuar, solicite ajuda ao proprietário.',
+        ))
     }
     if (data?.user_id !== user.id) {
-        throw new Error('O Supabase não confirmou a atualização do operador.')
+        throw new Error('Não foi possível confirmar a atualização do operador. Atualize a lista antes de tentar novamente.')
     }
 }
 
@@ -179,9 +184,12 @@ export async function deactivateAdminUser(userId: string): Promise<void> {
     )
 
     if (error) {
-        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível desativar o operador.'))
+        throw new Error(await getFunctionErrorMessage(
+            error,
+            'Não foi possível desativar o operador. Atualize a lista e tente novamente; se o problema continuar, solicite ajuda ao proprietário.',
+        ))
     }
     if (data?.user_id !== userId) {
-        throw new Error('O Supabase não confirmou a desativação do operador.')
+        throw new Error('Não foi possível confirmar a desativação do operador. Atualize a lista antes de tentar novamente.')
     }
 }
