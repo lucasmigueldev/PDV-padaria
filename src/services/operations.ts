@@ -71,7 +71,7 @@ function throwOperationError(error: SupabaseError, operation: string): never {
         throw new Error('O produto ou a unidade não está disponível para esta operação. Atualize os dados e tente novamente.')
     }
 
-    throw new Error(`Não foi possível concluir ${operation}. Tente novamente. Se o problema continuar, solicite ajuda ao proprietário.`)
+    throw new Error(`Não foi possível ${operation}. Tente novamente. Se o problema continuar, solicite ajuda ao proprietário.`)
 }
 
 function requireRpcId(data: unknown, operation: string): string {
@@ -85,12 +85,19 @@ function requireRpcId(data: unknown, operation: string): string {
 }
 
 export async function getOpenCashRegister(bakeryId: string): Promise<CashRegister | null> {
-    const { data, error } = await getSupabaseClient()
-        .from('cash_registers')
-        .select('id, bakery_id, opened_at, initial_amount')
-        .eq('bakery_id', bakeryId)
-        .eq('status', 'open')
-        .maybeSingle()
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client
+            .from('cash_registers')
+            .select('id, bakery_id, opened_at, initial_amount')
+            .eq('bakery_id', bakeryId)
+            .eq('status', 'open')
+            .maybeSingle()
+    } catch (error) {
+        throw getUnexpectedOperationError(error, 'carregar o caixa aberto')
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'carregar o caixa aberto')
     if (!data) return null
@@ -105,20 +112,37 @@ export async function getOpenCashRegister(bakeryId: string): Promise<CashRegiste
 
 export async function openCashRegister(initialAmount: number): Promise<CashRegister> {
     const client = getSupabaseClient()
-    const { data, error } = await client.rpc('open_cash_register', {
-        p_initial_amount: initialAmount,
-    })
+    let result
+    try {
+        result = await client.rpc('open_cash_register', {
+            p_initial_amount: initialAmount,
+        })
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado da abertura do caixa.', requestError)
+        throw new Error('Não foi possível confirmar se o caixa foi aberto. Atualize os dados do caixa antes de tentar novamente.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'abrir o caixa')
 
     const id = requireRpcId(data, 'abertura do caixa')
-    const { data: register, error: loadError } = await client
-        .from('cash_registers')
-        .select('id, bakery_id, opened_at, initial_amount')
-        .eq('id', id)
-        .single()
+    let registerResult
+    try {
+        registerResult = await client
+            .from('cash_registers')
+            .select('id, bakery_id, opened_at, initial_amount')
+            .eq('id', id)
+            .single()
+    } catch (loadError) {
+        console.error('O caixa foi aberto, mas não foi possível carregar os dados do registro.', loadError)
+        throw new Error('O caixa foi aberto, mas não foi possível carregar seus dados. Atualize a tela antes de tentar novamente.', { cause: loadError })
+    }
+    const { data: register, error: loadError } = registerResult
 
-    if (loadError) throwOperationError(loadError, 'carregar o caixa recém-aberto')
+    if (loadError) {
+        console.error('O caixa foi aberto, mas não foi possível carregar os dados do registro.', loadError)
+        throw new Error('O caixa foi aberto, mas não foi possível carregar seus dados. Atualize a tela antes de tentar novamente.')
+    }
 
     return {
         id: register.id,
@@ -171,10 +195,18 @@ export async function createSaleWithItems(input: {
 }
 
 export async function closeCashRegister(cashRegisterId: string, countedAmount: number): Promise<string> {
-    const { data, error } = await getSupabaseClient().rpc('close_cash_register', {
-        p_cash_register_id: cashRegisterId,
-        p_counted_amount: countedAmount,
-    })
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client.rpc('close_cash_register', {
+            p_cash_register_id: cashRegisterId,
+            p_counted_amount: countedAmount,
+        })
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado do fechamento do caixa.', requestError)
+        throw new Error('Não foi possível confirmar se o caixa foi fechado. Consulte o histórico de fechamentos antes de tentar novamente.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'fechar o caixa')
     return requireRpcId(data, 'fechamento do caixa')
@@ -186,16 +218,24 @@ export async function setProductStock(
     operation: 'initialize' | 'set',
     quantity: number,
 ): Promise<number> {
-    const { data, error } = await getSupabaseClient().rpc('set_product_stock', {
-        p_product_id: productId,
-        p_bakery_id: bakeryId,
-        p_operation: operation,
-        p_quantity: quantity,
-    })
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client.rpc('set_product_stock', {
+            p_product_id: productId,
+            p_bakery_id: bakeryId,
+            p_operation: operation,
+            p_quantity: quantity,
+        })
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado da atualização do estoque.', requestError)
+        throw new Error('Não foi possível confirmar se o estoque foi atualizado. Atualize os dados antes de tentar novamente.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'atualizar o estoque')
     if (typeof data !== 'number') {
-        throw new Error('O Supabase não retornou a quantidade de estoque atualizada.')
+        throw new Error('Não foi possível confirmar a atualização do estoque. Atualize os dados antes de tentar novamente.')
     }
     return data
 }
@@ -206,12 +246,20 @@ export async function createProductWithInitialStock(input: {
     price: number
     initialQuantity: number
 }): Promise<string> {
-    const { data, error } = await getSupabaseClient().rpc('create_product_with_initial_stock', {
-        p_name: input.name,
-        p_barcode: input.barcode,
-        p_price: input.price,
-        p_initial_quantity: input.initialQuantity,
-    })
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client.rpc('create_product_with_initial_stock', {
+            p_name: input.name,
+            p_barcode: input.barcode,
+            p_price: input.price,
+            p_initial_quantity: input.initialQuantity,
+        })
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado do cadastro do produto.', requestError)
+        throw new Error('Não foi possível confirmar se o produto foi cadastrado. Atualize a lista antes de tentar novamente, para evitar duplicidades.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'cadastrar o produto e o estoque inicial')
     return requireRpcId(data, 'cadastro do produto')
@@ -224,13 +272,21 @@ export async function updateProductWithStock(input: {
     price: number
     quantity: number
 }): Promise<string> {
-    const { data, error } = await getSupabaseClient().rpc('update_product_with_stock', {
-        p_product_id: input.productId,
-        p_name: input.name,
-        p_barcode: input.barcode,
-        p_price: input.price,
-        p_quantity: input.quantity,
-    })
+    const client = getSupabaseClient()
+    let result
+    try {
+        result = await client.rpc('update_product_with_stock', {
+            p_product_id: input.productId,
+            p_name: input.name,
+            p_barcode: input.barcode,
+            p_price: input.price,
+            p_quantity: input.quantity,
+        })
+    } catch (requestError) {
+        console.error('Não foi possível confirmar o resultado da atualização do produto.', requestError)
+        throw new Error('Não foi possível confirmar se o produto foi atualizado. Atualize a lista antes de tentar novamente.', { cause: requestError })
+    }
+    const { data, error } = result
 
     if (error) throwOperationError(error, 'atualizar o produto e o estoque')
     return requireRpcId(data, 'atualização do produto')
