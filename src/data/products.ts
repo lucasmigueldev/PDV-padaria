@@ -10,6 +10,27 @@ type ProductRow = {
     price: number | string
 }
 
+type ProductDataError = {
+    code?: string
+    message: string
+}
+
+function getProductDataError(error: ProductDataError, action: string): Error {
+    console.error(`Erro ao ${action} produtos ou estoque.`, error)
+
+    if (error.code === '42501') {
+        return new Error('Seu acesso não permite consultar ou alterar produtos nesta unidade. Solicite ajuda ao proprietário.')
+    }
+    if (error.code === '23505' && /barcode/i.test(error.message)) {
+        return new Error('Já existe um produto cadastrado com este código de barras.')
+    }
+    if (action === 'excluir' && error.code === '23503') {
+        return new Error('O produto possui registros associados e não pode ser excluído.')
+    }
+
+    return new Error(`Não foi possível ${action} produtos ou estoque. Atualize a tela e tente novamente.`)
+}
+
 export function normalizeBarcode(value: string): string {
     return value.trim().replace(/\s/g, '')
 }
@@ -30,12 +51,10 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
         ])
 
     if (productError) {
-        console.error('Erro ao carregar produtos do Supabase.', productError)
-        throw new Error('Não foi possível carregar os produtos.')
+        throw getProductDataError(productError, 'carregar')
     }
     if (stockError) {
-        console.error('Erro ao carregar estoque do Supabase.', stockError)
-        throw new Error('Não foi possível carregar o estoque.')
+        throw getProductDataError(stockError, 'carregar')
     }
 
     const stockByProduct = new Map<string, number>()
@@ -89,8 +108,7 @@ export async function updateProduct(
 export async function deleteProduct(productId: string): Promise<void> {
     const { error } = await getSupabaseClient().from('products').delete().eq('id', productId)
     if (error) {
-        console.error('Erro ao excluir produto do Supabase.', error)
-        throw new Error('Não foi possível excluir o produto.')
+        throw getProductDataError(error, 'excluir')
     }
 }
 
@@ -111,11 +129,11 @@ async function loadProduct(productId: string): Promise<ProductWithStock> {
 
     if (productError) {
         console.error('Erro ao carregar o produto salvo no Supabase.', productError)
-        throw new Error('O produto foi salvo, mas não foi possível recarregá-lo.')
+        throw new Error('O produto foi salvo, mas não foi possível atualizar os dados exibidos. Atualize a lista antes de tentar novamente, para evitar duplicidades.')
     }
     if (stockError) {
         console.error('Erro ao carregar o estoque salvo no Supabase.', stockError)
-        throw new Error('O produto foi salvo, mas não foi possível recarregar seu estoque.')
+        throw new Error('O produto foi salvo, mas não foi possível atualizar o estoque exibido. Atualize a lista antes de tentar novamente.')
     }
 
     return {
