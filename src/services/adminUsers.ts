@@ -69,18 +69,24 @@ function mapAdminUser(record: AdminUserRecord): User {
 
 export async function getAdminUsers(): Promise<User[]> {
     const client = getSupabaseClient()
-    let { data, error } = await client
-        .from('users')
-        .select('id, name, email, role, bakery_id')
-        .eq('active', true)
-        .order('name')
-
-    if (error && isMissingActiveColumnError(error)) {
-        ({ data, error } = await client
+    let result
+    try {
+        result = await client
             .from('users')
             .select('id, name, email, role, bakery_id')
-            .order('name'))
+            .eq('active', true)
+            .order('name')
+        if (result.error && isMissingActiveColumnError(result.error)) {
+            result = await client
+                .from('users')
+                .select('id, name, email, role, bakery_id')
+                .order('name')
+        }
+    } catch (requestError) {
+        console.error('Falha inesperada ao carregar usuários.', requestError)
+        throw new Error('Não foi possível carregar a lista de usuários. Atualize a tela e tente novamente.', { cause: requestError })
     }
+    const { data, error } = result
 
     if (error) {
         console.error('Erro ao carregar usuários no Supabase.', error)
@@ -88,7 +94,7 @@ export async function getAdminUsers(): Promise<User[]> {
         if (error.code === '42501') {
             throw new Error('Seu acesso não permite consultar os usuários. Solicite ajuda ao proprietário.')
         }
-        throw new Error('Não foi possível carregar a lista de usuários. Verifique a conexão e tente novamente.')
+        throw new Error('Não foi possível carregar a lista de usuários. Atualize a tela e tente novamente.')
     }
 
     return (data as AdminUserRecord[]).map(mapAdminUser)
