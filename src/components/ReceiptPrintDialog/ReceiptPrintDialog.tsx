@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Printer, X } from 'lucide-react'
+import { Bluetooth, BluetoothOff, Printer, X } from 'lucide-react'
 import type { Sale } from '../../types/Sale'
+import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
+import type { ReceiptData } from '../../services/thermalPrinter'
 import './ReceiptPrintDialog.css'
 
 interface ReceiptPrintDialogProps {
@@ -68,6 +70,24 @@ function getReceiptProblem(sale: Sale, bakeryName: string | null): string | null
     return null
 }
 
+function saleToReceiptData(sale: Sale, bakeryName: string): ReceiptData {
+    return {
+        bakeryName,
+        saleId: sale.id,
+        date: sale.date,
+        items: sale.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.subtotal,
+        })),
+        total: sale.total,
+        paymentMethod: sale.paymentMethod,
+        receivedAmount: sale.receivedAmount,
+        change: sale.change,
+    }
+}
+
 export function ReceiptPrintDialog({
     sale,
     bakeryName,
@@ -82,6 +102,8 @@ export function ReceiptPrintDialog({
     const isMountedRef = useRef(false)
     const receiptProblem = getReceiptProblem(sale, bakeryName)
     const shortSaleId = sale.id.slice(0, 8).toUpperCase()
+
+    const bluetooth = useBluetoothPrinter()
 
     const printReceipt = useCallback(() => {
         if (receiptProblem || isPrintDialogOpenRef.current) {
@@ -110,6 +132,17 @@ export function ReceiptPrintDialog({
         }
     }, [receiptProblem])
 
+    const handleBluetoothPrint = useCallback(async () => {
+        if (receiptProblem || !bakeryName) return
+
+        if (bluetooth.status !== 'connected') {
+            await bluetooth.connect()
+            return
+        }
+
+        await bluetooth.print(saleToReceiptData(sale, bakeryName))
+    }, [receiptProblem, bakeryName, bluetooth, sale])
+
     useEffect(() => {
         isMountedRef.current = true
         return () => {
@@ -127,6 +160,19 @@ export function ReceiptPrintDialog({
             if (isMountedRef.current) printReceipt()
         })
     }, [autoPrint, printReceipt, receiptProblem])
+
+    const isBusy = isPrintDialogOpen || bluetooth.status === 'connecting' || bluetooth.status === 'printing'
+
+    function getBluetoothButtonLabel(): string {
+        switch (bluetooth.status) {
+            case 'connecting': return 'Conectando...'
+            case 'printing': return 'Imprimindo...'
+            case 'connected': return `Imprimir em ${bluetooth.deviceName ?? 'Bluetooth'}`
+            default: return 'Conectar impressora Bluetooth'
+        }
+    }
+
+    const isBluetoothConnected = bluetooth.status === 'connected'
 
     return createPortal((
         <div className="receipt-dialog-overlay" onClick={onClose}>
@@ -146,7 +192,7 @@ export function ReceiptPrintDialog({
                         type="button"
                         onClick={onClose}
                         aria-label="Fechar visualização do comprovante"
-                        disabled={isPrintDialogOpen}
+                        disabled={isBusy}
                     >
                         <X size={19} aria-hidden="true" />
                     </button>
@@ -202,20 +248,64 @@ export function ReceiptPrintDialog({
                 )}
 
                 {printMessage && <p className="receipt-dialog-message" role="status">{printMessage}</p>}
+
+                {/* Feedback do Bluetooth */}
+                {bluetooth.errorMessage && (
+                    <p className="receipt-dialog-message receipt-dialog-bluetooth-error" role="alert">
+                        {bluetooth.errorMessage}
+                    </p>
+                )}
+                {isBluetoothConnected && bluetooth.status === 'connected' && !bluetooth.errorMessage && (
+                    <p className="receipt-dialog-message receipt-dialog-bluetooth-ok" role="status">
+                        Impressora conectada: {bluetooth.deviceName}
+                    </p>
+                )}
+
                 <footer className="receipt-dialog-actions">
-                    <button type="button" className="receipt-dialog-close" onClick={onClose} disabled={isPrintDialogOpen}>
+                    <button type="button" className="receipt-dialog-close" onClick={onClose} disabled={isBusy}>
                         Fechar
                     </button>
+
+                    {/* Botão Bluetooth — só aparece se a API estiver disponível */}
+                    {bluetooth.isBluetoothAvailable && (
+                        <button
+                            type="button"
+                            className={`receipt-dialog-bluetooth${isBluetoothConnected ? ' is-connected' : ''}`}
+                            onClick={handleBluetoothPrint}
+                            disabled={Boolean(receiptProblem) || isBusy}
+                            title={isBluetoothConnected ? `Desconectar de ${bluetooth.deviceName ?? 'Bluetooth'}` : undefined}
+                        >
+                            {isBluetoothConnected
+                                ? <Bluetooth size={17} aria-hidden="true" />
+                                : <BluetoothOff size={17} aria-hidden="true" />}
+                            {getBluetoothButtonLabel()}
+                        </button>
+                    )}
+
+                    {/* Botão imprimir/PDF padrão */}
                     <button
                         type="button"
                         className="receipt-dialog-print"
                         onClick={printReceipt}
-                        disabled={Boolean(receiptProblem) || isPrintDialogOpen}
+                        disabled={Boolean(receiptProblem) || isBusy}
                     >
                         <Printer size={17} aria-hidden="true" />
                         Imprimir / salvar PDF
                     </button>
                 </footer>
+
+                {/* Opção de desconectar quando conectado */}
+                {isBluetoothConnected && (
+                    <div className="receipt-dialog-bluetooth-disconnect">
+                        <button
+                            type="button"
+                            onClick={bluetooth.disconnect}
+                            disabled={isBusy}
+                        >
+                            Desconectar impressora Bluetooth
+                        </button>
+                    </div>
+                )}
             </section>
         </div>
     ), document.body)

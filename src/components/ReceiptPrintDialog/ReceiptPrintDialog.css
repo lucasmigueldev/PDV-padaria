@@ -184,9 +184,54 @@
     color: #ffffff;
 }
 
+.receipt-dialog-bluetooth {
+    border-color: #0ea5e9 !important;
+    background: #f0f9ff;
+    color: #0369a1;
+}
+
+.receipt-dialog-bluetooth.is-connected {
+    border-color: #16a34a !important;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
 .receipt-dialog-actions button:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+}
+
+.receipt-dialog-bluetooth-error {
+    color: #dc2626 !important;
+}
+
+.receipt-dialog-bluetooth-ok {
+    color: #15803d !important;
+}
+
+.receipt-dialog-bluetooth-disconnect {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.receipt-dialog-bluetooth-disconnect button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+    text-decoration: underline;
+}
+
+.receipt-dialog-bluetooth-disconnect button:hover {
+    color: #475569;
+}
+
+.receipt-dialog-bluetooth-disconnect button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 @page {

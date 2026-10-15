@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
     Banknote,
+    Bluetooth,
+    BluetoothOff,
     CircleAlert,
     CircleCheck,
     CreditCard,
@@ -8,6 +10,7 @@ import {
     Minus,
     Package,
     Plus,
+    Printer,
     QrCode,
     Receipt,
     Store,
@@ -22,9 +25,10 @@ import { getProductsFromSupabase } from '../../data/products'
 import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
+import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
-import { ReceiptPrintDialog } from '../../components/ReceiptPrintDialog/ReceiptPrintDialog'
+import type { ReceiptData } from '../../services/thermalPrinter'
 import { logoutAndRedirect } from '../../utils/auth'
 import {
     getReceiptPreference,
@@ -53,10 +57,29 @@ function parseMoneyToCents(value: string): number | null {
     return Number.isSafeInteger(cents) ? cents : null
 }
 
+function saleToReceiptData(sale: Sale, bakeryName: string): ReceiptData {
+    return {
+        bakeryName,
+        saleId: sale.id,
+        date: sale.date,
+        items: sale.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.subtotal,
+        })),
+        total: sale.total,
+        paymentMethod: sale.paymentMethod,
+        receivedAmount: sale.receivedAmount,
+        change: sale.change,
+    }
+}
+
 export default function PDV() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
+    const bluetooth = useBluetoothPrinter()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const receiptBakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
@@ -70,6 +93,9 @@ export default function PDV() {
     const [errorMessage, setErrorMessage] = useState('')
     const [saleFeedback, setSaleFeedback] = useState('')
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+    const [checkoutStep, setCheckoutStep] = useState<'payment' | 'completed'>('payment')
+    const [completedSale, setCompletedSale] = useState<Sale | null>(null)
+    const [modalPrintFeedback, setModalPrintFeedback] = useState<{ isError: boolean; message: string } | null>(null)
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null)
     const [receivedValue, setReceivedValue] = useState('')
     const [checkoutMessage, setCheckoutMessage] = useState('')
@@ -87,7 +113,6 @@ export default function PDV() {
     } | null>(null)
     const [isSavingReceiptPreference, setIsSavingReceiptPreference] = useState(false)
     const [receiptPreferenceLoadAttempt, setReceiptPreferenceLoadAttempt] = useState(0)
-    const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
@@ -106,6 +131,9 @@ export default function PDV() {
     const isLoadingReceiptPreference = Boolean(currentUserId)
         && currentReceiptPreference === null
         && !currentReceiptPreferenceError
+
+    const isBluetoothConnected = bluetooth.status === 'connected'
+    const isBluetoothBusy = bluetooth.status === 'connecting' || bluetooth.status === 'printing'
 
     useEffect(() => {
         const userId = authenticatedUser?.id
@@ -304,6 +332,9 @@ export default function PDV() {
         setPaymentMethod(null)
         setReceivedValue('')
         setCheckoutMessage('')
+        setCheckoutStep('payment')
+        setCompletedSale(null)
+        setModalPrintFeedback(null)
         setIsCheckoutOpen(true)
     }
 
@@ -312,6 +343,10 @@ export default function PDV() {
         setPaymentMethod(null)
         setReceivedValue('')
         setCheckoutMessage('')
+        setCheckoutStep('payment')
+        setCompletedSale(null)
+        setModalPrintFeedback(null)
+        barcodeInputRef.current?.focus()
     }
 
     function selectPaymentMethod(method: PaymentMethod) {
@@ -452,11 +487,12 @@ export default function PDV() {
                 ...(changeAmount !== null ? { change: changeAmount } : {}),
             }
             setItems([])
-            closeCheckout()
+            setCompletedSale(confirmedSale)
+            setReceiptSale(confirmedSale)
+            setCheckoutStep('completed')
+            setModalPrintFeedback(null)
             setSaleFeedback('Venda concluída com sucesso.')
-            if (currentReceiptPreference !== 'disabled') {
-                setReceiptSale(confirmedSale)
-            }
+
             try {
                 setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
             } catch (error) {
@@ -468,6 +504,36 @@ export default function PDV() {
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
+        }
+    }
+
+    async function handlePrintFromModal() {
+        if (!completedSale) return
+        const bakery = receiptBakeryName ?? bakeryName
+
+        try {
+            setModalPrintFeedback({ isError: false, message: 'Enviando cupom para a impressora...' })
+            if (bluetooth.status !== 'connected') {
+                await bluetooth.connect()
+            }
+            await bluetooth.print(saleToReceiptData(completedSale, bakery))
+            setModalPrintFeedback({ isError: false, message: '✓ Cupom impresso com sucesso!' })
+        } catch (error) {
+            console.error('Erro ao imprimir via Bluetooth:', error)
+            setModalPrintFeedback({
+                isError: true,
+                message: error instanceof Error ? error.message : 'Erro ao imprimir na impressora térmica.',
+            })
+        }
+    }
+
+    function getBluetoothButtonLabel(): string {
+        switch (bluetooth.status) {
+            case 'connecting': return 'Conectando...'
+            case 'connected': return `Conectada: ${bluetooth.deviceName ?? 'Bluetooth'}`
+            case 'printing': return 'Imprimindo...'
+            case 'error': return 'Reconectar impressora'
+            default: return 'Conectar impressora'
         }
     }
 
@@ -541,6 +607,49 @@ export default function PDV() {
                     </a>
                 </nav>
 
+                {/* Bloco de impressora Bluetooth — sempre visível */}
+                <div className="pdv-bluetooth-printer">
+                    <span className="pdv-sidebar-label">Impressora térmica</span>
+                    {!bluetooth.isBluetoothAvailable ? (
+                        <div className="pdv-bluetooth-unavailable">
+                            <BluetoothOff size={15} aria-hidden="true" />
+                            <span>Use Chrome ou Edge para conectar a impressora Bluetooth.</span>
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                className={`pdv-bluetooth-button${isBluetoothConnected ? ' is-connected' : ''}${bluetooth.status === 'error' ? ' is-error' : ''}`}
+                                onClick={isBluetoothConnected ? bluetooth.disconnect : bluetooth.connect}
+                                disabled={isBluetoothBusy}
+                                title={isBluetoothConnected ? 'Clique para desconectar' : 'Clique para conectar via Bluetooth'}
+                            >
+                                {isBluetoothConnected
+                                    ? <Bluetooth size={16} aria-hidden="true" />
+                                    : <BluetoothOff size={16} aria-hidden="true" />}
+                                <span>{getBluetoothButtonLabel()}</span>
+                            </button>
+                            {isBluetoothConnected && !bluetooth.errorMessage && (
+                                <small className="pdv-bluetooth-hint">
+                                    ✓ Cupom impresso automaticamente ao finalizar venda.
+                                </small>
+                            )}
+                            {bluetooth.status === 'printing' && (
+                                <small className="pdv-bluetooth-hint">Enviando cupom para a impressora...</small>
+                            )}
+                            {bluetooth.errorMessage && (
+                                <small className="pdv-bluetooth-error" role="alert">{bluetooth.errorMessage}</small>
+                            )}
+                            {!isBluetoothConnected && bluetooth.status !== 'error' && (
+                                <small className="pdv-bluetooth-hint">
+                                    Desconectada. Clique para conectar antes de vender.
+                                </small>
+                            )}
+                        </>
+                    )}
+                </div>
+
+
                 <div className="pdv-receipt-preference">
                     <label htmlFor="receipt-print-preference">Impressão de comprovante</label>
                     <select
@@ -587,7 +696,10 @@ export default function PDV() {
 
             <main className="pdv-main">
                 <section className="pdv-content">
-                    {saleFeedback && <p className="pdv-success-message" role="status">{saleFeedback}</p>}
+                    {saleFeedback && (
+                        <p className="pdv-success-message" role="status">{saleFeedback}</p>
+                    )}
+
 
                     <div className="pdv-sale-grid">
                         <section className="pdv-sale-panel">
@@ -714,8 +826,12 @@ export default function PDV() {
                     >
                         <div className="pdv-checkout-header">
                             <div>
-                                <span className="pdv-checkout-overline">RESUMO DA VENDA</span>
-                                <h2 id="pdv-checkout-title">Finalizar venda</h2>
+                                <span className="pdv-checkout-overline">
+                                    {checkoutStep === 'payment' ? 'RESUMO DA VENDA' : 'PAGAMENTO CONFIRMADO'}
+                                </span>
+                                <h2 id="pdv-checkout-title">
+                                    {checkoutStep === 'payment' ? 'Finalizar venda' : 'Venda concluída!'}
+                                </h2>
                             </div>
                             <button
                                 ref={closeCheckoutButtonRef}
@@ -729,140 +845,210 @@ export default function PDV() {
                             </button>
                         </div>
 
-                        <div className="pdv-checkout-total">
-                            <span>Total da venda</span>
-                            <strong>{currency.format(total)}</strong>
-                        </div>
-
-                        <div className="pdv-payment-section">
-                            <div>
-                                <h3>Forma de pagamento</h3>
-                                <p>Selecione como o cliente deseja pagar.</p>
-                            </div>
-                            <div className="pdv-payment-options" role="radiogroup" aria-label="Forma de pagamento">
-                                <button
-                                    type="button"
-                                    className={`pdv-payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
-                                    onClick={() => selectPaymentMethod('cash')}
-                                    role="radio"
-                                    aria-checked={paymentMethod === 'cash'}
-                                >
-                                    <Banknote size={20} />
-                                    <span>Dinheiro</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`pdv-payment-option ${paymentMethod === 'pix' ? 'selected' : ''}`}
-                                    onClick={() => selectPaymentMethod('pix')}
-                                    role="radio"
-                                    aria-checked={paymentMethod === 'pix'}
-                                >
-                                    <QrCode size={20} />
-                                    <span>PIX</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`pdv-payment-option ${paymentMethod === 'card' ? 'selected' : ''}`}
-                                    onClick={() => selectPaymentMethod('card')}
-                                    role="radio"
-                                    aria-checked={paymentMethod === 'card'}
-                                >
-                                    <CreditCard size={20} />
-                                    <span>Cartão</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {paymentMethod === 'cash' && (
-                            <div className="pdv-cash-section">
-                                <label htmlFor="received-value">Valor recebido</label>
-                                <div className="pdv-cash-input-wrapper">
-                                    <span>R$</span>
-                                    <input
-                                        ref={receivedValueInputRef}
-                                        id="received-value"
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={receivedValue}
-                                        onChange={(event) => {
-                                            const nextValue = event.target.value
-
-                                            if (moneyInputPattern.test(nextValue)) {
-                                                setReceivedValue(nextValue)
-                                                setCheckoutMessage('')
-                                            }
-                                        }}
-                                        placeholder="0,00"
-                                        autoComplete="off"
-                                        aria-describedby={cashValidationMessage ? 'cash-validation-message' : undefined}
-                                    />
+                        {checkoutStep === 'payment' ? (
+                            <>
+                                <div className="pdv-checkout-total">
+                                    <span>Total da venda</span>
+                                    <strong>{currency.format(total)}</strong>
                                 </div>
-                                {cashValidationMessage && (
-                                    <p
-                                        id="cash-validation-message"
-                                        className={receivedInCents !== null && receivedInCents >= totalInCents
-                                            ? 'pdv-cash-change'
-                                            : 'pdv-cash-error'}
-                                        role="status"
-                                    >
-                                        {cashValidationMessage}
-                                    </p>
+
+                                <div className="pdv-payment-section">
+                                    <div>
+                                        <h3>Forma de pagamento</h3>
+                                        <p>Selecione como o cliente deseja pagar.</p>
+                                    </div>
+                                    <div className="pdv-payment-options" role="radiogroup" aria-label="Forma de pagamento">
+                                        <button
+                                            type="button"
+                                            className={`pdv-payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
+                                            onClick={() => selectPaymentMethod('cash')}
+                                            role="radio"
+                                            aria-checked={paymentMethod === 'cash'}
+                                        >
+                                            <Banknote size={20} />
+                                            <span>Dinheiro</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`pdv-payment-option ${paymentMethod === 'pix' ? 'selected' : ''}`}
+                                            onClick={() => selectPaymentMethod('pix')}
+                                            role="radio"
+                                            aria-checked={paymentMethod === 'pix'}
+                                        >
+                                            <QrCode size={20} />
+                                            <span>PIX</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`pdv-payment-option ${paymentMethod === 'card' ? 'selected' : ''}`}
+                                            onClick={() => selectPaymentMethod('card')}
+                                            role="radio"
+                                            aria-checked={paymentMethod === 'card'}
+                                        >
+                                            <CreditCard size={20} />
+                                            <span>Cartão</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {paymentMethod === 'cash' && (
+                                    <div className="pdv-cash-section">
+                                        <label htmlFor="received-value">Valor recebido</label>
+                                        <div className="pdv-cash-input-wrapper">
+                                            <span>R$</span>
+                                            <input
+                                                ref={receivedValueInputRef}
+                                                id="received-value"
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={receivedValue}
+                                                onChange={(event) => {
+                                                    const nextValue = event.target.value
+
+                                                    if (moneyInputPattern.test(nextValue)) {
+                                                        setReceivedValue(nextValue)
+                                                        setCheckoutMessage('')
+                                                    }
+                                                }}
+                                                placeholder="0,00"
+                                                autoComplete="off"
+                                                aria-describedby={cashValidationMessage ? 'cash-validation-message' : undefined}
+                                            />
+                                        </div>
+                                        {cashValidationMessage && (
+                                            <p
+                                                id="cash-validation-message"
+                                                className={receivedInCents !== null && receivedInCents >= totalInCents
+                                                    ? 'pdv-cash-change'
+                                                    : 'pdv-cash-error'}
+                                                role="status"
+                                            >
+                                                {cashValidationMessage}
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
-                            </div>
+
+                                {paymentMethod === 'pix' && (
+                                    <div className="pdv-pix-section" aria-label="Pagamento via PIX">
+                                        <div className="pdv-pix-icon" aria-hidden="true">
+                                            <QrCode size={26} />
+                                        </div>
+                                        <div className="pdv-pix-content">
+                                            <h3>Pagamento via PIX</h3>
+                                            <p>Realize o pagamento via PIX no valor total da venda.</p>
+                                            <strong>{currency.format(total)}</strong>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {paymentMethod === 'card' && (
+                                    <div className="pdv-card-section" aria-label="Pagamento com Cartão">
+                                        <div className="pdv-card-icon" aria-hidden="true">
+                                            <CreditCard size={26} />
+                                        </div>
+                                        <div className="pdv-card-content">
+                                            <h3>Pagamento com Cartão</h3>
+                                            <p>Pagamento será realizado por cartão.</p>
+                                            <strong>{currency.format(total)}</strong>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {checkoutMessage && <p className="pdv-checkout-message" role="alert">{checkoutMessage}</p>}
+
+                                <div className="pdv-checkout-actions">
+                                    <button type="button" className="pdv-checkout-cancel" onClick={closeCheckout}>
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="pdv-checkout-continue"
+                                        onClick={continueCheckout}
+                                        disabled={isRegisteringSale || (paymentMethod === 'cash' && !isCashPaymentValid)}
+                                    >
+                                        {isRegisteringSale ? 'Registrando...' : 'Continuar'}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            completedSale && (
+                                <div className="pdv-checkout-completed-body">
+                                    <div className="pdv-checkout-completed-banner">
+                                        <CircleCheck size={36} className="pdv-checkout-completed-icon" aria-hidden="true" />
+                                        <div>
+                                            <h3>Pagamento registrado com sucesso!</h3>
+                                            <p>Deseja imprimir o cupom na impressora térmica?</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="pdv-checkout-completed-summary">
+                                        <div className="pdv-checkout-completed-row">
+                                            <span>Total pago</span>
+                                            <strong>{currency.format(completedSale.total)}</strong>
+                                        </div>
+                                        <div className="pdv-checkout-completed-row">
+                                            <span>Forma de pagamento</span>
+                                            <span>
+                                                {completedSale.paymentMethod === 'cash'
+                                                    ? 'Dinheiro'
+                                                    : completedSale.paymentMethod === 'pix'
+                                                        ? 'PIX'
+                                                        : 'Cartão'}
+                                            </span>
+                                        </div>
+                                        {completedSale.paymentMethod === 'cash'
+                                            && completedSale.receivedAmount !== undefined
+                                            && completedSale.change !== undefined && (
+                                                <>
+                                                    <div className="pdv-checkout-completed-row">
+                                                        <span>Valor recebido</span>
+                                                        <span>{currency.format(completedSale.receivedAmount)}</span>
+                                                    </div>
+                                                    <div className="pdv-checkout-completed-row pdv-checkout-completed-change">
+                                                        <span>Troco</span>
+                                                        <strong>{currency.format(completedSale.change)}</strong>
+                                                    </div>
+                                                </>
+                                            )}
+                                    </div>
+
+                                    {modalPrintFeedback && (
+                                        <p
+                                            className={`pdv-checkout-print-feedback ${modalPrintFeedback.isError ? 'is-error' : 'is-success'}`}
+                                            role="status"
+                                        >
+                                            {modalPrintFeedback.message}
+                                        </p>
+                                    )}
+
+                                    <div className="pdv-checkout-completed-actions">
+                                        <button
+                                            type="button"
+                                            className="pdv-checkout-btn-print"
+                                            onClick={handlePrintFromModal}
+                                            disabled={bluetooth.status === 'printing'}
+                                        >
+                                            <Printer size={18} aria-hidden="true" />
+                                            <span>
+                                                {bluetooth.status === 'printing'
+                                                    ? 'Imprimindo cupom...'
+                                                    : 'Imprimir Cupom'}
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="pdv-checkout-btn-done"
+                                            onClick={closeCheckout}
+                                        >
+                                            Concluir (Nova Venda)
+                                        </button>
+                                    </div>
+                                </div>
+                            )
                         )}
-
-                        {paymentMethod === 'pix' && (
-                            <div className="pdv-pix-section" aria-label="Pagamento via PIX">
-                                <div className="pdv-pix-icon" aria-hidden="true">
-                                    <QrCode size={26} />
-                                </div>
-                                <div className="pdv-pix-content">
-                                    <h3>Pagamento via PIX</h3>
-                                    <p>Realize o pagamento via PIX no valor total da venda.</p>
-                                    <strong>{currency.format(total)}</strong>
-                                </div>
-                            </div>
-                        )}
-
-                        {paymentMethod === 'card' && (
-                            <div className="pdv-card-section" aria-label="Pagamento com Cartão">
-                                <div className="pdv-card-icon" aria-hidden="true">
-                                    <CreditCard size={26} />
-                                </div>
-                                <div className="pdv-card-content">
-                                    <h3>Pagamento com Cartão</h3>
-                                    <p>Pagamento será realizado por cartão.</p>
-                                    <strong>{currency.format(total)}</strong>
-                                </div>
-                            </div>
-                        )}
-
-                        {checkoutMessage && <p className="pdv-checkout-message" role="alert">{checkoutMessage}</p>}
-
-                        <div className="pdv-checkout-actions">
-                            <button type="button" className="pdv-checkout-cancel" onClick={closeCheckout}>
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="pdv-checkout-continue"
-                                onClick={continueCheckout}
-                                disabled={isRegisteringSale || (paymentMethod === 'cash' && !isCashPaymentValid)}
-                            >
-                                {isRegisteringSale ? 'Registrando...' : 'Continuar'}
-                            </button>
-                        </div>
                     </div>
                 </div>
-            )}
-            {receiptSale && !isLoadingReceiptPreference && currentReceiptPreference !== 'disabled' && (
-                <ReceiptPrintDialog
-                    sale={receiptSale}
-                    bakeryName={receiptBakeryName}
-                    autoPrint={currentReceiptPreference === 'automatic'}
-                    contextMessage="A RPC confirmou o identificador da venda, mas não retorna os valores persistidos. Este comprovante usa o resumo enviado pelo PDV; uma alteração concorrente de preço pode causar divergência."
-                    onClose={() => setReceiptSale(null)}
-                />
             )}
         </div>
     )
