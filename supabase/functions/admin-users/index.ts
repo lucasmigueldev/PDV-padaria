@@ -59,7 +59,7 @@ function isUuid(value: string): boolean {
 function getOperatorOperationError(error: { code?: string; message: string }): string {
     if (error.code === '42501') {
         if (/inactive operators cannot be changed/i.test(error.message)) {
-            return 'O operador está inativo e não pode ser editado.'
+            return 'O operador está inativo e não pode ser alterado.'
         }
         return 'Apenas o proprietário pode gerenciar operadores.'
     }
@@ -70,19 +70,19 @@ function getOperatorOperationError(error: { code?: string; message: string }): s
         if (/stock|inventory/i.test(error.message)) {
             return 'Zere o estoque de todos os produtos da unidade antes de alterar ou desativar o operador.'
         }
-        return 'Não foi possível concluir a operação com o estado atual dos dados.'
+        return 'A operação não pode ser concluída no estado atual. Confira as condições da unidade e tente novamente.'
     }
     if (error.code === '23503') return 'A unidade selecionada não existe.'
     if (error.code === '22023') return 'Informe um nome e uma unidade válidos.'
-    if (error.code === 'P0002') return 'O operador selecionado não existe.'
-    return 'Não foi possível concluir a operação do operador.'
+    if (error.code === 'P0002') return 'O operador não foi encontrado. Atualize a lista e tente novamente.'
+    return 'Não foi possível concluir a operação. Atualize a lista e tente novamente. Se o problema continuar, solicite ajuda ao proprietário.'
 }
 
 function getAuthUpdateError(error: { code?: string }): string {
     if (error.code === 'email_exists' || error.code === 'user_already_exists') {
         return 'Este e-mail já está cadastrado em outra conta.'
     }
-    return 'O Supabase Auth recusou a alteração das credenciais.'
+    return 'Não foi possível atualizar os dados de acesso do operador. Confira o e-mail e a senha informados e tente novamente.'
 }
 
 deno.serve(async (request: Request) => {
@@ -118,7 +118,7 @@ deno.serve(async (request: Request) => {
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
         console.error('Configuração Supabase ausente no ambiente da Edge Function.')
-        return jsonResponse({ error: 'Serviço não configurado.' }, 500, corsHeaders)
+        return jsonResponse({ error: 'O serviço está temporariamente indisponível. Tente novamente mais tarde.' }, 500, corsHeaders)
     }
 
     try {
@@ -143,22 +143,22 @@ deno.serve(async (request: Request) => {
 
         if (profileError) {
             console.error('Falha ao verificar o perfil administrativo.', profileError.code)
-            return jsonResponse({ error: 'Não foi possível verificar a autorização.' }, 500, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível confirmar sua permissão. Atualize a tela e tente novamente.' }, 500, corsHeaders)
         }
 
         if (profile?.role !== 'owner') {
-            return jsonResponse({ error: 'Acesso restrito a owner.' }, 403, corsHeaders)
+            return jsonResponse({ error: 'Somente o proprietário pode gerenciar usuários.' }, 403, corsHeaders)
         }
 
         let requestBody: unknown
         try {
             requestBody = await request.json()
         } catch {
-            return jsonResponse({ error: 'Corpo JSON inválido.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível ler os dados enviados. Atualize a tela e tente novamente.' }, 400, corsHeaders)
         }
 
         if (!isRecord(requestBody) || typeof requestBody.action !== 'string') {
-            return jsonResponse({ error: 'Ação inválida.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível identificar a operação solicitada. Atualize a tela e tente novamente.' }, 400, corsHeaders)
         }
 
         if (requestBody.action === 'check') {
@@ -175,7 +175,7 @@ deno.serve(async (request: Request) => {
             const passwordValue = requestBody.password
 
             if (typeof userId !== 'string' || !isUuid(userId)) {
-                return jsonResponse({ error: 'Operador inválido.' }, 400, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível identificar o operador. Atualize a lista e tente novamente.' }, 400, corsHeaders)
             }
             if (!name) return jsonResponse({ error: 'Informe o nome do operador.' }, 400, corsHeaders)
             if (typeof bakeryId !== 'string' || !isUuid(bakeryId)) {
@@ -231,7 +231,7 @@ deno.serve(async (request: Request) => {
                 }
                 if (updatedUserId !== userId) {
                     console.error('A RPC de atualização não retornou o ID do operador esperado.')
-                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador.' }, 500, corsHeaders)
+                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador. Atualize a lista antes de tentar novamente.' }, 500, corsHeaders)
                 }
                 return jsonResponse({ user_id: updatedUserId }, 200, corsHeaders)
             }
@@ -244,26 +244,26 @@ deno.serve(async (request: Request) => {
 
             if (targetProfileError) {
                 console.error('Falha ao verificar o perfil do operador para edição de credenciais.', targetProfileError.code)
-                return jsonResponse({ error: 'Não foi possível verificar o operador selecionado.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível localizar os dados do operador. Atualize a lista e tente novamente.' }, 500, corsHeaders)
             }
             if (!targetProfile) {
-                return jsonResponse({ error: 'O operador selecionado não existe.' }, 404, corsHeaders)
+                return jsonResponse({ error: 'O operador não foi encontrado. Atualize a lista e tente novamente.' }, 404, corsHeaders)
             }
             if (targetProfile.role !== 'cashier' || targetProfile.active !== true) {
-                return jsonResponse({ error: 'Somente operadores ativos podem ter suas credenciais alteradas.' }, 403, corsHeaders)
+                return jsonResponse({ error: 'Somente operadores ativos podem ter os dados de acesso alterados.' }, 403, corsHeaders)
             }
 
             const { data: authTarget, error: authTargetError } = await adminClient.auth.admin.getUserById(userId)
             if (authTargetError || !authTarget.user?.email) {
                 console.error('Falha ao verificar as credenciais atuais do operador.', authTargetError?.code)
-                return jsonResponse({ error: 'Não foi possível verificar as credenciais atuais do operador.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível confirmar os dados de acesso atuais do operador. Tente novamente mais tarde.' }, 500, corsHeaders)
             }
 
             const currentProfileEmail = targetProfile.email.trim()
             const currentAuthEmail = authTarget.user.email.trim()
             if (currentProfileEmail.toLowerCase() !== currentAuthEmail.toLowerCase()) {
                 return jsonResponse({
-                    error: 'O e-mail do perfil e o e-mail do Supabase Auth já estão divergentes. Faça a conferência antes de editar credenciais.',
+                    error: 'Os e-mails cadastrados para este operador estão diferentes. Confira os dados da conta antes de alterar o acesso.',
                 }, 409, corsHeaders)
             }
 
@@ -279,7 +279,7 @@ deno.serve(async (request: Request) => {
                 }
                 if (updatedUserId !== userId) {
                     console.error('A RPC de atualização não retornou o ID do operador esperado.')
-                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador.' }, 500, corsHeaders)
+                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador. Atualize a lista antes de tentar novamente.' }, 500, corsHeaders)
                 }
                 return jsonResponse({ user_id: updatedUserId }, 200, corsHeaders)
             }
@@ -297,7 +297,7 @@ deno.serve(async (request: Request) => {
             }
             if (validatedUserId !== userId) {
                 console.error('A RPC de validação não confirmou o operador esperado.')
-                return jsonResponse({ error: 'Não foi possível confirmar a validação do operador.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível confirmar os dados do operador. Atualize a lista e tente novamente.' }, 500, corsHeaders)
             }
 
             const authChanges: { email?: string; email_confirm?: boolean; password?: string } = {}
@@ -316,7 +316,7 @@ deno.serve(async (request: Request) => {
                     authUpdateFailure instanceof Error ? authUpdateFailure.name : 'UnknownError',
                 )
                 return jsonResponse({
-                    error: 'Não foi possível confirmar a alteração no Supabase Auth. Confira as credenciais do operador antes de tentar novamente.',
+                    error: 'Não foi possível confirmar a alteração dos dados de acesso. Confira o e-mail e a senha do operador antes de tentar novamente.',
                 }, 500, corsHeaders)
             }
 
@@ -324,7 +324,7 @@ deno.serve(async (request: Request) => {
                 console.error('Falha ao atualizar as credenciais do operador no Supabase Auth.', authUpdateResult.error?.code)
                 if (!authUpdateResult.error) {
                     return jsonResponse({
-                        error: 'O Supabase Auth não confirmou o resultado da alteração. Confira as credenciais do operador antes de tentar novamente.',
+                        error: 'Não foi possível confirmar a alteração dos dados de acesso. Confira o e-mail e a senha do operador antes de tentar novamente.',
                     }, 500, corsHeaders)
                 }
                 return jsonResponse({
@@ -378,19 +378,19 @@ deno.serve(async (request: Request) => {
                     }
                 }
 
-                const failureMessage = 'Não foi possível confirmar a invalidação das sessões anteriores do operador.'
+                const failureMessage = 'Não foi possível encerrar as sessões anteriores do operador.'
                 if (!emailRollbackSucceeded) {
                     return jsonResponse({
-                        error: `${failureMessage} A alteração do e-mail não pôde ser revertida com segurança. Confira imediatamente as credenciais e as sessões do operador${newPassword !== undefined ? '. A senha anterior não foi restaurada.' : '.'}`,
+                        error: `${failureMessage} Não foi possível confirmar a restauração do e-mail anterior. Confira imediatamente o e-mail e as sessões do operador${newPassword !== undefined ? '. A senha também foi alterada e não pode ser restaurada automaticamente; confira-a antes de permitir novo acesso.' : '.'}`,
                     }, 500, corsHeaders)
                 }
                 if (newPassword !== undefined) {
                     return jsonResponse({
-                        error: `${failureMessage} O e-mail foi revertido quando aplicável, mas a senha foi alterada e a senha anterior não foi restaurada. Confira as credenciais do operador.`,
+                        error: `${failureMessage} ${emailChanged ? 'O e-mail foi restaurado ao endereço anterior. ' : 'O e-mail não foi alterado. '}A nova senha foi aplicada e a senha anterior não pode ser restaurada automaticamente. Confira os dados de acesso do operador.`,
                     }, 500, corsHeaders)
                 }
                 return jsonResponse({
-                    error: `${failureMessage} O e-mail foi revertido no Supabase Auth.`,
+                    error: `${failureMessage} O e-mail foi restaurado ao endereço anterior. A alteração não foi concluída.`,
                 }, 500, corsHeaders)
             }
 
@@ -403,7 +403,7 @@ deno.serve(async (request: Request) => {
                     profileUpdateFailure instanceof Error ? profileUpdateFailure.name : 'UnknownError',
                 )
                 return jsonResponse({
-                    error: 'As credenciais foram alteradas no Supabase Auth, mas não foi possível confirmar a atualização do perfil. Confira imediatamente o e-mail e a senha do operador.',
+                    error: 'Os dados de acesso foram alterados, mas não foi possível confirmar a atualização do cadastro. Confira imediatamente o e-mail e a senha do operador antes de permitir novo acesso.',
                 }, 500, corsHeaders)
             }
 
@@ -412,7 +412,7 @@ deno.serve(async (request: Request) => {
                 console.error('Falha ao sincronizar o perfil após alteração no Auth.', updateError.code)
                 if (!updateError.code) {
                     return jsonResponse({
-                        error: 'As credenciais foram alteradas no Supabase Auth, mas o resultado da atualização do perfil é incerto. Confira imediatamente o e-mail e a senha do operador.',
+                        error: 'Os dados de acesso foram alterados, mas não foi possível confirmar se o cadastro foi atualizado. Confira imediatamente o e-mail e a senha do operador antes de permitir novo acesso.',
                     }, 500, corsHeaders)
                 }
 
@@ -438,23 +438,23 @@ deno.serve(async (request: Request) => {
                 const profileFailure = getOperatorOperationError(updateError)
                 if (!emailRollbackSucceeded) {
                     return jsonResponse({
-                        error: `${profileFailure} A alteração do perfil falhou depois da mudança no Auth e não foi possível confirmar a reversão do e-mail. Confira imediatamente as credenciais e a sincronização. A senha anterior não foi restaurada.`,
+                        error: `${profileFailure} Não foi possível confirmar a restauração do e-mail anterior após a alteração dos dados de acesso. Confira imediatamente o e-mail e a senha do operador; a senha anterior não pode ser restaurada automaticamente.`,
                     }, 500, corsHeaders)
                 }
                 if (newPassword !== undefined) {
                     return jsonResponse({
-                        error: `${profileFailure} O e-mail foi revertido quando aplicável, mas a nova senha permaneceu no Supabase Auth. A senha anterior não foi restaurada; confira as credenciais antes de tentar novamente.`,
+                        error: `${profileFailure} ${emailChanged ? 'O e-mail foi restaurado ao endereço anterior. ' : 'O e-mail não foi alterado. '}A nova senha foi aplicada e a senha anterior não pode ser restaurada automaticamente. Confira os dados de acesso antes de tentar novamente.`,
                     }, 500, corsHeaders)
                 }
                 return jsonResponse({
-                    error: `${profileFailure} O e-mail foi revertido no Supabase Auth; o perfil público não foi atualizado.`,
+                    error: `${profileFailure} O e-mail foi restaurado ao endereço anterior, mas o cadastro não foi atualizado.`,
                 }, 400, corsHeaders)
             }
 
             if (updatedUserId !== userId) {
                 console.error('A RPC final não confirmou o operador esperado após alterar o Auth.')
                 return jsonResponse({
-                    error: 'As credenciais foram alteradas no Supabase Auth, mas a atualização do perfil não foi confirmada. Confira imediatamente o e-mail e a senha do operador.',
+                    error: 'Os dados de acesso foram alterados, mas não foi possível confirmar a atualização do cadastro. Confira imediatamente o e-mail e a senha do operador antes de permitir novo acesso.',
                 }, 500, corsHeaders)
             }
 
@@ -465,7 +465,7 @@ deno.serve(async (request: Request) => {
             const userId = requestBody.user_id
 
             if (typeof userId !== 'string' || !isUuid(userId)) {
-                return jsonResponse({ error: 'Operador inválido.' }, 400, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível identificar o operador. Atualize a lista e tente novamente.' }, 400, corsHeaders)
             }
 
             const { data: deactivatedUserId, error: deactivateError } = await authenticatedClient.rpc(
@@ -479,7 +479,7 @@ deno.serve(async (request: Request) => {
             }
             if (deactivatedUserId !== userId) {
                 console.error('A RPC de desativação não retornou o ID do operador esperado.')
-                return jsonResponse({ error: 'Não foi possível confirmar a desativação do operador.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível confirmar a desativação do operador. Atualize a lista antes de tentar novamente.' }, 500, corsHeaders)
             }
 
             return jsonResponse({ user_id: deactivatedUserId }, 200, corsHeaders)
@@ -502,10 +502,10 @@ deno.serve(async (request: Request) => {
         }
         if (!password.trim()) return jsonResponse({ error: 'Informe a senha.' }, 400, corsHeaders)
         if (role !== 'owner' && role !== 'cashier') {
-            return jsonResponse({ error: 'Perfil de usuário inválido.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Selecione um tipo de usuário válido.' }, 400, corsHeaders)
         }
         if (role === 'owner' && bakeryId !== null) {
-            return jsonResponse({ error: 'Usuários owner não podem estar associados a uma unidade.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Contas de proprietário não podem ser vinculadas a uma unidade.' }, 400, corsHeaders)
         }
         if (
             role === 'cashier'
@@ -523,9 +523,9 @@ deno.serve(async (request: Request) => {
 
             if (bakeryError) {
                 console.error('Falha ao validar a unidade do novo usuário.', bakeryError.code)
-                return jsonResponse({ error: 'Não foi possível validar a unidade.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível confirmar a unidade selecionada. Atualize a tela e tente novamente.' }, 500, corsHeaders)
             }
-            if (!bakery) return jsonResponse({ error: 'A unidade selecionada não existe.' }, 400, corsHeaders)
+            if (!bakery) return jsonResponse({ error: 'A unidade selecionada não foi encontrada. Atualize a lista e tente novamente.' }, 400, corsHeaders)
         }
 
         const { data: createdAuthUser, error: createAuthError } = await adminClient.auth.admin.createUser({
@@ -539,13 +539,13 @@ deno.serve(async (request: Request) => {
                 return jsonResponse({ error: 'Já existe um usuário com este e-mail.' }, 409, corsHeaders)
             }
             console.error('Falha ao criar credenciais para o usuário.', createAuthError.code)
-            return jsonResponse({ error: 'Não foi possível criar as credenciais do usuário.' }, 400, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível criar os dados de acesso do usuário. Confira os dados informados e tente novamente.' }, 400, corsHeaders)
         }
 
         const authUserId = createdAuthUser.user?.id
         if (!authUserId) {
             console.error('Supabase Auth não retornou o ID do novo usuário.')
-            return jsonResponse({ error: 'Não foi possível criar as credenciais do usuário.' }, 500, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível confirmar a criação dos dados de acesso. Atualize a lista antes de tentar novamente.' }, 500, corsHeaders)
         }
 
         const { data: createdProfile, error: createProfileError } = await adminClient
@@ -570,11 +570,11 @@ deno.serve(async (request: Request) => {
             }
             if (rollbackErrorCode) {
                 console.error('Falha ao excluir credenciais após erro na criação do perfil.', rollbackErrorCode)
-                return jsonResponse({ error: 'Não foi possível criar o perfil do usuário e limpar as credenciais.' }, 500, corsHeaders)
+                return jsonResponse({ error: 'Não foi possível concluir o cadastro nem confirmar a remoção dos dados de acesso criados. Solicite ajuda ao suporte antes de tentar novamente.' }, 500, corsHeaders)
             }
 
             console.error('Falha ao criar o perfil do novo usuário.', createProfileError?.code)
-            return jsonResponse({ error: 'Não foi possível criar o perfil do usuário.' }, 500, corsHeaders)
+            return jsonResponse({ error: 'Não foi possível concluir o cadastro nem confirmar a remoção dos dados de acesso criados. Solicite ajuda ao suporte antes de tentar novamente.' }, 500, corsHeaders)
         }
 
         return jsonResponse({
@@ -588,6 +588,6 @@ deno.serve(async (request: Request) => {
         }, 201, corsHeaders)
     } catch (error) {
         console.error('Falha interna na Edge Function admin-users.', error instanceof Error ? error.name : 'UnknownError')
-        return jsonResponse({ error: 'Erro interno do serviço.' }, 500, corsHeaders)
+        return jsonResponse({ error: 'Ocorreu um problema inesperado. Tente novamente mais tarde ou solicite ajuda ao suporte.' }, 500, corsHeaders)
     }
 })
