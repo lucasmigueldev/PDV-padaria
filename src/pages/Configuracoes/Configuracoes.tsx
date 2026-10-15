@@ -11,6 +11,7 @@ import {
   Pencil,
   Settings,
   ShoppingCart,
+  Trash2,
   Users,
   X,
 } from 'lucide-react'
@@ -18,7 +19,12 @@ import { useNavigate, Link } from 'react-router-dom'
 
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { getOpenCashRegister } from '../../services/operations'
-import { createAdminUser, getAdminUsers } from '../../services/adminUsers'
+import {
+  createAdminUser,
+  deactivateAdminUser,
+  getAdminUsers,
+  updateAdminUser,
+} from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
@@ -75,7 +81,14 @@ export default function Configuracoes() {
   const [usersLoadError, setUsersLoadError] = useState('')
   const [userBakeryFilter, setUserBakeryFilter] = useState('all')
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [editingOperator, setEditingOperator] = useState<User | null>(null)
   const [newUserForm, setNewUserForm] = useState(initialNewUserForm)
+  const [operatorEditForm, setOperatorEditForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    bakeryId: '',
+  })
   const { bakeries, setBakeries, isLoadingBakeries, bakeriesLoadError } = useBakeries()
   const [activeBakeries, setActiveBakeries] = useState<Bakery[]>([])
   const [isBakeryModalOpen, setIsBakeryModalOpen] = useState(false)
@@ -85,7 +98,9 @@ export default function Configuracoes() {
   const [isSavingBakery, setIsSavingBakery] = useState(false)
   const [userFormError, setUserFormError] = useState('')
   const [userSuccessMessage, setUserSuccessMessage] = useState('')
+  const [userManagementError, setUserManagementError] = useState('')
   const [isSavingUser, setIsSavingUser] = useState(false)
+  const [isManagingOperator, setIsManagingOperator] = useState(false)
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
@@ -118,9 +133,13 @@ export default function Configuracoes() {
       if (event.key !== 'Escape') return
 
       if (isUserModalOpen) {
-        setIsUserModalOpen(false)
-        setNewUserForm(initialNewUserForm)
-        setUserFormError('')
+        if (!isSavingUser) {
+          setIsUserModalOpen(false)
+          setEditingOperator(null)
+          setNewUserForm(initialNewUserForm)
+          setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
+          setUserFormError('')
+        }
       }
       if (isBakeryModalOpen && !isSavingBakery) {
         setIsBakeryModalOpen(false)
@@ -132,7 +151,7 @@ export default function Configuracoes() {
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isBakeryModalOpen, isSavingBakery, isUserModalOpen])
+  }, [isBakeryModalOpen, isSavingBakery, isSavingUser, isUserModalOpen])
 
   function handleLogout() {
     void logoutAndRedirect(navigate)
@@ -143,9 +162,33 @@ export default function Configuracoes() {
   }
 
   function openUserModal() {
+    setEditingOperator(null)
     setActiveBakeries(bakeries.filter((bakery) => bakery.active))
     setNewUserForm(initialNewUserForm)
+    setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
     setUserFormError('')
+    setUserSuccessMessage('')
+    setUserManagementError('')
+    setIsUserModalOpen(true)
+  }
+
+  function openEditOperatorModal(operator: User) {
+    if (operator.role !== 'cashier') return
+
+    const currentBakery = bakeries.find((bakery) => bakery.id === operator.bakeryId)
+    setEditingOperator(operator)
+    setActiveBakeries([
+      ...bakeries.filter((bakery) => bakery.active),
+      ...(currentBakery && !currentBakery.active ? [currentBakery] : []),
+    ])
+    setOperatorEditForm({
+      name: operator.name,
+      email: operator.email,
+      password: '',
+      bakeryId: operator.bakeryId ?? '',
+    })
+    setUserFormError('')
+    setUserManagementError('')
     setUserSuccessMessage('')
     setIsUserModalOpen(true)
   }
@@ -154,7 +197,9 @@ export default function Configuracoes() {
     if (isSavingUser) return
 
     setIsUserModalOpen(false)
+    setEditingOperator(null)
     setNewUserForm(initialNewUserForm)
+    setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
     setUserFormError('')
   }
 
@@ -175,6 +220,54 @@ export default function Configuracoes() {
     event.preventDefault()
 
     if (isSavingUser) return
+
+    if (editingOperator) {
+      const name = operatorEditForm.name.trim()
+      const email = operatorEditForm.email.trim().toLowerCase()
+      const password = operatorEditForm.password.trim()
+        ? operatorEditForm.password
+        : undefined
+
+      if (!name) {
+        setUserFormError('Informe o nome do operador.')
+        return
+      }
+      if (!operatorEditForm.bakeryId) {
+        setUserFormError('Selecione uma unidade.')
+        return
+      }
+      if (password !== undefined && password.length < 7) {
+        setUserFormError('A nova senha deve ter no mínimo 7 caracteres.')
+        return
+      }
+
+      setIsSavingUser(true)
+      try {
+        await updateAdminUser({
+          id: editingOperator.id,
+          name,
+          bakeryId: operatorEditForm.bakeryId,
+          ...(email !== editingOperator.email.trim().toLowerCase() ? { email } : {}),
+          ...(password !== undefined ? { password } : {}),
+        })
+        setUsers((currentUsers) => currentUsers.map((user) => (
+          user.id === editingOperator.id
+            ? { ...user, name, email, bakeryId: operatorEditForm.bakeryId }
+            : user
+        )))
+        setIsUserModalOpen(false)
+        setEditingOperator(null)
+        setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
+        setUserFormError('')
+        setUserSuccessMessage('Operador atualizado com sucesso.')
+        setUserManagementError('')
+      } catch (error) {
+        setUserFormError(error instanceof Error ? error.message : 'Não foi possível atualizar o operador.')
+      } finally {
+        setIsSavingUser(false)
+      }
+      return
+    }
 
     const name = newUserForm.name.trim()
     const email = newUserForm.email.trim()
@@ -236,6 +329,28 @@ export default function Configuracoes() {
       setUserFormError(error instanceof Error ? error.message : 'Não foi possível salvar o usuário.')
     } finally {
       setIsSavingUser(false)
+    }
+  }
+
+  async function handleOperatorDeactivation(operator: User) {
+    if (operator.role !== 'cashier' || isManagingOperator) return
+
+    const confirmed = window.confirm(
+      `Desativar o operador ${operator.name}? O histórico de vendas e caixas será preservado.`,
+    )
+    if (!confirmed) return
+
+    setIsManagingOperator(true)
+    setUserManagementError('')
+    setUserSuccessMessage('')
+    try {
+      await deactivateAdminUser(operator.id)
+      setUsers((currentUsers) => currentUsers.filter((user) => user.id !== operator.id))
+      setUserSuccessMessage('Operador desativado. O histórico foi preservado.')
+    } catch (error) {
+      setUserManagementError(error instanceof Error ? error.message : 'Não foi possível desativar o operador.')
+    } finally {
+      setIsManagingOperator(false)
     }
   }
 
@@ -456,6 +571,7 @@ export default function Configuracoes() {
             </div>
 
             {userSuccessMessage && <p className="settings-message" role="status">{userSuccessMessage}</p>}
+            {userManagementError && <p className="user-form-error" role="alert">{userManagementError}</p>}
 
             <div className="settings-field users-filter">
               <label htmlFor="users-bakery-filter">Unidade</label>
@@ -501,9 +617,32 @@ export default function Configuracoes() {
                         </td>
                         <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
                         <td data-label="Gerenciamento">
-                          <span title="O serviço administrativo atual permite consultar e criar usuários.">
-                            Edição e exclusão indisponíveis
-                          </span>
+                          {user.role === 'cashier' ? (
+                            <div className="operator-management-actions">
+                              <button
+                                type="button"
+                                className="operator-action-button"
+                                onClick={() => openEditOperatorModal(user)}
+                                disabled={isManagingOperator}
+                                aria-label={`Editar ${user.name}`}
+                              >
+                                <Pencil size={15} aria-hidden="true" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="operator-action-button operator-deactivate-button"
+                                onClick={() => void handleOperatorDeactivation(user)}
+                                disabled={isManagingOperator}
+                                aria-label={`Excluir ${user.name}`}
+                              >
+                                <Trash2 size={15} aria-hidden="true" />
+                                Excluir
+                              </button>
+                            </div>
+                          ) : (
+                            <span>—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -649,16 +788,26 @@ export default function Configuracoes() {
               className="user-modal"
               role="dialog"
               aria-modal="true"
-              aria-labelledby="new-user-modal-title"
+              aria-labelledby="user-modal-title"
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="user-modal-header">
                 <div>
                   <span className="settings-card-overline">ACESSO AO SISTEMA</span>
-                  <h2 id="new-user-modal-title">Novo usuário</h2>
-                  <p>Cadastre um usuário para acessar o sistema.</p>
+                  <h2 id="user-modal-title">{editingOperator ? 'Editar operador' : 'Novo usuário'}</h2>
+                  <p>
+                    {editingOperator
+                      ? 'Edite nome e unidade. Alterações de e-mail e senha ainda não estão disponíveis.'
+                      : 'Cadastre um usuário para acessar o sistema.'}
+                  </p>
                 </div>
-                <button type="button" className="user-modal-close" onClick={closeUserModal} aria-label="Fechar cadastro de usuário">
+                <button
+                  type="button"
+                  className="user-modal-close"
+                  onClick={closeUserModal}
+                  aria-label={editingOperator ? 'Fechar edição de operador' : 'Fechar cadastro de usuário'}
+                  disabled={isSavingUser}
+                >
                   <X size={20} aria-hidden="true" />
                 </button>
               </div>
@@ -666,63 +815,108 @@ export default function Configuracoes() {
               <form className="user-form" onSubmit={handleUserSubmit}>
                 <div className="user-form-fields">
                   <div className="settings-field">
-                    <label htmlFor="new-user-name">Nome</label>
+                    <label htmlFor={editingOperator ? 'edit-operator-name' : 'new-user-name'}>Nome</label>
                     <input
-                      id="new-user-name"
+                      id={editingOperator ? 'edit-operator-name' : 'new-user-name'}
                       type="text"
-                      value={newUserForm.name}
-                      onChange={(event) => updateNewUserField('name', event.target.value)}
+                      value={editingOperator ? operatorEditForm.name : newUserForm.name}
+                      onChange={(event) => editingOperator
+                        ? setOperatorEditForm((current) => ({ ...current, name: event.target.value }))
+                        : updateNewUserField('name', event.target.value)}
                       autoComplete="name"
                     />
                   </div>
 
-                  <div className="settings-field">
-                    <label htmlFor="new-user-email">E-mail</label>
-                    <input
-                      id="new-user-email"
-                      type="email"
-                      value={newUserForm.email}
-                      onChange={(event) => updateNewUserField('email', event.target.value)}
-                      autoComplete="email"
-                    />
-                  </div>
+                  {editingOperator ? (
+                    <>
+                      <div className="settings-field">
+                        <label htmlFor="edit-operator-email">E-mail</label>
+                        <input
+                          id="edit-operator-email"
+                          type="email"
+                          value={operatorEditForm.email}
+                          onChange={(event) => setOperatorEditForm((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))}
+                          autoComplete="email"
+                          aria-describedby="operator-auth-fields-note"
+                        />
+                      </div>
+
+                      <div className="settings-field">
+                        <label htmlFor="edit-operator-password">Nova senha</label>
+                        <input
+                          id="edit-operator-password"
+                          type="password"
+                          value={operatorEditForm.password}
+                          onChange={(event) => setOperatorEditForm((current) => ({
+                            ...current,
+                            password: event.target.value,
+                          }))}
+                          autoComplete="new-password"
+                          aria-describedby="operator-auth-fields-note"
+                        />
+                      </div>
+
+                      <p id="operator-auth-fields-note" className="user-form-unavailable-note">
+                        O Supabase Auth ainda não está integrado à edição. E-mail e senha não serão salvos;
+                        se qualquer um for alterado, o envio será bloqueado e nenhuma alteração será aplicada.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="settings-field">
+                        <label htmlFor="new-user-email">E-mail</label>
+                        <input
+                          id="new-user-email"
+                          type="email"
+                          value={newUserForm.email}
+                          onChange={(event) => updateNewUserField('email', event.target.value)}
+                          autoComplete="email"
+                        />
+                      </div>
+
+                      <div className="settings-field">
+                        <label htmlFor="new-user-password">Senha</label>
+                        <input
+                          id="new-user-password"
+                          type="password"
+                          value={newUserForm.password}
+                          onChange={(event) => updateNewUserField('password', event.target.value)}
+                          autoComplete="new-password"
+                        />
+                      </div>
+
+                      <div className="settings-field">
+                        <label htmlFor="new-user-role">Perfil</label>
+                        <select
+                          id="new-user-role"
+                          value={newUserForm.role}
+                          onChange={(event) => updateNewUserField('role', event.target.value)}
+                        >
+                          <option value="">Selecione um perfil</option>
+                          <option value="owner">Proprietário</option>
+                          <option value="cashier">Operador de caixa</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
 
                   <div className="settings-field">
-                    <label htmlFor="new-user-password">Senha</label>
-                    <input
-                      id="new-user-password"
-                      type="password"
-                      value={newUserForm.password}
-                      onChange={(event) => updateNewUserField('password', event.target.value)}
-                      autoComplete="new-password"
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label htmlFor="new-user-role">Perfil</label>
+                    <label htmlFor={editingOperator ? 'edit-operator-bakery' : 'new-user-bakery'}>Unidade</label>
                     <select
-                      id="new-user-role"
-                      value={newUserForm.role}
-                      onChange={(event) => updateNewUserField('role', event.target.value)}
-                    >
-                      <option value="">Selecione um perfil</option>
-                      <option value="owner">Proprietário</option>
-                      <option value="cashier">Operador de caixa</option>
-                    </select>
-                  </div>
-
-                  <div className="settings-field">
-                    <label htmlFor="new-user-bakery">Unidade</label>
-                    <select
-                      id="new-user-bakery"
-                      value={newUserForm.bakeryId}
-                      onChange={(event) => updateNewUserField('bakeryId', event.target.value)}
-                      disabled={newUserForm.role !== 'cashier'}
+                      id={editingOperator ? 'edit-operator-bakery' : 'new-user-bakery'}
+                      value={editingOperator ? operatorEditForm.bakeryId : newUserForm.bakeryId}
+                      onChange={(event) => editingOperator
+                        ? setOperatorEditForm((current) => ({ ...current, bakeryId: event.target.value }))
+                        : updateNewUserField('bakeryId', event.target.value)}
+                      disabled={!editingOperator && newUserForm.role !== 'cashier'}
                     >
                       <option value="">Selecione uma unidade</option>
                       {activeBakeries.map((bakery) => (
                         <option key={bakery.id} value={bakery.id}>
-                          {bakery.name}{bakery.active ? '' : ' (Inativa)'}
+                          {bakery.name}{bakery.active ? '' : ' (Inativa — unidade atual)'}
                         </option>
                       ))}
                     </select>
@@ -736,7 +930,7 @@ export default function Configuracoes() {
                     Cancelar
                   </button>
                   <button type="submit" className="settings-button" disabled={isSavingUser}>
-                    {isSavingUser ? 'Salvando...' : 'Salvar'}
+                    {isSavingUser ? 'Salvando...' : editingOperator ? 'Atualizar' : 'Salvar'}
                   </button>
                 </div>
               </form>
