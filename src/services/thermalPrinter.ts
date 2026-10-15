@@ -1,5 +1,3 @@
-/// <reference types="web-bluetooth" />
-
 /**
  * Serviço de impressão térmica via Web Bluetooth API.
  *
