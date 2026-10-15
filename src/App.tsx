@@ -141,7 +141,6 @@ function CashierSessionMonitor({ user, onUnavailable }: {
   return null
 }
 
-
 function App() {
   const [authenticatedUser, setAuthenticatedUserState] = useState<AuthenticatedUser | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)

@@ -3,23 +3,21 @@ import {
     Banknote,
     History,
     LayoutDashboard,
-    LogOut,
     Package,
     Receipt,
     Settings,
     ShoppingCart,
-    Store,
-    UserRound,
     X,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 import type { CashRegister } from '../../types/CashRegister'
 import { closeCashRegister, getOpenCashRegister, openCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
+import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import './Fechamento.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -258,26 +256,12 @@ export default function Fechamento() {
 
     return (
         <div className="fechamento-layout" onKeyDown={handlePageEnter}>
-            <header className="fechamento-topbar">
-                <strong className="fechamento-topbar-title">Padaria PDV</strong>
-                <div className="fechamento-topbar-session">
-                    <div className="fechamento-session-field">
-                        <UserRound size={16} aria-hidden="true" />
-                        <span>Operador</span>
-                        <strong>{authenticatedUser?.name}</strong>
-                    </div>
-                    <div className="fechamento-session-divider" aria-hidden="true" />
-                    <div className="fechamento-session-field">
-                        <Store size={16} aria-hidden="true" />
-                        <span>Unidade</span>
-                        <strong>{bakeryName}</strong>
-                    </div>
-                    <button type="button" onClick={handleLogout} className="fechamento-topbar-logout">
-                        <LogOut size={17} />
-                        <span>Sair</span>
-                    </button>
-                </div>
-            </header>
+            <AppTopbar
+                userName={authenticatedUser?.name}
+                bakeryName={bakeryName}
+                userRole="Operador"
+                onLogout={handleLogout}
+            />
 
             <aside className="fechamento-sidebar">
                 <div className="fechamento-brand">
@@ -287,27 +271,27 @@ export default function Fechamento() {
 
                 {!isOwner && <nav className="fechamento-shortcuts" aria-label="Atalhos operacionais">
                     <span className="fechamento-sidebar-label">Operação</span>
-                    <a href="/produtos" className="fechamento-shortcut">
+                    <Link to="/produtos" className="fechamento-shortcut">
                         <Package size={19} /><span>Produtos</span><kbd>F2</kbd>
-                    </a>
-                    <a href="/fechamento" className="fechamento-shortcut active" aria-current="page">
+                    </Link>
+                    <Link to="/fechamento" className="fechamento-shortcut active" aria-current="page">
                         <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
-                    </a>
-                    <a href="/pdv" className="fechamento-shortcut">
+                    </Link>
+                    <Link to="/pdv" className="fechamento-shortcut">
                         <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
-                    </a>
+                    </Link>
                 </nav>}
 
                 {isOwner && <nav className="fechamento-shortcuts" aria-label="Navegação administrativa">
                     <span className="fechamento-sidebar-label">Administração</span>
-                    <a href="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Dashboard</span></a>
-                    <a href="/historico-vendas" className="fechamento-shortcut"><History size={19} /><span>Histórico de Vendas</span></a>
-                    <a href="/historico-fechamentos" className="fechamento-shortcut"><History size={19} /><span>Histórico de Fechamentos</span></a>
-                    <a href="/relatorios" className="fechamento-shortcut"><BarChart3 size={19} /><span>Relatórios</span></a>
+                    <Link to="/dashboard" className="fechamento-shortcut"><LayoutDashboard size={19} /><span>Dashboard</span></Link>
+                    <Link to="/historico-vendas" className="fechamento-shortcut"><History size={19} /><span>Histórico de Vendas</span></Link>
+                    <Link to="/historico-fechamentos" className="fechamento-shortcut"><History size={19} /><span>Histórico de Fechamentos</span></Link>
+                    <Link to="/relatorios" className="fechamento-shortcut"><BarChart3 size={19} /><span>Relatórios</span></Link>
                 </nav>}
 
                 {isOwner && <div className="fechamento-sidebar-bottom">
-                    <a href="/configuracoes" className="fechamento-shortcut"><Settings size={19} /><span>Configurações</span></a>
+                    <Link to="/configuracoes" className="fechamento-shortcut"><Settings size={19} /><span>Configurações</span></Link>
                 </div>}
             </aside>
 
