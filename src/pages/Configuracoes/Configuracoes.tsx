@@ -409,7 +409,10 @@ export default function Configuracoes() {
           return
         }
       } catch (error) {
-        setBakeryFormError(error instanceof Error ? error.message : 'Não foi possível verificar o caixa aberto.')
+        console.error('Não foi possível verificar o caixa aberto da unidade.', error)
+        setBakeryFormError(error instanceof TypeError
+          ? 'Não foi possível conectar ao sistema para verificar o caixa aberto. Verifique sua conexão e tente novamente.'
+          : 'Não foi possível verificar se há um caixa aberto. Atualize a tela e tente novamente.')
         return
       }
     }
@@ -450,7 +453,7 @@ export default function Configuracoes() {
         </div>
 
         <nav className="sidebar-menu flex flex-col gap-2">
-          {isOwner && <Link to="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>}
+          {isOwner && <Link to="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Painel</span></Link>}
           {!isOwner && <Link to="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></Link>}
           {!isOwner && <Link to="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></Link>}
           {!isOwner && <Link to="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></Link>}
@@ -486,7 +489,7 @@ export default function Configuracoes() {
         <nav className="mobile-drawer-menu">
           {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
-            <span>Dashboard</span>
+            <span>Painel</span>
           </Link>}
           {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
             <ShoppingCart size={19} />
@@ -840,7 +843,6 @@ export default function Configuracoes() {
                             email: event.target.value,
                           }))}
                           autoComplete="email"
-                          aria-describedby="operator-auth-fields-note"
                         />
                       </div>
 
@@ -855,14 +857,8 @@ export default function Configuracoes() {
                             password: event.target.value,
                           }))}
                           autoComplete="new-password"
-                          aria-describedby="operator-auth-fields-note"
                         />
                       </div>
-
-                      <p id="operator-auth-fields-note" className="user-form-unavailable-note">
-                        O Supabase Auth ainda não está integrado à edição. E-mail e senha não serão salvos;
-                        se qualquer um for alterado, o envio será bloqueado e nenhuma alteração será aplicada.
-                      </p>
                     </>
                   ) : (
                     <>
