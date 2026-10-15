@@ -56,6 +56,35 @@ function isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
+function getOperatorOperationError(error: { code?: string; message: string }): string {
+    if (error.code === '42501') {
+        if (/inactive operators cannot be changed/i.test(error.message)) {
+            return 'O operador está inativo e não pode ser editado.'
+        }
+        return 'Apenas o proprietário pode gerenciar operadores.'
+    }
+    if (error.code === '23514') {
+        if (/cash register/i.test(error.message)) {
+            return 'Feche o caixa aberto da unidade antes de alterar ou desativar o operador.'
+        }
+        if (/stock|inventory/i.test(error.message)) {
+            return 'Zere o estoque de todos os produtos da unidade antes de alterar ou desativar o operador.'
+        }
+        return 'Não foi possível concluir a operação com o estado atual dos dados.'
+    }
+    if (error.code === '23503') return 'A unidade selecionada não existe.'
+    if (error.code === '22023') return 'Informe um nome e uma unidade válidos.'
+    if (error.code === 'P0002') return 'O operador selecionado não existe.'
+    return 'Não foi possível concluir a operação do operador.'
+}
+
+function getAuthUpdateError(error: { code?: string }): string {
+    if (error.code === 'email_exists' || error.code === 'user_already_exists') {
+        return 'Este e-mail já está cadastrado em outra conta.'
+    }
+    return 'O Supabase Auth recusou a alteração das credenciais.'
+}
+
 deno.serve(async (request: Request) => {
     const origin = request.headers.get('Origin')
     const allowedOrigins = getAllowedOrigins()
@@ -134,6 +163,326 @@ deno.serve(async (request: Request) => {
 
         if (requestBody.action === 'check') {
             return jsonResponse({ ok: true, role: 'owner' }, 200, corsHeaders)
+        }
+
+        if (requestBody.action === 'update') {
+            const userId = requestBody.user_id
+            const name = typeof requestBody.name === 'string' ? requestBody.name.trim() : ''
+            const bakeryId = requestBody.bakery_id
+            const hasEmail = Object.hasOwn(requestBody, 'email')
+            const hasPassword = Object.hasOwn(requestBody, 'password')
+            const emailValue = requestBody.email
+            const passwordValue = requestBody.password
+
+            if (typeof userId !== 'string' || !isUuid(userId)) {
+                return jsonResponse({ error: 'Operador inválido.' }, 400, corsHeaders)
+            }
+            if (!name) return jsonResponse({ error: 'Informe o nome do operador.' }, 400, corsHeaders)
+            if (typeof bakeryId !== 'string' || !isUuid(bakeryId)) {
+                return jsonResponse({ error: 'Selecione uma unidade válida.' }, 400, corsHeaders)
+            }
+
+            if (hasEmail && typeof emailValue !== 'string') {
+                return jsonResponse({ error: 'Informe um e-mail válido.' }, 400, corsHeaders)
+            }
+            if (hasPassword && typeof passwordValue !== 'string') {
+                return jsonResponse({ error: 'A nova senha é inválida.' }, 400, corsHeaders)
+            }
+
+            const requestedEmail = typeof emailValue === 'string'
+                ? emailValue.trim().toLowerCase()
+                : undefined
+            if (
+                requestedEmail !== undefined
+                && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedEmail)
+            ) {
+                return jsonResponse({ error: 'Informe um e-mail válido.' }, 400, corsHeaders)
+            }
+
+            const newPassword = typeof passwordValue === 'string' && passwordValue.trim()
+                ? passwordValue
+                : undefined
+            if (newPassword !== undefined && newPassword.length < 7) {
+                return jsonResponse({ error: 'A nova senha deve ter no mínimo 7 caracteres.' }, 400, corsHeaders)
+            }
+
+            const updatePublicProfile = async (email?: string) => {
+                const { data: updatedUserId, error: updateError } = email === undefined
+                    ? await authenticatedClient.rpc('update_operator_profile', {
+                        p_user_id: userId,
+                        p_name: name,
+                        p_bakery_id: bakeryId,
+                    })
+                    : await authenticatedClient.rpc('update_operator_profile_with_email', {
+                        p_user_id: userId,
+                        p_name: name,
+                        p_email: email,
+                        p_bakery_id: bakeryId,
+                    })
+
+                return { updatedUserId, updateError }
+            }
+
+            if (requestedEmail === undefined && newPassword === undefined) {
+                const { updatedUserId, updateError } = await updatePublicProfile()
+                if (updateError) {
+                    console.error('Falha ao atualizar o perfil do operador.', updateError.code)
+                    return jsonResponse({ error: getOperatorOperationError(updateError) }, 400, corsHeaders)
+                }
+                if (updatedUserId !== userId) {
+                    console.error('A RPC de atualização não retornou o ID do operador esperado.')
+                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador.' }, 500, corsHeaders)
+                }
+                return jsonResponse({ user_id: updatedUserId }, 200, corsHeaders)
+            }
+
+            const { data: targetProfile, error: targetProfileError } = await adminClient
+                .from('users')
+                .select('role, active, email')
+                .eq('id', userId)
+                .maybeSingle()
+
+            if (targetProfileError) {
+                console.error('Falha ao verificar o perfil do operador para edição de credenciais.', targetProfileError.code)
+                return jsonResponse({ error: 'Não foi possível verificar o operador selecionado.' }, 500, corsHeaders)
+            }
+            if (!targetProfile) {
+                return jsonResponse({ error: 'O operador selecionado não existe.' }, 404, corsHeaders)
+            }
+            if (targetProfile.role !== 'cashier' || targetProfile.active !== true) {
+                return jsonResponse({ error: 'Somente operadores ativos podem ter suas credenciais alteradas.' }, 403, corsHeaders)
+            }
+
+            const { data: authTarget, error: authTargetError } = await adminClient.auth.admin.getUserById(userId)
+            if (authTargetError || !authTarget.user?.email) {
+                console.error('Falha ao verificar as credenciais atuais do operador.', authTargetError?.code)
+                return jsonResponse({ error: 'Não foi possível verificar as credenciais atuais do operador.' }, 500, corsHeaders)
+            }
+
+            const currentProfileEmail = targetProfile.email.trim()
+            const currentAuthEmail = authTarget.user.email.trim()
+            if (currentProfileEmail.toLowerCase() !== currentAuthEmail.toLowerCase()) {
+                return jsonResponse({
+                    error: 'O e-mail do perfil e o e-mail do Supabase Auth já estão divergentes. Faça a conferência antes de editar credenciais.',
+                }, 409, corsHeaders)
+            }
+
+            const finalEmail = requestedEmail ?? currentProfileEmail.toLowerCase()
+            const emailChanged = finalEmail !== currentAuthEmail
+            const credentialsChanged = emailChanged || newPassword !== undefined
+
+            if (!credentialsChanged) {
+                const { updatedUserId, updateError } = await updatePublicProfile()
+                if (updateError) {
+                    console.error('Falha ao atualizar o perfil do operador.', updateError.code)
+                    return jsonResponse({ error: getOperatorOperationError(updateError) }, 400, corsHeaders)
+                }
+                if (updatedUserId !== userId) {
+                    console.error('A RPC de atualização não retornou o ID do operador esperado.')
+                    return jsonResponse({ error: 'Não foi possível confirmar a atualização do operador.' }, 500, corsHeaders)
+                }
+                return jsonResponse({ user_id: updatedUserId }, 200, corsHeaders)
+            }
+
+            const { data: validatedUserId, error: validationError } = await authenticatedClient.rpc(
+                'validate_operator_profile_update',
+                {
+                    p_user_id: userId,
+                    p_bakery_id: bakeryId,
+                },
+            )
+            if (validationError) {
+                console.error('Falha ao validar a edição de credenciais do operador.', validationError.code)
+                return jsonResponse({ error: getOperatorOperationError(validationError) }, 400, corsHeaders)
+            }
+            if (validatedUserId !== userId) {
+                console.error('A RPC de validação não confirmou o operador esperado.')
+                return jsonResponse({ error: 'Não foi possível confirmar a validação do operador.' }, 500, corsHeaders)
+            }
+
+            const authChanges: { email?: string; email_confirm?: boolean; password?: string } = {}
+            if (emailChanged) {
+                authChanges.email = finalEmail
+                authChanges.email_confirm = true
+            }
+            if (newPassword !== undefined) authChanges.password = newPassword
+
+            let authUpdateResult: Awaited<ReturnType<typeof adminClient.auth.admin.updateUserById>>
+            try {
+                authUpdateResult = await adminClient.auth.admin.updateUserById(userId, authChanges)
+            } catch (authUpdateFailure) {
+                console.error(
+                    'Resultado da alteração de credenciais no Supabase Auth não pôde ser confirmado.',
+                    authUpdateFailure instanceof Error ? authUpdateFailure.name : 'UnknownError',
+                )
+                return jsonResponse({
+                    error: 'Não foi possível confirmar a alteração no Supabase Auth. Confira as credenciais do operador antes de tentar novamente.',
+                }, 500, corsHeaders)
+            }
+
+            if (authUpdateResult.error || authUpdateResult.data.user?.id !== userId) {
+                console.error('Falha ao atualizar as credenciais do operador no Supabase Auth.', authUpdateResult.error?.code)
+                if (!authUpdateResult.error) {
+                    return jsonResponse({
+                        error: 'O Supabase Auth não confirmou o resultado da alteração. Confira as credenciais do operador antes de tentar novamente.',
+                    }, 500, corsHeaders)
+                }
+                return jsonResponse({
+                    error: getAuthUpdateError(authUpdateResult.error),
+                }, authUpdateResult.error.code === 'email_exists' || authUpdateResult.error.code === 'user_already_exists'
+                    ? 409
+                    : 400, corsHeaders)
+            }
+
+            let sessionsRevoked = false
+            try {
+                const { data: revokedUserId, error: revokeError } = await authenticatedClient.rpc(
+                    'revoke_operator_sessions',
+                    {
+                        p_user_id: userId,
+                        p_bakery_id: bakeryId,
+                    },
+                )
+                if (revokeError) {
+                    console.error('Falha ao invalidar sessões anteriores do operador.', revokeError.code)
+                } else {
+                    sessionsRevoked = revokedUserId === userId
+                    if (!sessionsRevoked) {
+                        console.error('A RPC de revogação não confirmou o operador esperado.')
+                    }
+                }
+            } catch (revokeFailure) {
+                console.error(
+                    'Resultado da invalidação de sessões do operador não pôde ser confirmado.',
+                    revokeFailure instanceof Error ? revokeFailure.name : 'UnknownError',
+                )
+            }
+
+            if (!sessionsRevoked) {
+                let emailRollbackSucceeded = !emailChanged
+                if (emailChanged) {
+                    try {
+                        const { data: rollbackData, error: rollbackError } = await adminClient.auth.admin.updateUserById(userId, {
+                            email: authTarget.user.email,
+                            email_confirm: true,
+                        })
+                        emailRollbackSucceeded = !rollbackError && rollbackData.user?.id === userId
+                        if (!emailRollbackSucceeded) {
+                            console.error('Falha ao confirmar a compensação do e-mail no Supabase Auth.', rollbackError?.code)
+                        }
+                    } catch (rollbackFailure) {
+                        console.error(
+                            'Falha ao confirmar a compensação do e-mail no Supabase Auth.',
+                            rollbackFailure instanceof Error ? rollbackFailure.name : 'UnknownError',
+                        )
+                    }
+                }
+
+                const failureMessage = 'Não foi possível confirmar a invalidação das sessões anteriores do operador.'
+                if (!emailRollbackSucceeded) {
+                    return jsonResponse({
+                        error: `${failureMessage} A alteração do e-mail não pôde ser revertida com segurança. Confira imediatamente as credenciais e as sessões do operador${newPassword !== undefined ? '. A senha anterior não foi restaurada.' : '.'}`,
+                    }, 500, corsHeaders)
+                }
+                if (newPassword !== undefined) {
+                    return jsonResponse({
+                        error: `${failureMessage} O e-mail foi revertido quando aplicável, mas a senha foi alterada e a senha anterior não foi restaurada. Confira as credenciais do operador.`,
+                    }, 500, corsHeaders)
+                }
+                return jsonResponse({
+                    error: `${failureMessage} O e-mail foi revertido no Supabase Auth.`,
+                }, 500, corsHeaders)
+            }
+
+            let finalProfileResult: Awaited<ReturnType<typeof updatePublicProfile>>
+            try {
+                finalProfileResult = await updatePublicProfile(finalEmail)
+            } catch (profileUpdateFailure) {
+                console.error(
+                    'Resultado da atualização do perfil após alteração no Auth não pôde ser confirmado.',
+                    profileUpdateFailure instanceof Error ? profileUpdateFailure.name : 'UnknownError',
+                )
+                return jsonResponse({
+                    error: 'As credenciais foram alteradas no Supabase Auth, mas não foi possível confirmar a atualização do perfil. Confira imediatamente o e-mail e a senha do operador.',
+                }, 500, corsHeaders)
+            }
+
+            const { updatedUserId, updateError } = finalProfileResult
+            if (updateError) {
+                console.error('Falha ao sincronizar o perfil após alteração no Auth.', updateError.code)
+                if (!updateError.code) {
+                    return jsonResponse({
+                        error: 'As credenciais foram alteradas no Supabase Auth, mas o resultado da atualização do perfil é incerto. Confira imediatamente o e-mail e a senha do operador.',
+                    }, 500, corsHeaders)
+                }
+
+                let emailRollbackSucceeded = !emailChanged
+                if (emailChanged) {
+                    try {
+                        const { data: rollbackData, error: rollbackError } = await adminClient.auth.admin.updateUserById(userId, {
+                            email: authTarget.user.email,
+                            email_confirm: true,
+                        })
+                        emailRollbackSucceeded = !rollbackError && rollbackData.user?.id === userId
+                        if (!emailRollbackSucceeded) {
+                            console.error('Falha ao confirmar a compensação do e-mail no Supabase Auth.', rollbackError?.code)
+                        }
+                    } catch (rollbackFailure) {
+                        console.error(
+                            'Falha ao confirmar a compensação do e-mail no Supabase Auth.',
+                            rollbackFailure instanceof Error ? rollbackFailure.name : 'UnknownError',
+                        )
+                    }
+                }
+
+                const profileFailure = getOperatorOperationError(updateError)
+                if (!emailRollbackSucceeded) {
+                    return jsonResponse({
+                        error: `${profileFailure} A alteração do perfil falhou depois da mudança no Auth e não foi possível confirmar a reversão do e-mail. Confira imediatamente as credenciais e a sincronização. A senha anterior não foi restaurada.`,
+                    }, 500, corsHeaders)
+                }
+                if (newPassword !== undefined) {
+                    return jsonResponse({
+                        error: `${profileFailure} O e-mail foi revertido quando aplicável, mas a nova senha permaneceu no Supabase Auth. A senha anterior não foi restaurada; confira as credenciais antes de tentar novamente.`,
+                    }, 500, corsHeaders)
+                }
+                return jsonResponse({
+                    error: `${profileFailure} O e-mail foi revertido no Supabase Auth; o perfil público não foi atualizado.`,
+                }, 400, corsHeaders)
+            }
+
+            if (updatedUserId !== userId) {
+                console.error('A RPC final não confirmou o operador esperado após alterar o Auth.')
+                return jsonResponse({
+                    error: 'As credenciais foram alteradas no Supabase Auth, mas a atualização do perfil não foi confirmada. Confira imediatamente o e-mail e a senha do operador.',
+                }, 500, corsHeaders)
+            }
+
+            return jsonResponse({ user_id: updatedUserId }, 200, corsHeaders)
+        }
+
+        if (requestBody.action === 'deactivate') {
+            const userId = requestBody.user_id
+
+            if (typeof userId !== 'string' || !isUuid(userId)) {
+                return jsonResponse({ error: 'Operador inválido.' }, 400, corsHeaders)
+            }
+
+            const { data: deactivatedUserId, error: deactivateError } = await authenticatedClient.rpc(
+                'deactivate_operator',
+                { p_user_id: userId },
+            )
+
+            if (deactivateError) {
+                console.error('Falha ao desativar o operador.', deactivateError.code)
+                return jsonResponse({ error: getOperatorOperationError(deactivateError) }, 400, corsHeaders)
+            }
+            if (deactivatedUserId !== userId) {
+                console.error('A RPC de desativação não retornou o ID do operador esperado.')
+                return jsonResponse({ error: 'Não foi possível confirmar a desativação do operador.' }, 500, corsHeaders)
+            }
+
+            return jsonResponse({ user_id: deactivatedUserId }, 200, corsHeaders)
         }
 
         if (requestBody.action !== 'create') {
