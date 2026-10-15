@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 import { getSalesFromSupabase } from '../../data/sales'
 import { getOpenCashRegister } from '../../services/operations'
@@ -154,47 +154,47 @@ export default function Dashboard() {
         </div>
 
         <nav className="sidebar-menu flex flex-col gap-2">
-          {isOwner && <a href="/dashboard" className="sidebar-link active">
+          {isOwner && <Link to="/dashboard" className="sidebar-link active">
             <LayoutDashboard size={19} />
             <span>Dashboard</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/pdv" className="sidebar-link">
+          {!isOwner && <Link to="/pdv" className="sidebar-link">
             <ShoppingCart size={19} />
             <span>Caixa</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/fechamento" className="sidebar-link">
+          {!isOwner && <Link to="/fechamento" className="sidebar-link">
             <Calculator size={19} />
             <span>Fechamento</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/produtos" className="sidebar-link">
+          {!isOwner && <Link to="/produtos" className="sidebar-link">
             <Package size={19} />
             <span>Produtos</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/historico-vendas" className="sidebar-link">
+          {isOwner && <Link to="/historico-vendas" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Vendas</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/historico-fechamentos" className="sidebar-link">
+          {isOwner && <Link to="/historico-fechamentos" className="sidebar-link">
             <History size={19} />
             <span>Histórico de Fechamentos</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/relatorios" className="sidebar-link">
+          {isOwner && <Link to="/relatorios" className="sidebar-link">
             <BarChart3 size={19} />
             <span>Relatórios</span>
-          </a>}
+          </Link>}
         </nav>
 
         <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          {isOwner && <a href="/configuracoes" className="sidebar-link">
+          {isOwner && <Link to="/configuracoes" className="sidebar-link">
             <Settings size={19} />
             <span>Configurações</span>
-          </a>}
+          </Link>}
 
           <button
             type="button"
@@ -228,47 +228,47 @@ export default function Dashboard() {
         </div>
 
         <nav className="mobile-drawer-menu">
-          {isOwner && <a href="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
+          {isOwner && <Link to="/dashboard" className="sidebar-link active" onClick={closeMobileMenu}>
             <LayoutDashboard size={19} />
             <span>Dashboard</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
             <ShoppingCart size={19} />
             <span>Caixa</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <Link to="/fechamento" className="sidebar-link" onClick={closeMobileMenu}>
             <Calculator size={19} />
             <span>Fechamento</span>
-          </a>}
+          </Link>}
 
-          {!isOwner && <a href="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
+          {!isOwner && <Link to="/produtos" className="sidebar-link" onClick={closeMobileMenu}>
             <Package size={19} />
             <span>Produtos</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <Link to="/historico-vendas" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
             <span>Histórico de Vendas</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <Link to="/historico-fechamentos" className="sidebar-link" onClick={closeMobileMenu}>
             <History size={19} />
             <span>Histórico de Fechamentos</span>
-          </a>}
+          </Link>}
 
-          {isOwner && <a href="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
             <span>Relatórios</span>
-          </a>}
+          </Link>}
         </nav>
 
         <div className="mobile-drawer-bottom">
-          {isOwner && <a href="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
+          {isOwner && <Link to="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
             <Settings size={19} />
             <span>Configurações</span>
-          </a>}
+          </Link>}
 
           <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
             <LogOut size={19} />

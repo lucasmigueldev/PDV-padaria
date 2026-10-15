@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AuthenticatedUser } from '../../services/auth'
+import PrinterStatusButton from '../PrinterStatusButton/PrinterStatusButton'
 import './UserProfileMenu.css'
 
 interface UserProfileMenuProps {
@@ -47,7 +48,8 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
     }, [isOpen])
 
     return (
-        <div className="header-user user-profile-menu" ref={rootRef}>
+        <div className="header-user user-profile-menu flex items-center gap-3" ref={rootRef}>
+            <PrinterStatusButton />
             <button
                 type="button"
                 className="user-profile-trigger"

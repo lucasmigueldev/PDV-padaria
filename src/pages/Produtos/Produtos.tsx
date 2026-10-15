@@ -5,24 +5,23 @@ import {
     Edit3,
     History,
     LayoutDashboard,
-    LogOut,
     Package,
     Plus,
     Receipt,
     Search,
     Settings,
     ShoppingCart,
-    Store,
     Trash2,
     X,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 import { addProduct, deleteProduct, getProductsFromSupabase, normalizeBarcode, updateProduct } from '../../data/products'
 import type { Product, ProductWithStock } from '../../types/Product'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
+import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -65,6 +64,8 @@ export default function Produtos() {
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : null
+    const userRoleLabel = isOwner ? 'Proprietário' : 'Operador'
+
     const [productList, setProductList] = useState<ProductWithStock[]>([])
     const [isLoadingProducts, setIsLoadingProducts] = useState(true)
     const [productsLoadError, setProductsLoadError] = useState('')
@@ -295,6 +296,14 @@ export default function Produtos() {
                 closeForm()
             }}
         >
+            <AppTopbar
+                userName={authenticatedUser?.name}
+                bakeryName={bakeryName}
+                userRole={userRoleLabel}
+                onLogout={handleLogout}
+            />
+
+            <div className="products-body">
             <aside className="products-sidebar">
                 <div className="products-brand">
                     <div className="products-logo-icon">
@@ -306,45 +315,33 @@ export default function Produtos() {
                     </div>
                 </div>
 
-                <section className="products-user" aria-label="Sessão atual">
-                    <div className="products-user-avatar" aria-hidden="true">
-                        {authenticatedUser?.name.charAt(0).toLocaleUpperCase()}
-                    </div>
-                    <div className="products-user-details">
-                        <strong>{authenticatedUser?.name}</strong>
-                        <span>{isOwner ? 'Proprietário' : 'Operador de caixa'}</span>
-                        {bakeryName && <span className="products-user-unit"><Store size={14} />{bakeryName}</span>}
-                    </div>
-                </section>
-
                 <nav className="products-navigation" aria-label={isOwner ? 'Navegação administrativa' : 'Atalhos operacionais'}>
                     {isOwner ? (
                         <>
                             <span className="products-sidebar-label">Administração</span>
-                            <a href="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Dashboard</span></a>
-                            <a href="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></a>
-                            <a href="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></a>
-                            <a href="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></a>
+                            <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>
+                            <Link to="/historico-vendas" className="products-nav-link"><History size={19} /><span>Histórico de Vendas</span></Link>
+                            <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
+                            <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
                         </>
                     ) : (
                         <>
                             <span className="products-sidebar-label">Operação</span>
-                            <a href="/produtos" className="products-shortcut-link active" aria-current="page">
+                            <Link to="/produtos" className="products-shortcut-link active" aria-current="page">
                                 <Package size={20} /><span>Produtos</span><kbd>F2</kbd>
-                            </a>
-                            <a href="/fechamento" className="products-shortcut-link">
+                            </Link>
+                            <Link to="/fechamento" className="products-shortcut-link">
                                 <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
-                            </a>
-                            <a href="/pdv" className="products-shortcut-link">
+                            </Link>
+                            <Link to="/pdv" className="products-shortcut-link">
                                 <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
-                            </a>
+                            </Link>
                         </>
                     )}
                 </nav>
 
                 <div className="products-sidebar-bottom">
-                    {isOwner && <a href="/configuracoes" className="products-nav-link"><Settings size={19} /><span>Configurações</span></a>}
-                    <button type="button" onClick={handleLogout} className="products-logout"><LogOut size={19} /><span>Sair</span></button>
+                    {isOwner && <Link to="/configuracoes" className="products-nav-link"><Settings size={19} /><span>Configurações</span></Link>}
                 </div>
             </aside>
 
@@ -483,6 +480,7 @@ export default function Produtos() {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     )
 }

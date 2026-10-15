@@ -1,0 +1,49 @@
+/* ─── Printer Status Button ─── */
+.printer-status-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1.5px solid var(--color-border, #d1d5db);
+    background: var(--color-surface, #fff);
+    color: var(--color-text-secondary, #6b7280);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.printer-status-btn:hover:not(:disabled) {
+    background: var(--color-hover, #f3f4f6);
+    border-color: var(--color-border-hover, #9ca3af);
+}
+
+.printer-status-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.printer-status-btn.is-connected {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.printer-status-btn.is-connected:hover:not(:disabled) {
+    background: #dcfce7;
+}
+
+.printer-status-btn.is-error {
+    border-color: #dc2626;
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.printer-status-label {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

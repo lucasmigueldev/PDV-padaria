@@ -1,25 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
     Banknote,
-    Bluetooth,
-    BluetoothOff,
     CircleAlert,
     CircleCheck,
     CreditCard,
-    LogOut,
     Minus,
     Package,
     Plus,
     Printer,
     QrCode,
     Receipt,
-    Store,
     ShoppingCart,
     Trash2,
-    UserRound,
     X,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 import { getProductsFromSupabase } from '../../data/products'
 import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
@@ -30,11 +25,7 @@ import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import type { ReceiptData } from '../../services/thermalPrinter'
 import { logoutAndRedirect } from '../../utils/auth'
-import {
-    getReceiptPreference,
-    saveReceiptPreference,
-    type ReceiptPreference,
-} from '../../services/receiptPreferences'
+import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -101,70 +92,12 @@ export default function PDV() {
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
-    const [loadedReceiptPreference, setLoadedReceiptPreference] = useState<{
-        userId: string
-        attempt: number
-        preference: ReceiptPreference
-    } | null>(null)
-    const [receiptPreferenceLoadError, setReceiptPreferenceLoadError] = useState<{
-        userId: string
-        attempt: number
-        message: string
-    } | null>(null)
-    const [isSavingReceiptPreference, setIsSavingReceiptPreference] = useState(false)
-    const [receiptPreferenceLoadAttempt, setReceiptPreferenceLoadAttempt] = useState(0)
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
     const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
-    const currentUserId = authenticatedUser?.id ?? null
-    const currentReceiptPreference = loadedReceiptPreference?.userId === currentUserId
-        && loadedReceiptPreference.attempt === receiptPreferenceLoadAttempt
-        ? loadedReceiptPreference.preference
-        : null
-    const currentReceiptPreferenceError = receiptPreferenceLoadError?.userId === currentUserId
-        && receiptPreferenceLoadError.attempt === receiptPreferenceLoadAttempt
-        ? receiptPreferenceLoadError.message
-        : ''
-    const isLoadingReceiptPreference = Boolean(currentUserId)
-        && currentReceiptPreference === null
-        && !currentReceiptPreferenceError
-
-    const isBluetoothConnected = bluetooth.status === 'connected'
-    const isBluetoothBusy = bluetooth.status === 'connecting' || bluetooth.status === 'printing'
-
-    useEffect(() => {
-        const userId = authenticatedUser?.id
-        let active = true
-
-        if (!userId) return
-
-        void getReceiptPreference(userId).then((preference) => {
-            if (!active) return
-            setLoadedReceiptPreference({
-                userId,
-                attempt: receiptPreferenceLoadAttempt,
-                preference,
-            })
-            setReceiptPreferenceLoadError(null)
-        }).catch((error: unknown) => {
-            if (!active) return
-            console.error('Erro ao carregar a preferência de impressão.', error)
-            setReceiptPreferenceLoadError({
-                userId,
-                attempt: receiptPreferenceLoadAttempt,
-                message: error instanceof Error
-                    ? error.message
-                    : 'Não foi possível carregar a preferência de impressão.',
-            })
-        })
-
-        return () => {
-            active = false
-        }
-    }, [authenticatedUser?.id, receiptPreferenceLoadAttempt])
 
     useEffect(() => {
         let active = true
@@ -354,33 +287,6 @@ export default function PDV() {
         setCheckoutMessage('')
     }
 
-    async function handleReceiptPreferenceChange(preference: ReceiptPreference) {
-        const userId = authenticatedUser?.id
-        if (!userId || isSavingReceiptPreference) return
-
-        setIsSavingReceiptPreference(true)
-        try {
-            const savedPreference = await saveReceiptPreference(userId, preference)
-            setLoadedReceiptPreference({
-                userId,
-                attempt: receiptPreferenceLoadAttempt,
-                preference: savedPreference,
-            })
-            setReceiptPreferenceLoadError(null)
-        } catch (error) {
-            console.error('Erro ao atualizar a preferência de impressão.', error)
-            setReceiptPreferenceLoadError({
-                userId,
-                attempt: receiptPreferenceLoadAttempt,
-                message: error instanceof Error
-                    ? error.message
-                    : 'Não foi possível salvar a preferência de impressão.',
-            })
-        } finally {
-            setIsSavingReceiptPreference(false)
-        }
-    }
-
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
     const isCashRegisterOpen = cashRegister !== null
@@ -524,38 +430,15 @@ export default function PDV() {
         }
     }
 
-    function getBluetoothButtonLabel(): string {
-        switch (bluetooth.status) {
-            case 'connecting': return 'Conectando...'
-            case 'connected': return `Conectada: ${bluetooth.deviceName ?? 'Bluetooth'}`
-            case 'printing': return 'Imprimindo...'
-            case 'error': return 'Reconectar impressora'
-            default: return 'Conectar impressora'
-        }
-    }
 
     return (
         <div className="pdv-layout">
-            <header className="pdv-topbar">
-                <strong className="pdv-topbar-title">Padaria PDV</strong>
-                <div className="pdv-topbar-session">
-                    <div className="pdv-session-field">
-                        <UserRound size={16} aria-hidden="true" />
-                        <span>Operador</span>
-                        <strong>{authenticatedUser?.name}</strong>
-                    </div>
-                    <div className="pdv-session-divider" aria-hidden="true" />
-                    <div className="pdv-session-field">
-                        <Store size={16} aria-hidden="true" />
-                        <span>Unidade</span>
-                        <strong>{bakeryName}</strong>
-                    </div>
-                    <button type="button" onClick={handleLogout} className="pdv-topbar-logout">
-                        <LogOut size={17} />
-                        <span>Sair</span>
-                    </button>
-                </div>
-            </header>
+            <AppTopbar
+                userName={authenticatedUser?.name}
+                bakeryName={bakeryName}
+                userRole="Operador"
+                onLogout={handleLogout}
+            />
 
             <aside className="pdv-sidebar">
                 <div className="pdv-brand">
@@ -587,108 +470,23 @@ export default function PDV() {
 
                 <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
                     <span className="pdv-sidebar-label">Operação</span>
-                    <a href="/produtos" className="pdv-shortcut">
+                    <Link to="/produtos" className="pdv-shortcut">
                         <Package size={19} />
                         <span>Produtos</span>
                         <kbd>F2</kbd>
-                    </a>
-                    <a href="/fechamento" className="pdv-shortcut">
+                    </Link>
+                    <Link to="/fechamento" className="pdv-shortcut">
                         <Receipt size={19} />
                         <span>Fechamento</span>
                         <kbd>F3</kbd>
-                    </a>
-                    <a href="/pdv" className="pdv-shortcut active" aria-current="page">
+                    </Link>
+                    <Link to="/pdv" className="pdv-shortcut active" aria-current="page">
                         <ShoppingCart size={19} />
                         <span>Voltar ao PDV</span>
                         <kbd>F4</kbd>
-                    </a>
+                    </Link>
                 </nav>
 
-                {/* Bloco de impressora Bluetooth — sempre visível */}
-                <div className="pdv-bluetooth-printer">
-                    <span className="pdv-sidebar-label">Impressora térmica</span>
-                    {!bluetooth.isBluetoothAvailable ? (
-                        <div className="pdv-bluetooth-unavailable">
-                            <BluetoothOff size={15} aria-hidden="true" />
-                            <span>Use Chrome ou Edge para conectar a impressora Bluetooth.</span>
-                        </div>
-                    ) : (
-                        <>
-                            <button
-                                type="button"
-                                className={`pdv-bluetooth-button${isBluetoothConnected ? ' is-connected' : ''}${bluetooth.status === 'error' ? ' is-error' : ''}`}
-                                onClick={isBluetoothConnected ? bluetooth.disconnect : bluetooth.connect}
-                                disabled={isBluetoothBusy}
-                                title={isBluetoothConnected ? 'Clique para desconectar' : 'Clique para conectar via Bluetooth'}
-                            >
-                                {isBluetoothConnected
-                                    ? <Bluetooth size={16} aria-hidden="true" />
-                                    : <BluetoothOff size={16} aria-hidden="true" />}
-                                <span>{getBluetoothButtonLabel()}</span>
-                            </button>
-                            {isBluetoothConnected && !bluetooth.errorMessage && (
-                                <small className="pdv-bluetooth-hint">
-                                    ✓ Cupom impresso automaticamente ao finalizar venda.
-                                </small>
-                            )}
-                            {bluetooth.status === 'printing' && (
-                                <small className="pdv-bluetooth-hint">Enviando cupom para a impressora...</small>
-                            )}
-                            {bluetooth.errorMessage && (
-                                <small className="pdv-bluetooth-error" role="alert">{bluetooth.errorMessage}</small>
-                            )}
-                            {!isBluetoothConnected && bluetooth.status !== 'error' && (
-                                <small className="pdv-bluetooth-hint">
-                                    Desconectada. Clique para conectar antes de vender.
-                                </small>
-                            )}
-                        </>
-                    )}
-                </div>
-
-
-                <div className="pdv-receipt-preference">
-                    <label htmlFor="receipt-print-preference">Impressão de comprovante</label>
-                    <select
-                        id="receipt-print-preference"
-                        value={currentReceiptPreference ?? ''}
-                        disabled={isLoadingReceiptPreference || currentReceiptPreference === null || isSavingReceiptPreference}
-                        onChange={(event) => {
-                            const preferenceValue = event.target.value
-                            if (
-                                preferenceValue !== 'automatic'
-                                && preferenceValue !== 'manual'
-                                && preferenceValue !== 'disabled'
-                            ) {
-                                return
-                            }
-                            void handleReceiptPreferenceChange(preferenceValue)
-                        }}
-                    >
-                        {currentReceiptPreference === null && (
-                            <option value="">
-                                {isLoadingReceiptPreference ? 'Carregando preferência...' : 'Preferência indisponível'}
-                            </option>
-                        )}
-                        <option value="automatic">Automática (padrão)</option>
-                        <option value="manual">Manual</option>
-                        <option value="disabled">Desativada</option>
-                    </select>
-                    <small>Preferência salva no Supabase para este usuário.</small>
-                    {isSavingReceiptPreference && <p role="status">Salvando preferência...</p>}
-                    {currentReceiptPreferenceError && <p role="alert">{currentReceiptPreferenceError}</p>}
-                    {!currentUserId && (
-                        <p role="alert">Não foi possível identificar o usuário para carregar a preferência.</p>
-                    )}
-                    {currentReceiptPreferenceError && !currentReceiptPreference && (
-                        <button
-                            type="button"
-                            onClick={() => setReceiptPreferenceLoadAttempt((attempt) => attempt + 1)}
-                        >
-                            Tentar carregar novamente
-                        </button>
-                    )}
-                </div>
             </aside>
 
             <main className="pdv-main">
