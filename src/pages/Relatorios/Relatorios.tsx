@@ -208,7 +208,11 @@ export default function Relatorios() {
       } catch (error: unknown) {
         if (!active) return
         console.error('Erro ao carregar os dados do relatório.', error)
-        setReportLoadError(error instanceof Error ? error.message : 'Não foi possível carregar o relatório.')
+        const fallback = error instanceof TypeError
+          ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+          : 'Não foi possível carregar os relatórios. Atualize a tela e tente novamente.'
+        const message = error instanceof Error ? error.message : ''
+        setReportLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
       } finally {
         if (active) setIsLoadingReportData(false)
       }
