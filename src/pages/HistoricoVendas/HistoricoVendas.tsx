@@ -354,7 +354,7 @@ export default function HistoricoVendas() {
                 </div>
 
                 <nav className="sidebar-menu flex flex-col gap-2">
-                    {isOwner && <Link to="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Dashboard</span></Link>}
+                    {isOwner && <Link to="/dashboard" className="sidebar-link"><LayoutDashboard size={19} /><span>Painel</span></Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link"><ShoppingCart size={19} /><span>Caixa</span></Link>}
                     {!isOwner && <Link to="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></Link>}
                     {!isOwner && <Link to="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></Link>}
@@ -390,7 +390,7 @@ export default function HistoricoVendas() {
                 <nav className="mobile-drawer-menu">
                     {isOwner && <Link to="/dashboard" className="sidebar-link" onClick={closeMobileMenu}>
                         <LayoutDashboard size={19} />
-                        <span>Dashboard</span>
+                        <span>Painel</span>
                     </Link>}
                     {!isOwner && <Link to="/pdv" className="sidebar-link" onClick={closeMobileMenu}>
                         <ShoppingCart size={19} />
