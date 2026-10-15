@@ -19,39 +19,63 @@ type RegisterRow = {
 }
 
 export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
-    const client = getSupabaseClient()
-    const { data: closureRows, error: closuresError } = await client
-        .from('cash_closures')
-        .select('id, bakery_id, cash_register_id, closed_at, counted_amount, expected_amount, difference_amount, cash_sales_amount')
-        .order('closed_at', { ascending: false })
+    let closures: ClosureRow[]
+    let registersById: Map<string, RegisterRow>
 
-    if (closuresError) {
-        console.error('Erro ao carregar fechamentos do Supabase.', closuresError)
-        throw new Error('Não foi possível carregar o histórico de fechamentos.')
+    try {
+        const client = getSupabaseClient()
+        const { data: closureRows, error: closuresError } = await client
+            .from('cash_closures')
+            .select('id, bakery_id, cash_register_id, closed_at, counted_amount, expected_amount, difference_amount, cash_sales_amount')
+            .order('closed_at', { ascending: false })
+
+        if (closuresError) {
+            console.error('Erro ao carregar o histórico de fechamentos.', closuresError)
+            if (closuresError.code === '42501') {
+                throw new Error('Seu acesso não permite consultar o histórico de fechamentos. Solicite ajuda ao proprietário.')
+            }
+            if (typeof closuresError.code === 'string' && /^(5|PGRST5)/.test(closuresError.code)) {
+                throw new Error('O histórico de fechamentos está temporariamente indisponível. Tente novamente mais tarde.')
+            }
+            throw new Error('Não foi possível carregar o histórico de fechamentos. Atualize a tela e tente novamente.')
+        }
+
+        closures = (closureRows ?? []) as ClosureRow[]
+        if (closures.length === 0) return []
+
+        const registerIds = [...new Set(closures.map((closure) => closure.cash_register_id))]
+        const { data: registerRows, error: registersError } = await client
+            .from('cash_registers')
+            .select('id, opened_at, initial_amount')
+            .in('id', registerIds)
+
+        if (registersError) {
+            console.error('Erro ao carregar os dados dos caixas fechados.', registersError)
+            if (registersError.code === '42501') {
+                throw new Error('Seu acesso não permite consultar os dados dos caixas. Solicite ajuda ao proprietário.')
+            }
+            throw new Error('Não foi possível carregar os dados dos caixas fechados. Atualize a tela e tente novamente.')
+        }
+
+        registersById = new Map(
+            ((registerRows ?? []) as RegisterRow[]).map((register) => [register.id, register]),
+        )
+    } catch (error) {
+        if (error instanceof Error && /^(Seu acesso|Não foi possível carregar|O histórico)/.test(error.message)) {
+            throw error
+        }
+        if (error instanceof TypeError) {
+            console.error('Falha de conexão ao carregar o histórico de fechamentos.', error)
+            throw new Error('Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.', { cause: error })
+        }
+        console.error('Falha inesperada ao carregar o histórico de fechamentos.', error)
+        throw new Error('Não foi possível carregar o histórico de fechamentos. Atualize a tela e tente novamente.', { cause: error })
     }
-
-    const closures = (closureRows ?? []) as ClosureRow[]
-    if (closures.length === 0) return []
-
-    const registerIds = [...new Set(closures.map((closure) => closure.cash_register_id))]
-    const { data: registerRows, error: registersError } = await client
-        .from('cash_registers')
-        .select('id, opened_at, initial_amount')
-        .in('id', registerIds)
-
-    if (registersError) {
-        console.error('Erro ao carregar caixas dos fechamentos no Supabase.', registersError)
-        throw new Error('Não foi possível carregar os dados dos caixas fechados.')
-    }
-
-    const registersById = new Map(
-        ((registerRows ?? []) as RegisterRow[]).map((register) => [register.id, register]),
-    )
 
     return closures.map((closure) => {
         const register = registersById.get(closure.cash_register_id)
         if (!register) {
-            const error = new Error('Um fechamento retornado pelo Supabase não possui caixa correspondente.')
+            const error = new Error('Não foi possível carregar todos os dados deste fechamento. Atualize o histórico e tente novamente.')
             console.error(error.message, {
                 closureId: closure.id,
                 cashRegisterId: closure.cash_register_id,
