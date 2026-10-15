@@ -23,8 +23,8 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
     const name = typeof user?.name === 'string' ? user.name.trim() : ''
     const email = typeof user?.email === 'string' ? user.email.trim() : ''
     const avatarInitial = email.charAt(0).toLocaleUpperCase() || '?'
-    const displayName = name || (isLoading ? 'Carregando perfil...' : 'Usuário não identificado')
-    const roleLabel = user ? roleLabels[user.role] : 'Função indisponível'
+    const displayName = name || (isLoading ? 'Carregando dados da conta...' : 'Conta indisponível')
+    const roleLabel = user ? roleLabels[user.role] : (isLoading ? 'Carregando...' : 'Acesso indisponível')
 
     useEffect(() => {
         if (!isOpen) return
@@ -104,7 +104,7 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
                         <p className="user-profile-unavailable" role="status">
                             {isLoading
                                 ? 'Carregando as informações da conta.'
-                                : 'Não foi possível carregar as informações do perfil.'}
+                                : 'Não foi possível carregar os dados da conta. Atualize a tela ou entre novamente.'}
                         </p>
                     )}
                 </section>
