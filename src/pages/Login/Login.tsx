@@ -102,7 +102,7 @@ const Login = () => {
 
           {/* Usuário */}
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">E-mail</label>
 
             <div className="input-wrapper">
               <Mail className="input-icon" size={18} />
@@ -115,7 +115,7 @@ const Login = () => {
                   setEmail(event.target.value)
                   setErrorMessage('')
                 }}
-                placeholder="Digite seu email"
+                placeholder="Digite seu e-mail"
                 autoComplete="email"
                 required
               />
