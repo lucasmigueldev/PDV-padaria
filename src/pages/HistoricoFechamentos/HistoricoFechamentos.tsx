@@ -156,7 +156,11 @@ export default function HistoricoFechamentos() {
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar o histórico de fechamentos.', error)
-                setClosuresLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os fechamentos.')
+                const fallback = error instanceof TypeError
+                    ? 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+                    : 'Não foi possível carregar os fechamentos. Atualize a tela e tente novamente.'
+                const message = error instanceof Error ? error.message : ''
+                setClosuresLoadError(/supabase|rpc|postgres|pgrst|jwt|\.env/i.test(message) ? fallback : message || fallback)
             } finally {
                 if (active) setIsLoadingClosures(false)
             }
