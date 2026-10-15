@@ -19,6 +19,10 @@ type CreateAdminUserResponse = {
     }
 }
 
+type AdminUserActionResponse = {
+    user_id: string
+}
+
 type AdminUserRecord = {
     id: string
     name: string
@@ -32,6 +36,20 @@ function isErrorResponse(value: unknown): value is { error: string } {
         && value !== null
         && 'error' in value
         && typeof value.error === 'string'
+}
+
+function isMissingActiveColumnError(error: { code?: string; message?: string }): boolean {
+    return (error.code === '42703' && /\bactive\b.*does not exist/i.test(error.message ?? ''))
+        || (error.code === 'PGRST204' && /\bactive\b.*schema cache/i.test(error.message ?? ''))
+}
+
+async function getFunctionErrorMessage(error: { context?: unknown }, fallback: string): Promise<string> {
+    if (error.context instanceof Response) {
+        const responseBody: unknown = await error.context.clone().json().catch(() => null)
+        if (isErrorResponse(responseBody)) return responseBody.error
+    }
+
+    return fallback
 }
 
 function mapAdminUser(record: AdminUserRecord): User {
@@ -50,10 +68,19 @@ function mapAdminUser(record: AdminUserRecord): User {
 }
 
 export async function getAdminUsers(): Promise<User[]> {
-    const { data, error } = await getSupabaseClient()
+    const client = getSupabaseClient()
+    let { data, error } = await client
         .from('users')
         .select('id, name, email, role, bakery_id')
+        .eq('active', true)
         .order('name')
+
+    if (error && isMissingActiveColumnError(error)) {
+        ({ data, error } = await client
+            .from('users')
+            .select('id, name, email, role, bakery_id')
+            .order('name'))
+    }
 
     if (error) {
         console.error('Erro ao carregar usuários no Supabase.', error)
@@ -89,11 +116,7 @@ export async function createAdminUser(user: {
     )
 
     if (error) {
-        if (error.context instanceof Response) {
-            const responseBody: unknown = await error.context.clone().json().catch(() => null)
-            if (isErrorResponse(responseBody)) throw new Error(responseBody.error)
-        }
-        throw new Error('Não foi possível criar o usuário no Supabase.')
+        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível criar o usuário no Supabase.'))
     }
 
     if (!data?.user) throw new Error('O Supabase não retornou o perfil do usuário criado.')
@@ -104,5 +127,61 @@ export async function createAdminUser(user: {
         email: data.user.email,
         role: data.user.role,
         bakeryId: data.user.bakery_id,
+    }
+}
+
+export async function updateAdminUser(user: {
+    id: string
+    name: string
+    bakeryId: string
+    email?: string
+    password?: string
+}): Promise<void> {
+    const body: {
+        action: 'update'
+        user_id: string
+        name: string
+        bakery_id: string
+        email?: string
+        password?: string
+    } = {
+        action: 'update',
+        user_id: user.id,
+        name: user.name,
+        bakery_id: user.bakeryId,
+    }
+
+    if (user.email !== undefined) body.email = user.email
+    if (user.password) body.password = user.password
+
+    const { data, error } = await getSupabaseClient().functions.invoke<AdminUserActionResponse>(
+        'admin-users',
+        { body },
+    )
+
+    if (error) {
+        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível atualizar o operador.'))
+    }
+    if (data?.user_id !== user.id) {
+        throw new Error('O Supabase não confirmou a atualização do operador.')
+    }
+}
+
+export async function deactivateAdminUser(userId: string): Promise<void> {
+    const { data, error } = await getSupabaseClient().functions.invoke<AdminUserActionResponse>(
+        'admin-users',
+        {
+            body: {
+                action: 'deactivate',
+                user_id: userId,
+            },
+        },
+    )
+
+    if (error) {
+        throw new Error(await getFunctionErrorMessage(error, 'Não foi possível desativar o operador.'))
+    }
+    if (data?.user_id !== userId) {
+        throw new Error('O Supabase não confirmou a desativação do operador.')
     }
 }
