@@ -12,6 +12,27 @@ import {
 } from '../../services/auth'
 import './Login.css'
 
+function getLoginErrorMessage(error: unknown): string {
+  const authError = typeof error === 'object' && error !== null
+    ? error as { code?: string; status?: number; name?: string }
+    : {}
+
+  if (authError.code === 'invalid_credentials') {
+    return 'E-mail ou senha incorretos. Confira os dados e tente novamente.'
+  }
+  if (authError.code === '42501' || authError.status === 403) {
+    return 'Seu acesso não está autorizado. Solicite ajuda ao proprietário.'
+  }
+  if (authError.name === 'AuthRetryableFetchError' || error instanceof TypeError) {
+    return 'Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.'
+  }
+  if (typeof authError.status === 'number' && authError.status >= 500) {
+    return 'O sistema está temporariamente indisponível. Tente novamente em alguns instantes.'
+  }
+
+  return 'Não foi possível entrar. Tente novamente. Se o problema continuar, solicite ajuda ao proprietário.'
+}
+
 const Login = () => {
   const navigate = useNavigate()
   const { authMessage, clearAuthMessage } = useAuth()
@@ -37,10 +58,7 @@ const Login = () => {
         await signInWithEmailPassword(email.trim().toLowerCase(), password)
       } catch (error) {
         console.error('Falha na autenticação pelo Supabase.', error)
-        const authError = error as { code?: string }
-        setErrorMessage(authError.code === 'invalid_credentials'
-          ? 'Email ou senha inválidos.'
-          : 'Não foi possível realizar o login. Tente novamente.')
+        setErrorMessage(getLoginErrorMessage(error))
         return
       }
 
@@ -57,10 +75,10 @@ const Login = () => {
           console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
         }
         setErrorMessage(error instanceof UnavailableBakeryError
-          ? error.message
+          ? 'A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.'
           : error instanceof UserProfileNotFoundError
-            ? 'Usuário autenticado, mas sem perfil configurado no sistema.'
-            : 'Não foi possível carregar o perfil do usuário.')
+            ? 'Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.'
+            : 'Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
       }
     } finally {
       isSubmittingRef.current = false
