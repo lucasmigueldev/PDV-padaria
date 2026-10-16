@@ -106,7 +106,6 @@ export default function Configuracoes() {
   const [pixKeyInput, setPixKeyInput] = useState(pixKeyFromService)
   const [isSavingPixKey, setIsSavingPixKey] = useState(false)
   const [pixKeyFeedback, setPixKeyFeedback] = useState<{ isError: boolean; message: string } | null>(null)
-  const [isPixQrModalOpen, setIsPixQrModalOpen] = useState(false)
   const [isEditingPixKey, setIsEditingPixKey] = useState(false)
   const [establishmentInput, setEstablishmentInput] = useState(currentEstablishmentName)
   const [isSavingEstablishment, setIsSavingEstablishment] = useState(false)
@@ -923,15 +922,10 @@ export default function Configuracoes() {
 
               {pixKeyFromService && !isEditingPixKey ? (
                 <>
-                  <div className="pix-qr-preview" onClick={() => setIsPixQrModalOpen(true)} role="button" tabIndex={0} onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      setIsPixQrModalOpen(true)
-                    }
-                  }} style={{ cursor: 'pointer' }} aria-label="Clique para ampliar o QR Code">
+                  <div className="pix-qr-preview">
                     <h3 className="pix-qr-preview-title">Pré-visualização do QR Code</h3>
                     <PixQrCode pixKey={pixKeyFromService} size={200} />
-                    <p className="pix-qr-preview-hint">Clique no QR Code para ampliar.</p>
+                    <p className="pix-qr-preview-hint">O QR Code será exibido no PDV quando o cliente selecionar PIX.</p>
                   </div>
 
                   <div className="pix-actions">
@@ -948,26 +942,6 @@ export default function Configuracoes() {
                       Excluir
                     </button>
                   </div>
-
-                  {isPixQrModalOpen && (
-                    <div className="user-modal-overlay" role="presentation" onMouseDown={() => setIsPixQrModalOpen(false)}>
-                      <section className="user-modal" role="dialog" aria-modal="true" aria-labelledby="pix-qr-modal-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <div className="user-modal-header">
-                          <div>
-                            <span className="settings-card-overline">PIX QR CODE</span>
-                            <h2 id="pix-qr-modal-title">QR Code para pagamento</h2>
-                            <p>Aponte a câmera do celular para pagar via PIX.</p>
-                          </div>
-                          <button type="button" className="user-modal-close" onClick={() => setIsPixQrModalOpen(false)} aria-label="Fechar visualização do QR Code">
-                            <X size={20} aria-hidden="true" />
-                          </button>
-                        </div>
-                        <div style={{ padding: '2rem 0', textAlign: 'center' }}>
-                          <PixQrCode pixKey={pixKeyFromService} size={440} />
-                        </div>
-                      </section>
-                    </div>
-                  )}
                 </>
               ) : (
                 <form onSubmit={handleSavePixKey} className="pix-form">
