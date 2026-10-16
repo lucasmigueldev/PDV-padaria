@@ -4,7 +4,6 @@ import {
     History,
     LayoutDashboard,
     LogOut,
-    Menu,
     Package,
     Settings,
     ShoppingCart,
@@ -314,22 +313,18 @@ export default function HistoricoFechamentos() {
                             </div>
                             <span>Padaria PDV</span>
                         </div>
-                        <button
-                            type="button"
-                            className="mobile-menu-button"
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            aria-label="Abrir menu"
-                            aria-expanded={isMobileMenuOpen}
-                        >
-                            <Menu size={23} />
-                        </button>
+                        <UserProfileMenu user={authenticatedUser} />
                     </div>
-                    <div className="mobile-page-heading">
-                        <span className="header-overline">OPERAÇÃO DE CAIXA</span>
-                        <h1>Histórico de Fechamentos</h1>
-                        <p>Consulte as sessões de caixa já encerradas.</p>
+                    <div className="dashboard-header-row">
+                        <div className="mobile-page-heading">
+                            <span className="header-overline">OPERAÇÃO DE CAIXA</span>
+                            <h1>Histórico de Fechamentos</h1>
+                            <p>Consulte as sessões de caixa já encerradas.</p>
+                        </div>
+                        <div className="desktop-user-profile">
+                            <UserProfileMenu user={authenticatedUser} />
+                        </div>
                     </div>
-                    <UserProfileMenu user={authenticatedUser} />
                 </header>
 
                 <section className="dashboard-content fechamento-history-content p-10">

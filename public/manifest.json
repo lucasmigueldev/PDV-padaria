@@ -1,0 +1,49 @@
+{
+  "name": "Padaria PDV - Gestão e Vendas",
+  "short_name": "Padaria PDV",
+  "description": "Sistema administrativo e ponto de venda para padarias e confeitarias",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e3a5f",
+  "theme_color": "#1f5daa",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Visão geral das vendas e indicadores"
+    },
+    {
+      "name": "Relatórios",
+      "url": "/relatorios",
+      "description": "Relatórios e métricas de desempenho"
+    },
+    {
+      "name": "Histórico de Vendas",
+      "url": "/historico-vendas",
+      "description": "Consulta de vendas realizadas"
+    }
+  ]
+}

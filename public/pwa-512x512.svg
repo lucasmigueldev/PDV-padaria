@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#1f5daa"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- Background with rounded squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  
+  <!-- Icon: Shopping Cart / Store in gold and white -->
+  <g transform="translate(106, 116)" filter="url(#shadow)">
+    <!-- Cart body -->
+    <path d="M40 40h40l36 180h140l32-130H100" fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Cart wheels -->
+    <circle cx="130" cy="260" r="22" fill="#fbbf24"/>
+    <circle cx="230" cy="260" r="22" fill="#fbbf24"/>
+    <!-- Bakery badge / bread accent -->
+    <path d="M120 120 Q 170 80 220 120" fill="none" stroke="#fbbf24" stroke-width="20" stroke-linecap="round"/>
+    <path d="M140 150 Q 170 130 200 150" fill="none" stroke="#fbbf24" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>

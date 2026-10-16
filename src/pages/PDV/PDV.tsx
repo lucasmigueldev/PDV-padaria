@@ -463,6 +463,7 @@ export default function PDV() {
                 bakeryName={bakeryName}
                 userRole="Operador"
                 onLogout={handleLogout}
+                showPrinter
             />
 
             <aside className="pdv-sidebar">

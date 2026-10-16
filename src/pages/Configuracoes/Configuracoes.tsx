@@ -6,7 +6,6 @@ import {
   History,
   LayoutDashboard,
   LogOut,
-  Menu,
   Package,
   Pencil,
   Settings,
@@ -533,22 +532,18 @@ export default function Configuracoes() {
               </div>
               <span>Padaria PDV</span>
             </div>
-            <button
-              type="button"
-              className="mobile-menu-button"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Abrir menu"
-              aria-expanded={isMobileMenuOpen}
-            >
-              <Menu size={23} />
-            </button>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
-          <div className="mobile-page-heading">
-            <span className="header-overline">CONTA DO USUÁRIO</span>
-            <h1>Configurações</h1>
-            <p>Gerencie usuários e unidades do sistema.</p>
+          <div className="dashboard-header-row">
+            <div className="mobile-page-heading">
+              <span className="header-overline">CONTA DO USUÁRIO</span>
+              <h1>Configurações</h1>
+              <p>Gerencie usuários e unidades do sistema.</p>
+            </div>
+            <div className="desktop-user-profile">
+              <UserProfileMenu user={authenticatedUser} />
+            </div>
           </div>
-          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content settings-content p-10">
