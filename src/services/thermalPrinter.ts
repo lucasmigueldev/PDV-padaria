@@ -146,6 +146,7 @@ function concat(...arrays: Uint8Array[]): Uint8Array {
 
 /** Parâmetros necessários para montar o cupom */
 export interface ReceiptData {
+    establishmentName?: string
     bakeryName: string
     saleId: string
     date: string
@@ -185,16 +186,20 @@ export function buildReceiptBuffer(data: ReceiptData): Uint8Array {
     const shortId = data.saleId.slice(0, 8).toUpperCase()
     const dateStr = dateFormatter.format(new Date(data.date))
 
+    const establishment = data.establishmentName?.trim() || data.bakeryName
+    const showUnit = Boolean(data.establishmentName?.trim() && data.bakeryName && data.bakeryName !== data.establishmentName)
+
     const parts: Uint8Array[] = [
         CMD.INIT,
 
-        // Cabeçalho — nome da padaria
+        // Cabeçalho — nome do estabelecimento
         CMD.ALIGN_CENTER,
         CMD.BOLD_ON,
         CMD.DOUBLE_HEIGHT_ON,
-        textLine(center(data.bakeryName)),
+        textLine(center(establishment)),
         CMD.FONT_NORMAL,
         CMD.BOLD_OFF,
+        ...(showUnit ? [textLine(center(`Unidade: ${data.bakeryName}`))] : []),
         CMD.LF,
 
         // Subtítulo

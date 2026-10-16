@@ -10,6 +10,7 @@ import {
   Pencil,
   Settings,
   ShoppingCart,
+  Store,
   Trash2,
   Users,
   X,
@@ -25,6 +26,7 @@ import {
   updateAdminUser,
 } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
+import { useEstablishmentName, saveEstablishmentName } from '../../services/establishment'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Bakery } from '../../types/Bakery'
@@ -95,6 +97,36 @@ export default function Configuracoes() {
   const [bakeryForm, setBakeryForm] = useState(initialBakeryForm)
   const [bakeryFormError, setBakeryFormError] = useState('')
   const [isSavingBakery, setIsSavingBakery] = useState(false)
+  const [activeTab, setActiveTab] = useState<'users' | 'bakeries' | 'general'>('users')
+  const currentEstablishmentName = useEstablishmentName()
+  const [establishmentInput, setEstablishmentInput] = useState(currentEstablishmentName)
+  const [isSavingEstablishment, setIsSavingEstablishment] = useState(false)
+  const [establishmentFeedback, setEstablishmentFeedback] = useState<{ isError: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    setEstablishmentInput(currentEstablishmentName)
+  }, [currentEstablishmentName])
+
+  async function handleSaveEstablishment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = establishmentInput.trim()
+    if (!name) {
+      setEstablishmentFeedback({ isError: true, message: 'Informe o nome do estabelecimento.' })
+      return
+    }
+
+    setIsSavingEstablishment(true)
+    setEstablishmentFeedback(null)
+    try {
+      await saveEstablishmentName(name)
+      setEstablishmentFeedback({ isError: false, message: 'Nome do estabelecimento salvo com sucesso!' })
+    } catch {
+      setEstablishmentFeedback({ isError: true, message: 'Não foi possível salvar o nome do estabelecimento.' })
+    } finally {
+      setIsSavingEstablishment(false)
+    }
+  }
+
   const [userFormError, setUserFormError] = useState('')
   const [userSuccessMessage, setUserSuccessMessage] = useState('')
   const [userManagementError, setUserManagementError] = useState('')
@@ -438,6 +470,34 @@ export default function Configuracoes() {
     }
   }
 
+  async function handleDeleteBakery(bakery: Bakery) {
+    const confirmed = window.confirm(
+      `Excluir a unidade "${bakery.name}"? O histórico de vendas e caixas será preservado, mas a unidade ficará inativa.`,
+    )
+    if (!confirmed) return
+
+    try {
+      if (await getOpenCashRegister(bakery.id)) {
+        window.alert('Não é possível excluir esta unidade enquanto houver um caixa aberto. Feche o caixa primeiro.')
+        return
+      }
+    } catch (error) {
+      console.error('Não foi possível verificar o caixa aberto da unidade.', error)
+      window.alert('Não foi possível verificar se há um caixa aberto. Verifique sua conexão e tente novamente.')
+      return
+    }
+
+    try {
+      await updateBakery(bakery.id, { name: bakery.name, active: false })
+      setBakeries((currentBakeries) =>
+        currentBakeries.map((b) => (b.id === bakery.id ? { ...b, active: false } : b)),
+      )
+      if (userBakeryFilter === bakery.id) setUserBakeryFilter('all')
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Não foi possível excluir a unidade.')
+    }
+  }
+
   return (
     <div className="dashboard-layout settings-layout flex min-h-screen">
       <aside className="sidebar fixed left-0 top-0 flex h-screen w-64 flex-col bg-white px-4 py-6">
@@ -547,163 +607,244 @@ export default function Configuracoes() {
         </header>
 
         <section className="dashboard-content settings-content p-10">
-          <section className="settings-card users-card" aria-labelledby="users-section-title">
-            <div className="settings-card-heading">
-              <div>
-                <span className="settings-card-overline">ACESSO AO SISTEMA</span>
-                <h2 id="users-section-title">Usuários</h2>
-                <p>Consulte os usuários cadastrados para acessar o sistema.</p>
-              </div>
-              <div className="users-heading-actions">
-                <Users size={22} aria-hidden="true" />
-                <button type="button" className="settings-button users-new-button" onClick={openUserModal}>
-                  <Users size={17} />
-                  Novo usuário
-                </button>
-              </div>
-            </div>
+          <nav className="settings-tabs" aria-label="Seções de configurações">
+            <button
+              type="button"
+              className={`settings-tab-button${activeTab === 'general' ? ' is-active' : ''}`}
+              onClick={() => setActiveTab('general')}
+            >
+              <Store size={16} aria-hidden="true" />
+              Geral
+            </button>
+            <button
+              type="button"
+              className={`settings-tab-button${activeTab === 'users' ? ' is-active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              <Users size={16} aria-hidden="true" />
+              Usuários
+            </button>
+            <button
+              type="button"
+              className={`settings-tab-button${activeTab === 'bakeries' ? ' is-active' : ''}`}
+              onClick={() => setActiveTab('bakeries')}
+            >
+              <Building2 size={16} aria-hidden="true" />
+              Unidades
+            </button>
+          </nav>
 
-            {userSuccessMessage && <p className="settings-message" role="status">{userSuccessMessage}</p>}
-            {userManagementError && <p className="user-form-error" role="alert">{userManagementError}</p>}
-
-            <div className="settings-field users-filter">
-              <label htmlFor="users-bakery-filter">Unidade</label>
-              <select
-                id="users-bakery-filter"
-                value={userBakeryFilter}
-                onChange={(event) => setUserBakeryFilter(event.target.value)}
-              >
-                <option value="all">Todas as unidades</option>
-                {activeBakeryOptions.map((bakery) => (
-                  <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {usersLoadError ? (
-              <p className="user-form-error" role="alert">{usersLoadError}</p>
-            ) : isLoadingUsers ? (
-              <div className="users-empty-state">Carregando usuários...</div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="users-empty-state">
-                {userBakeryFilter === 'all' ? 'Nenhum usuário cadastrado.' : 'Nenhum usuário cadastrado nesta unidade.'}
+          {activeTab === 'general' && (
+            <section className="settings-card establishment-card" aria-labelledby="establishment-section-title">
+              <div className="settings-card-heading">
+                <div>
+                  <span className="settings-card-overline">IDENTIFICAÇÃO DO NEGÓCIO</span>
+                  <h2 id="establishment-section-title">Nome do Estabelecimento</h2>
+                  <p>Nome exibido no topo do sistema e impresso no cabeçalho do cupom não fiscal.</p>
+                </div>
+                <Store size={22} aria-hidden="true" />
               </div>
-            ) : (
-              <div className="users-table-wrapper">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Nome</th>
-                      <th scope="col">E-mail</th>
-                      <th scope="col">Perfil</th>
-                      <th scope="col">Unidade</th>
-                      <th scope="col">Gerenciamento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td data-label="Nome">{user.name}</td>
-                        <td data-label="E-mail">{user.email}</td>
-                        <td data-label="Perfil">
-                          <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
-                        </td>
-                        <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
-                        <td data-label="Gerenciamento">
-                          {user.role === 'cashier' ? (
+
+              {establishmentFeedback && (
+                <p className={establishmentFeedback.isError ? 'user-form-error' : 'settings-message'} role={establishmentFeedback.isError ? 'alert' : 'status'}>
+                  {establishmentFeedback.message}
+                </p>
+              )}
+
+              <form onSubmit={handleSaveEstablishment} className="establishment-form">
+                <div className="settings-field">
+                  <label htmlFor="establishment-name-input">Nome da Empresa / Padaria</label>
+                  <div className="flex gap-3">
+                    <input
+                      id="establishment-name-input"
+                      type="text"
+                      value={establishmentInput}
+                      onChange={(event) => setEstablishmentInput(event.target.value)}
+                      placeholder="Ex: Padaria Pão Quente"
+                      maxLength={60}
+                      required
+                    />
+                    <button type="submit" className="settings-button" disabled={isSavingEstablishment}>
+                      {isSavingEstablishment ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {activeTab === 'users' && (
+            <section className="settings-card users-card" aria-labelledby="users-section-title">
+              <div className="settings-card-heading">
+                <div>
+                  <span className="settings-card-overline">ACESSO AO SISTEMA</span>
+                  <h2 id="users-section-title">Usuários</h2>
+                  <p>Consulte os usuários cadastrados para acessar o sistema.</p>
+                </div>
+                <div className="users-heading-actions">
+                  <Users size={22} aria-hidden="true" />
+                  <button type="button" className="settings-button users-new-button" onClick={openUserModal}>
+                    <Users size={17} />
+                    Novo usuário
+                  </button>
+                </div>
+              </div>
+
+              {userSuccessMessage && <p className="settings-message" role="status">{userSuccessMessage}</p>}
+              {userManagementError && <p className="user-form-error" role="alert">{userManagementError}</p>}
+
+              <div className="settings-field users-filter">
+                <label htmlFor="users-bakery-filter">Unidade</label>
+                <select
+                  id="users-bakery-filter"
+                  value={userBakeryFilter}
+                  onChange={(event) => setUserBakeryFilter(event.target.value)}
+                >
+                  <option value="all">Todas as unidades</option>
+                  {activeBakeryOptions.map((bakery) => (
+                    <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {usersLoadError ? (
+                <p className="user-form-error" role="alert">{usersLoadError}</p>
+              ) : isLoadingUsers ? (
+                <div className="users-empty-state">Carregando usuários...</div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="users-empty-state">
+                  {userBakeryFilter === 'all' ? 'Nenhum usuário cadastrado.' : 'Nenhum usuário cadastrado nesta unidade.'}
+                </div>
+              ) : (
+                <div className="users-table-wrapper">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">E-mail</th>
+                        <th scope="col">Perfil</th>
+                        <th scope="col">Unidade</th>
+                        <th scope="col">Gerenciamento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map((user) => (
+                        <tr key={user.id}>
+                          <td data-label="Nome">{user.name}</td>
+                          <td data-label="E-mail">{user.email}</td>
+                          <td data-label="Perfil">
+                            <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
+                          </td>
+                          <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
+                          <td data-label="Gerenciamento">
+                            {user.role === 'cashier' ? (
+                              <div className="operator-management-actions">
+                                <button
+                                  type="button"
+                                  className="user-actions-button"
+                                  onClick={() => openEditOperatorModal(user)}
+                                  disabled={isManagingOperator}
+                                  aria-label={`Editar ${user.name}`}
+                                  title={`Editar ${user.name}`}
+                                >
+                                  <Pencil size={15} aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="user-actions-button user-delete-button"
+                                  onClick={() => void handleOperatorDeactivation(user)}
+                                  disabled={isManagingOperator}
+                                  aria-label={`Excluir ${user.name}`}
+                                  title={`Excluir ${user.name}`}
+                                >
+                                  <Trash2 size={15} aria-hidden="true" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === 'bakeries' && (
+            <section className="settings-card users-card" aria-labelledby="bakeries-section-title">
+              <div className="settings-card-heading">
+                <div>
+                  <span className="settings-card-overline">ESTRUTURA DA OPERAÇÃO</span>
+                  <h2 id="bakeries-section-title">Unidades</h2>
+                  <p>Gerencie as unidades disponíveis no sistema.</p>
+                </div>
+                <div className="users-heading-actions">
+                  <Building2 size={22} aria-hidden="true" />
+                  <button type="button" className="settings-button users-new-button" onClick={openBakeryModal}>
+                    <Building2 size={17} />
+                    Nova unidade
+                  </button>
+                </div>
+              </div>
+
+              {bakeriesLoadError ? (
+                <p className="user-form-error" role="alert">{bakeriesLoadError}</p>
+              ) : isLoadingBakeries ? (
+                <div className="users-empty-state">Carregando unidades...</div>
+              ) : bakeries.length === 0 ? (
+                <div className="users-empty-state">Nenhuma unidade cadastrada.</div>
+              ) : (
+                <div className="users-table-wrapper">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bakeries.map((bakery) => (
+                        <tr key={bakery.id}>
+                          <td data-label="Nome">{bakery.name}</td>
+                          <td data-label="Status">
+                            <span className={`bakery-status-badge ${bakery.active ? 'active' : 'inactive'}`}>
+                              {bakery.active ? 'Ativa' : 'Inativa'}
+                            </span>
+                          </td>
+                          <td data-label="Ações">
                             <div className="operator-management-actions">
                               <button
                                 type="button"
-                                className="operator-action-button"
-                                onClick={() => openEditOperatorModal(user)}
-                                disabled={isManagingOperator}
-                                aria-label={`Editar ${user.name}`}
+                                className="user-actions-button"
+                                onClick={() => openEditBakeryModal(bakery)}
+                                aria-label={`Editar ${bakery.name}`}
+                                title={`Editar ${bakery.name}`}
                               >
-                                <Pencil size={15} aria-hidden="true" />
-                                Editar
+                                <Pencil size={16} aria-hidden="true" />
                               </button>
                               <button
                                 type="button"
-                                className="operator-action-button operator-deactivate-button"
-                                onClick={() => void handleOperatorDeactivation(user)}
-                                disabled={isManagingOperator}
-                                aria-label={`Excluir ${user.name}`}
+                                className="user-actions-button user-delete-button"
+                                onClick={() => void handleDeleteBakery(bakery)}
+                                aria-label={`Excluir ${bakery.name}`}
+                                title={`Excluir ${bakery.name}`}
                               >
-                                <Trash2 size={15} aria-hidden="true" />
-                                Excluir
+                                <Trash2 size={16} aria-hidden="true" />
                               </button>
                             </div>
-                          ) : (
-                            <span>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="settings-card users-card" aria-labelledby="bakeries-section-title">
-            <div className="settings-card-heading">
-              <div>
-                <span className="settings-card-overline">ESTRUTURA DA OPERAÇÃO</span>
-                <h2 id="bakeries-section-title">Unidades</h2>
-                <p>Gerencie as unidades disponíveis no sistema.</p>
-              </div>
-              <div className="users-heading-actions">
-                <Building2 size={22} aria-hidden="true" />
-                <button type="button" className="settings-button users-new-button" onClick={openBakeryModal}>
-                  <Building2 size={17} />
-                  Nova unidade
-                </button>
-              </div>
-            </div>
-
-            {bakeriesLoadError ? (
-              <p className="user-form-error" role="alert">{bakeriesLoadError}</p>
-            ) : isLoadingBakeries ? (
-              <div className="users-empty-state">Carregando unidades...</div>
-            ) : bakeries.length === 0 ? (
-              <div className="users-empty-state">Nenhuma unidade cadastrada.</div>
-            ) : (
-              <div className="users-table-wrapper">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Nome</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bakeries.map((bakery) => (
-                      <tr key={bakery.id}>
-                        <td data-label="Nome">{bakery.name}</td>
-                        <td data-label="Status">
-                          <span className={`bakery-status-badge ${bakery.active ? 'active' : 'inactive'}`}>
-                            {bakery.active ? 'Ativa' : 'Inativa'}
-                          </span>
-                        </td>
-                        <td data-label="Ações">
-                          <button
-                            type="button"
-                            className="user-actions-button"
-                            onClick={() => openEditBakeryModal(bakery)}
-                            aria-label={`Editar ${bakery.name}`}
-                            title={`Editar ${bakery.name}`}
-                          >
-                            <Pencil size={16} aria-hidden="true" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
         </section>
 
         {isBakeryModalOpen && (
