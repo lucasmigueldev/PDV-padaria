@@ -8,7 +8,6 @@ import {
   History,
   LayoutDashboard,
   LogOut,
-  Menu,
   Package,
   QrCode,
   Settings,
@@ -281,15 +280,7 @@ export default function Dashboard() {
               <span>Padaria PDV</span>
             </div>
 
-            <button
-              type="button"
-              className="mobile-menu-button"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Abrir menu"
-              aria-expanded={isMobileMenuOpen}
-            >
-              <Menu size={23} />
-            </button>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
 
           <div className="dashboard-header-row">
@@ -299,7 +290,9 @@ export default function Dashboard() {
               <p>Acompanhe os principais dados da sua padaria.</p>
             </div>
 
-            <UserProfileMenu user={authenticatedUser} />
+            <div className="desktop-user-profile">
+              <UserProfileMenu user={authenticatedUser} />
+            </div>
           </div>
         </header>
 

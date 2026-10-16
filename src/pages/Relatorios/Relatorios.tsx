@@ -8,7 +8,6 @@ import {
   History,
   LayoutDashboard,
   LogOut,
-  Menu,
   Package,
   Settings,
   ShoppingCart,
@@ -365,15 +364,7 @@ export default function Relatorios() {
               </div>
               <span>Padaria PDV</span>
             </div>
-            <button
-              type="button"
-              className="mobile-menu-button"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Abrir menu"
-              aria-expanded={isMobileMenuOpen}
-            >
-              <Menu size={23} />
-            </button>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
           <div className="dashboard-header-row">
             <div className="mobile-page-heading">
@@ -381,7 +372,9 @@ export default function Relatorios() {
               <h1>Relatórios</h1>
               <p>Consulte os relatórios da operação da sua padaria.</p>
             </div>
-            <UserProfileMenu user={authenticatedUser} />
+            <div className="desktop-user-profile">
+              <UserProfileMenu user={authenticatedUser} />
+            </div>
           </div>
         </header>
 

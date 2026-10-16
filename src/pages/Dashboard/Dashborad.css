@@ -224,12 +224,9 @@
 .mobile-menu-button,
 .mobile-menu-overlay,
 .mobile-drawer,
-.mobile-header-brand {
-  display: none;
-}
-
+.mobile-header-brand,
 .mobile-topbar {
-  display: contents;
+  display: none;
 }
 
 .page-placeholder {
@@ -370,8 +367,8 @@
     min-height: 0;
     align-items: stretch;
     flex-direction: column;
-    gap: 12px;
-    padding: calc(12px + var(--sat)) 16px 12px;
+    gap: 0;
+    padding: calc(10px + var(--sat)) 16px 10px;
   }
 
   .mobile-topbar {
@@ -379,36 +376,20 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 40px;
+    min-height: 44px;
     gap: 12px;
   }
 
   .mobile-menu-button {
-    display: flex;
-    flex: 0 0 40px;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border: 1px solid #dbe3ef;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #2563eb;
-    cursor: pointer;
+    display: none !important;
   }
 
   .dashboard-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
+    display: none !important;
   }
 
   .mobile-page-heading {
-    display: block;
-    flex: 1;
-    min-width: 0;
+    display: none !important;
   }
 
   .mobile-header-brand {
@@ -416,59 +397,44 @@
     align-items: center;
     gap: 8px;
     color: #1d4ed8;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
   }
 
   .mobile-header-brand .logo-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
   }
 
   .mobile-header-brand .logo-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 17px;
+    height: 17px;
   }
 
-  .dashboard-header h1 {
-    font-size: 19px;
-    line-height: 1.2;
-    margin: 0;
-  }
-
-  .dashboard-header p {
-    display: none; /* oculta no mobile para economizar espaço valioso da tela */
-  }
-
-  .header-overline {
-    margin-bottom: 1px;
-    font-size: 9px;
-    letter-spacing: 0.5px;
-  }
-
-  .dashboard-header .user-profile-menu {
-    align-self: center;
+  .mobile-topbar .user-profile-menu {
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
   }
 
-  .dashboard-header .user-profile-trigger {
-    padding: 2px 4px;
+  .mobile-topbar .user-profile-trigger {
+    padding: 3px 6px;
     gap: 8px;
   }
 
-  .dashboard-header .user-avatar {
+  .mobile-topbar .user-avatar {
     width: 34px;
     height: 34px;
     font-size: 13px;
   }
 
-  .dashboard-header .user-profile-trigger-copy strong {
-    font-size: 12px;
+  .mobile-topbar .user-profile-trigger-copy strong {
+    font-size: 13px;
   }
 
-  .dashboard-header .user-profile-trigger-copy span {
-    font-size: 10px;
+  .mobile-topbar .user-profile-trigger-copy span {
+    font-size: 11px;
     margin-top: 1px;
   }
 
