@@ -155,6 +155,20 @@ export default function Dashboard() {
     void logoutAndRedirect(navigate)
   }
 
+  function handleMetricClick(metric: 'sales' | 'sales-count' | 'cash' | 'card' | 'pix') {
+    switch (metric) {
+      case 'sales':
+      case 'sales-count':
+        navigate('/relatorios')
+        break
+      case 'cash':
+      case 'card':
+      case 'pix':
+        navigate('/fechamento')
+        break
+    }
+  }
+
   function closeMobileMenu() {
     setIsMobileMenuOpen(false)
   }
@@ -343,7 +357,7 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard-metrics-grid mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200 cursor-pointer" onClick={() => handleMetricClick('sales')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">
                   Vendas em {selectedDateLabel}
@@ -360,7 +374,7 @@ export default function Dashboard() {
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200 cursor-pointer" onClick={() => handleMetricClick('sales-count')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Qtd. vendas</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
@@ -375,7 +389,7 @@ export default function Dashboard() {
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 cursor-pointer" onClick={() => handleMetricClick('cash')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Dinheiro</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
@@ -386,7 +400,7 @@ export default function Dashboard() {
               <span className="mt-1.5 block text-[11px] text-slate-400">{percentage.format(cashPercentage)} do total</span>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200 cursor-pointer" onClick={() => handleMetricClick('card')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Cartão</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">

@@ -8,6 +8,7 @@ import {
   LogOut,
   Package,
   Pencil,
+  QrCode,
   Settings,
   ShoppingCart,
   Store,
@@ -18,6 +19,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom'
 
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import { getOpenCashRegister } from '../../services/operations'
 import {
   createAdminUser,
@@ -27,6 +29,7 @@ import {
 } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useEstablishmentName, saveEstablishmentName } from '../../services/establishment'
+import { usePixKey, savePixKey } from '../../services/pixConfig'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Bakery } from '../../types/Bakery'
@@ -97,15 +100,17 @@ export default function Configuracoes() {
   const [bakeryForm, setBakeryForm] = useState(initialBakeryForm)
   const [bakeryFormError, setBakeryFormError] = useState('')
   const [isSavingBakery, setIsSavingBakery] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'bakeries' | 'general'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'bakeries' | 'general' | 'pix'>('users')
   const currentEstablishmentName = useEstablishmentName()
+  const pixKeyFromService = usePixKey()
+  const [pixKeyInput, setPixKeyInput] = useState(pixKeyFromService)
+  const [isSavingPixKey, setIsSavingPixKey] = useState(false)
+  const [pixKeyFeedback, setPixKeyFeedback] = useState<{ isError: boolean; message: string } | null>(null)
+  const [isPixQrModalOpen, setIsPixQrModalOpen] = useState(false)
+  const [isEditingPixKey, setIsEditingPixKey] = useState(false)
   const [establishmentInput, setEstablishmentInput] = useState(currentEstablishmentName)
   const [isSavingEstablishment, setIsSavingEstablishment] = useState(false)
   const [establishmentFeedback, setEstablishmentFeedback] = useState<{ isError: boolean; message: string } | null>(null)
-
-  useEffect(() => {
-    setEstablishmentInput(currentEstablishmentName)
-  }, [currentEstablishmentName])
 
   async function handleSaveEstablishment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -124,6 +129,44 @@ export default function Configuracoes() {
       setEstablishmentFeedback({ isError: true, message: 'Não foi possível salvar o nome do estabelecimento.' })
     } finally {
       setIsSavingEstablishment(false)
+    }
+  }
+
+  async function handleSavePixKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const key = pixKeyInput.trim()
+    if (!key) {
+      setPixKeyFeedback({ isError: true, message: 'Informe a chave PIX.' })
+      return
+    }
+
+    setIsSavingPixKey(true)
+    setPixKeyFeedback(null)
+    try {
+      await savePixKey(key)
+      setPixKeyInput('')
+      setIsEditingPixKey(false)
+      setPixKeyFeedback({ isError: false, message: 'Chave PIX salva com sucesso!' })
+    } catch {
+      setPixKeyFeedback({ isError: true, message: 'Não foi possível salvar a chave PIX.' })
+    } finally {
+      setIsSavingPixKey(false)
+    }
+  }
+
+  async function handleDeletePixKey() {
+    if (!window.confirm('Tem certeza que deseja excluir a chave PIX?')) return
+    setIsSavingPixKey(true)
+    setPixKeyFeedback(null)
+    try {
+      await savePixKey('')
+      setPixKeyInput('')
+      setIsEditingPixKey(false)
+      setPixKeyFeedback({ isError: false, message: 'Chave PIX excluída com sucesso!' })
+    } catch {
+      setPixKeyFeedback({ isError: true, message: 'Não foi possível excluir a chave PIX.' })
+    } finally {
+      setIsSavingPixKey(false)
     }
   }
 
@@ -632,6 +675,16 @@ export default function Configuracoes() {
               <Building2 size={16} aria-hidden="true" />
               Unidades
             </button>
+            {isOwner && (
+              <button
+                type="button"
+                className={`settings-tab-button${activeTab === 'pix' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('pix')}
+              >
+                <QrCode size={16} aria-hidden="true" />
+                PIX QR Code
+              </button>
+            )}
           </nav>
 
           {activeTab === 'general' && (
@@ -842,6 +895,110 @@ export default function Configuracoes() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === 'pix' && (
+            <section className="settings-card pix-card" aria-labelledby="pix-section-title">
+              <div className="settings-card-heading">
+                <div>
+                  <span className="settings-card-overline">PIX QR CODE</span>
+                  <h2 id="pix-section-title">Chave PIX e QR Code</h2>
+                  <p>
+                    Informe a chave PIX da padaria. O QR Code gerado será exibido no PDV quando o cliente
+                    selecionar PIX como forma de pagamento.
+                  </p>
+                </div>
+              </div>
+
+              {pixKeyFeedback && (
+                <p
+                  className={pixKeyFeedback.isError ? 'user-form-error' : 'settings-message'}
+                  role={pixKeyFeedback.isError ? 'alert' : 'status'}
+                >
+                  {pixKeyFeedback.message}
+                </p>
+              )}
+
+              {pixKeyFromService && !isEditingPixKey ? (
+                <>
+                  <div className="pix-qr-preview" onClick={() => setIsPixQrModalOpen(true)} role="button" tabIndex={0} onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setIsPixQrModalOpen(true)
+                    }
+                  }} style={{ cursor: 'pointer' }} aria-label="Clique para ampliar o QR Code">
+                    <h3 className="pix-qr-preview-title">Pré-visualização do QR Code</h3>
+                    <PixQrCode pixKey={pixKeyFromService} size={200} />
+                    <p className="pix-qr-preview-hint">Clique no QR Code para ampliar.</p>
+                  </div>
+
+                  <div className="pix-actions">
+                    <button type="button" className="settings-button pix-action-button" onClick={() => {
+                      setPixKeyInput(pixKeyFromService)
+                      setIsEditingPixKey(true)
+                      setPixKeyFeedback(null)
+                    }}>
+                      <Pencil size={16} aria-hidden="true" />
+                      Editar chave
+                    </button>
+                    <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={handleDeletePixKey}>
+                      <Trash2 size={16} aria-hidden="true" />
+                      Excluir
+                    </button>
+                  </div>
+
+                  {isPixQrModalOpen && (
+                    <div className="user-modal-overlay" role="presentation" onMouseDown={() => setIsPixQrModalOpen(false)}>
+                      <section className="user-modal" role="dialog" aria-modal="true" aria-labelledby="pix-qr-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <div className="user-modal-header">
+                          <div>
+                            <span className="settings-card-overline">PIX QR CODE</span>
+                            <h2 id="pix-qr-modal-title">QR Code para pagamento</h2>
+                            <p>Aponte a câmera do celular para pagar via PIX.</p>
+                          </div>
+                          <button type="button" className="user-modal-close" onClick={() => setIsPixQrModalOpen(false)} aria-label="Fechar visualização do QR Code">
+                            <X size={20} aria-hidden="true" />
+                          </button>
+                        </div>
+                        <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+                          <PixQrCode pixKey={pixKeyFromService} size={440} />
+                        </div>
+                      </section>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <form onSubmit={handleSavePixKey} className="pix-form">
+                  <div className="settings-field">
+                    <label htmlFor="pix-key-input">Chave PIX</label>
+                    <input
+                      id="pix-key-input"
+                      type="text"
+                      value={pixKeyInput}
+                      onChange={(event) => setPixKeyInput(event.target.value)}
+                      placeholder="E-mail, CPF, CNPJ, telefone ou chave aleatória"
+                      maxLength={255}
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="pix-actions">
+                    <button type="submit" className="settings-button pix-action-button" disabled={isSavingPixKey}>
+                      {isSavingPixKey ? 'Salvando...' : 'Salvar chave PIX'}
+                    </button>
+                    {!isEditingPixKey && (
+                      <button type="button" className="settings-button pix-action-button pix-cancel-button" onClick={() => {
+                        setPixKeyInput('')
+                        setPixKeyFeedback(null)
+                      }}>
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                </form>
               )}
             </section>
           )}
