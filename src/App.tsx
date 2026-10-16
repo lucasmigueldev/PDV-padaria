@@ -14,6 +14,8 @@ import Configuracoes from './pages/Configuracoes/Configuracoes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
 import { BluetoothPrinterProvider } from './contexts/BluetoothPrinterContext'
+import { PWAInstallPrompt } from './components/PWAInstallPrompt/PWAInstallPrompt'
+import { MobileBottomNav } from './components/MobileBottomNav/MobileBottomNav'
 import {
   getCurrentSession,
   isCashierBakeryActive,
@@ -237,6 +239,7 @@ function App() {
             onUnavailable={handleCashierUnavailable}
           />
         )}
+        <PWAInstallPrompt />
         <Routes>
        
         {/* Rota principal */}
@@ -339,6 +342,7 @@ function App() {
           }
         />
         </Routes>
+        <MobileBottomNav />
         </BrowserRouter>
       </BluetoothPrinterProvider>
     </AuthContext.Provider>

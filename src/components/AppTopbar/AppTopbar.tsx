@@ -7,9 +7,10 @@ interface AppTopbarProps {
     bakeryName?: string | null
     userRole?: string | null
     onLogout: () => void
+    showPrinter?: boolean
 }
 
-export default function AppTopbar({ userName, bakeryName, userRole, onLogout }: AppTopbarProps) {
+export default function AppTopbar({ userName, bakeryName, userRole, onLogout, showPrinter = false }: AppTopbarProps) {
     return (
         <header className="app-topbar">
             <strong className="app-topbar-title">Padaria PDV</strong>
@@ -31,8 +32,12 @@ export default function AppTopbar({ userName, bakeryName, userRole, onLogout }: 
                         </>
                     )}
                 </div>
-                <div className="app-session-divider" aria-hidden="true" />
-                <PrinterStatusButton />
+                {showPrinter && (
+                    <>
+                        <div className="app-session-divider" aria-hidden="true" />
+                        <PrinterStatusButton />
+                    </>
+                )}
                 <button type="button" onClick={onLogout} className="app-topbar-logout">
                     <LogOut size={16} />
                     <span>Sair</span>

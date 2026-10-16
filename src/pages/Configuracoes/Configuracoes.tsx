@@ -543,12 +543,14 @@ export default function Configuracoes() {
               <Menu size={23} />
             </button>
           </div>
-          <div className="mobile-page-heading">
-            <span className="header-overline">CONTA DO USUÁRIO</span>
-            <h1>Configurações</h1>
-            <p>Gerencie usuários e unidades do sistema.</p>
+          <div className="dashboard-header-row">
+            <div className="mobile-page-heading">
+              <span className="header-overline">CONTA DO USUÁRIO</span>
+              <h1>Configurações</h1>
+              <p>Gerencie usuários e unidades do sistema.</p>
+            </div>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
-          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content settings-content p-10">

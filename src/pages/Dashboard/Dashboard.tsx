@@ -292,15 +292,15 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="mobile-page-heading">
-            <span className="header-overline">VISÃO GERAL</span>
+          <div className="dashboard-header-row">
+            <div className="mobile-page-heading">
+              <span className="header-overline">VISÃO GERAL</span>
+              <h1>Painel</h1>
+              <p>Acompanhe os principais dados da sua padaria.</p>
+            </div>
 
-            <h1>Painel</h1>
-
-            <p>Acompanhe os principais dados da sua padaria.</p>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
-
-          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content p-10">
@@ -320,84 +320,84 @@ export default function Dashboard() {
             </select>
           </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-500">Vendas do dia</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <DollarSign size={20} />
+          <div className="dashboard-metrics-grid mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Vendas hoje</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <DollarSign size={18} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">{currency.format(totalSalesToday)}</strong>
+              <strong className="block text-xl font-bold tracking-tight text-slate-900">{currency.format(totalSalesToday)}</strong>
               {salesValueVariation && (
-                <span className="mt-2 block text-xs font-medium text-emerald-600">
+                <span className="mt-1.5 block text-[11px] font-medium text-emerald-600">
                   {salesValueVariation}
                 </span>
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-500">Quantidade de vendas</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                  <ShoppingCart size={20} />
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Qtd. vendas</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <ShoppingCart size={18} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">{salesCountToday}</strong>
+              <strong className="block text-xl font-bold tracking-tight text-slate-900">{salesCountToday}</strong>
               {salesCountVariation && (
-                <span className="mt-2 block text-xs font-medium text-emerald-600">
+                <span className="mt-1.5 block text-[11px] font-medium text-emerald-600">
                   {salesCountVariation}
                 </span>
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-500">Recebido em dinheiro</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <Banknote size={20} />
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-200">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Dinheiro</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <Banknote size={18} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">{currency.format(cashSalesToday)}</strong>
-              <span className="mt-2 block text-xs text-slate-400">{percentage.format(cashPercentage)} do total recebido</span>
+              <strong className="block text-xl font-bold tracking-tight text-slate-900">{currency.format(cashSalesToday)}</strong>
+              <span className="mt-1.5 block text-[11px] text-slate-400">{percentage.format(cashPercentage)} do total</span>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-500">Recebido no cartão</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                  <CreditCard size={20} />
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Cartão</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <CreditCard size={18} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">{currency.format(cardSalesToday)}</strong>
-              <span className="mt-2 block text-xs text-slate-400">{percentage.format(cardPercentage)} do total recebido</span>
+              <strong className="block text-xl font-bold tracking-tight text-slate-900">{currency.format(cardSalesToday)}</strong>
+              <span className="mt-1.5 block text-[11px] text-slate-400">{percentage.format(cardPercentage)} do total</span>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-500">Recebido em PIX</span>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                  <QrCode size={20} />
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">PIX</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                  <QrCode size={18} />
                 </div>
               </div>
-              <strong className="block text-2xl font-bold text-slate-900">{currency.format(pixSalesToday)}</strong>
-              <span className="mt-2 block text-xs text-slate-400">{percentage.format(pixAmountPercentage)} do total recebido</span>
+              <strong className="block text-xl font-bold tracking-tight text-slate-900">{currency.format(pixSalesToday)}</strong>
+              <span className="mt-1.5 block text-[11px] text-slate-400">{percentage.format(pixAmountPercentage)} do total</span>
             </article>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-start justify-between">
+          <div className="dashboard-panels-grid grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 pt-8 shadow-sm">
+              <div className="mb-5 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Formas de pagamento</h2>
-                  <p className="mt-1 text-sm text-slate-500">Distribuição das vendas de hoje</p>
+                  <p className="mt-1 text-xs text-slate-500">Distribuição das vendas de hoje</p>
                 </div>
-                <Wallet className="text-slate-400" size={21} />
+                <Wallet className="text-slate-400" size={20} />
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
-                  <div className="mb-2 flex items-center justify-between text-sm">
+                  <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                       Dinheiro
@@ -410,7 +410,7 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between text-sm">
+                  <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                       Cartão
@@ -423,7 +423,7 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between text-sm">
+                  <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
                       <span className="h-2.5 w-2.5 rounded-full bg-violet-500" />
                       Pix
@@ -438,17 +438,17 @@ export default function Dashboard() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-start justify-between">
+              <div className="mb-5 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Informações do caixa</h2>
-                  <p className="mt-1 text-sm text-slate-500">Resumo do caixa em operação</p>
+                  <p className="mt-1 text-xs text-slate-500">Resumo do caixa em operação</p>
                 </div>
-                <Calculator className="text-slate-400" size={21} />
+                <Calculator className="text-slate-400" size={20} />
               </div>
 
               <div className="divide-y divide-slate-100">
-                <div className="flex items-center justify-between py-3 first:pt-0">
-                  <span className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center justify-between py-2.5 first:pt-0">
+                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
                     <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                       <span className={`h-2 w-2 rounded-full ${isCashRegisterOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
                     </span>
@@ -459,34 +459,34 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between py-3">
-                  <span className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <UserRound size={16} />
+                      <UserRound size={15} />
                     </span>
                     Operador responsável
                   </span>
-                  <strong className="text-sm text-slate-900">{authenticatedUser?.name ?? 'Conta indisponível'}</strong>
+                  <strong className="text-xs sm:text-sm text-slate-900">{authenticatedUser?.name ?? 'Conta indisponível'}</strong>
                 </div>
 
-                <div className="flex items-center justify-between py-3">
-                  <span className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                      <Clock3 size={16} />
+                      <Clock3 size={15} />
                     </span>
                     Horário de abertura
                   </span>
-                  <strong className="text-sm text-slate-900">{openingTime}</strong>
+                  <strong className="text-xs sm:text-sm text-slate-900">{openingTime}</strong>
                 </div>
 
-                <div className="flex items-center justify-between py-3 pb-0">
-                  <span className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center justify-between py-2.5 pb-0">
+                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                      <Banknote size={16} />
+                      <Banknote size={15} />
                     </span>
                     Saldo inicial
                   </span>
-                  <strong className="text-sm text-slate-900">{cashRegister ? currency.format(cashRegister.initialAmount) : '-'}</strong>
+                  <strong className="text-xs sm:text-sm text-slate-900">{cashRegister ? currency.format(cashRegister.initialAmount) : '-'}</strong>
                 </div>
               </div>
             </section>

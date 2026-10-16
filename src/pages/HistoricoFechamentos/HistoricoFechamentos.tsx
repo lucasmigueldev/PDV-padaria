@@ -324,12 +324,14 @@ export default function HistoricoFechamentos() {
                             <Menu size={23} />
                         </button>
                     </div>
-                    <div className="mobile-page-heading">
-                        <span className="header-overline">OPERAÇÃO DE CAIXA</span>
-                        <h1>Histórico de Fechamentos</h1>
-                        <p>Consulte as sessões de caixa já encerradas.</p>
+                    <div className="dashboard-header-row">
+                        <div className="mobile-page-heading">
+                            <span className="header-overline">OPERAÇÃO DE CAIXA</span>
+                            <h1>Histórico de Fechamentos</h1>
+                            <p>Consulte as sessões de caixa já encerradas.</p>
+                        </div>
+                        <UserProfileMenu user={authenticatedUser} />
                     </div>
-                    <UserProfileMenu user={authenticatedUser} />
                 </header>
 
                 <section className="dashboard-content fechamento-history-content p-10">

@@ -375,12 +375,14 @@ export default function Relatorios() {
               <Menu size={23} />
             </button>
           </div>
-          <div className="mobile-page-heading">
-            <span className="header-overline">ANÁLISE OPERACIONAL</span>
-            <h1>Relatórios</h1>
-            <p>Consulte os relatórios da operação da sua padaria.</p>
+          <div className="dashboard-header-row">
+            <div className="mobile-page-heading">
+              <span className="header-overline">ANÁLISE OPERACIONAL</span>
+              <h1>Relatórios</h1>
+              <p>Consulte os relatórios da operação da sua padaria.</p>
+            </div>
+            <UserProfileMenu user={authenticatedUser} />
           </div>
-          <UserProfileMenu user={authenticatedUser} />
         </header>
 
         <section className="dashboard-content reports-content p-10">
