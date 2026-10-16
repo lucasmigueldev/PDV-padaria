@@ -1,6 +1,6 @@
 {
-  "name": "Padaria PDV - Gestão e Vendas",
-  "short_name": "Padaria PDV",
+  "name": "PDV360 - Gestão e Vendas",
+  "short_name": "PDV360",
   "description": "Sistema administrativo e ponto de venda para padarias e confeitarias",
   "start_url": "/dashboard",
   "scope": "/",

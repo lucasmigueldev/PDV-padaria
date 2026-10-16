@@ -62,7 +62,7 @@ export function PWAInstallPrompt() {
           <img src="/pwa-192x192.svg" alt="" width="36" height="36" />
         </div>
         <div className="pwa-install-copy">
-          <strong>Instalar Padaria PDV</strong>
+          <strong>Instalar PDV360</strong>
           <span>Acesso rápido e tela cheia no seu celular ou computador</span>
         </div>
       </div>

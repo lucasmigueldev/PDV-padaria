@@ -153,7 +153,7 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <strong>Padaria PDV</strong>
+            <strong>PDV360</strong>
             <span>Sistema de vendas</span>
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <strong>Padaria PDV</strong>
+              <strong>PDV360</strong>
               <span>Sistema de vendas</span>
             </div>
           </div>

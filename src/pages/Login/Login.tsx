@@ -93,8 +93,7 @@ const Login = () => {
 
         {/* Cabeçalho */}
         <div className="login-header">
-          <h1>Acesso ao Sistema</h1>
-
+          <h1>PDV<span className="brand-accent">360</span></h1>
           <p>Entre com suas credenciais para continuar</p>
         </div>
 
