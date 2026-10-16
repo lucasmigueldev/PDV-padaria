@@ -128,6 +128,14 @@
   gap: 20px;
 }
 
+.desktop-user-profile {
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+  flex-shrink: 0;
+  width: max-content;
+}
+
 .header-overline {
   display: block;
   margin-bottom: 2px;
@@ -416,6 +424,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    margin-left: auto;
   }
 
   .mobile-topbar .user-profile-trigger {
@@ -423,28 +432,38 @@
     gap: 8px;
   }
 
-  .mobile-topbar .user-avatar {
-    width: 34px;
-    height: 34px;
-    font-size: 13px;
-  }
-
   .mobile-topbar .user-profile-trigger-copy strong {
     font-size: 13px;
-  }
-
-  .mobile-topbar .user-profile-trigger-copy span {
-    font-size: 11px;
-    margin-top: 1px;
   }
 
   .dashboard-content {
     padding: 16px 12px calc(84px + var(--sab));
   }
 
-  .dashboard-unit-filter {
+  .dashboard-filters {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
     margin-bottom: 14px;
-    min-width: 100%;
+    width: 100%;
+  }
+
+  .dashboard-unit-filter,
+  .dashboard-date-filter {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .dashboard-unit-filter label,
+  .dashboard-date-filter label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-align: left;
     width: 100%;
   }
 
@@ -452,6 +471,23 @@
     width: 100%;
     min-height: 38px;
     font-size: 13px;
+  }
+
+  .dashboard-date-filter input[type="date"] {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #111827;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    outline: none;
+  }
+
+  .dashboard-date-filter input[type="date"]:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
 
   .dashboard-metrics-grid,

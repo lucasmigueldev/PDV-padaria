@@ -283,7 +283,7 @@ export default function Fechamento() {
             <aside className="fechamento-sidebar">
                 <div className="fechamento-brand">
                     <div className="fechamento-logo-icon"><ShoppingCart size={22} /></div>
-                    <div><strong>Padaria PDV</strong><span>Sistema de vendas</span></div>
+                    <div><strong>PDV360</strong><span>Sistema de vendas</span></div>
                 </div>
 
                 {!isOwner && <nav className="fechamento-shortcuts" aria-label="Atalhos operacionais">

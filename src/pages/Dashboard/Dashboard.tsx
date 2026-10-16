@@ -65,12 +65,18 @@ function getPaymentTotal(sales: Sale[], paymentMethod: PaymentMethod): number {
   return sumSales(sales.filter((sale) => sale.paymentMethod === paymentMethod))
 }
 
+function getLocalDateString(date: Date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString())
   const [sales, setSales] = useState<Sale[]>([])
   const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
   const [loadError, setLoadError] = useState('')
@@ -79,12 +85,12 @@ export default function Dashboard() {
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
-  const currentDate = new Date()
-  const yesterday = new Date(currentDate)
-  yesterday.setDate(yesterday.getDate() - 1)
+  const selectedDateObj = new Date(selectedDate)
+  const previousDateObj = new Date(selectedDateObj)
+  previousDateObj.setDate(previousDateObj.getDate() - 1)
   const filteredSales = sales.filter((sale) => !selectedBakeryId || sale.bakeryId === selectedBakeryId)
-  const salesToday = filteredSales.filter((sale) => isSameDay(sale.date, currentDate))
-  const salesYesterday = filteredSales.filter((sale) => isSameDay(sale.date, yesterday))
+  const salesToday = filteredSales.filter((sale) => isSameDay(sale.date, selectedDateObj))
+  const salesYesterday = filteredSales.filter((sale) => isSameDay(sale.date, previousDateObj))
   const totalSalesToday = sumSales(salesToday)
   const totalSalesYesterday = sumSales(salesYesterday)
   const salesCountToday = salesToday.length
@@ -98,6 +104,15 @@ export default function Dashboard() {
   const cashPercentage = totalReceived > 0 ? cashSalesToday / totalReceived : 0
   const cardPercentage = totalReceived > 0 ? cardSalesToday / totalReceived : 0
   const pixAmountPercentage = totalReceived > 0 ? pixSalesToday / totalReceived : 0
+
+  const isSelectedDateToday = selectedDate === getLocalDateString()
+  const selectedDateLabel = isSelectedDateToday
+    ? 'Hoje'
+    : new Date(selectedDate).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
   const isCashRegisterOpen = cashRegister !== null
   const openingTime = cashRegister
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
@@ -140,6 +155,20 @@ export default function Dashboard() {
     void logoutAndRedirect(navigate)
   }
 
+  function handleMetricClick(metric: 'sales' | 'sales-count' | 'cash' | 'card' | 'pix') {
+    switch (metric) {
+      case 'sales':
+      case 'sales-count':
+        navigate('/relatorios')
+        break
+      case 'cash':
+      case 'card':
+      case 'pix':
+        navigate('/fechamento')
+        break
+    }
+  }
+
   function closeMobileMenu() {
     setIsMobileMenuOpen(false)
   }
@@ -153,7 +182,7 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <strong>Padaria PDV</strong>
+            <strong>PDV360</strong>
             <span>Sistema de vendas</span>
           </div>
         </div>
@@ -217,7 +246,7 @@ export default function Dashboard() {
             </div>
 
             <div>
-              <strong>Padaria PDV</strong>
+              <strong>PDV360</strong>
               <span>Sistema de vendas</span>
             </div>
           </div>
@@ -301,24 +330,38 @@ export default function Dashboard() {
         <section className="dashboard-content p-10">
           {loadError && <p role="alert" className="mb-4 text-red-700">{loadError}</p>}
           {isLoading && <p role="status" className="mb-4">Carregando dados operacionais...</p>}
-          <div className="dashboard-unit-filter">
-            <label htmlFor="dashboard-bakery-filter">Unidade</label>
-            <select
-              id="dashboard-bakery-filter"
-              value={bakeryFilter}
-              onChange={(event) => setBakeryFilter(event.target.value)}
-            >
-              <option value="all">Todas as unidades</option>
-              {activeBakeries.map((bakery) => (
-                <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
-              ))}
-            </select>
+          <div className="dashboard-filters">
+            <div className="dashboard-unit-filter">
+              <label htmlFor="dashboard-bakery-filter">Unidade</label>
+              <select
+                id="dashboard-bakery-filter"
+                value={bakeryFilter}
+                onChange={(event) => setBakeryFilter(event.target.value)}
+              >
+                <option value="all">Todas as unidades</option>
+                {activeBakeries.map((bakery) => (
+                  <option key={bakery.id} value={bakery.id}>{bakery.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="dashboard-date-filter">
+              <label htmlFor="dashboard-date-filter">Data</label>
+              <input
+                id="dashboard-date-filter"
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+              />
+            </div>
           </div>
 
           <div className="dashboard-metrics-grid mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200 cursor-pointer" onClick={() => handleMetricClick('sales')}>
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Vendas hoje</span>
+                <span className="text-xs font-semibold text-slate-500">
+                  Vendas em {selectedDateLabel}
+                </span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                   <DollarSign size={18} />
                 </div>
@@ -331,7 +374,7 @@ export default function Dashboard() {
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-200 cursor-pointer" onClick={() => handleMetricClick('sales-count')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Qtd. vendas</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
@@ -346,7 +389,7 @@ export default function Dashboard() {
               )}
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 cursor-pointer" onClick={() => handleMetricClick('cash')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Dinheiro</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
@@ -357,7 +400,7 @@ export default function Dashboard() {
               <span className="mt-1.5 block text-[11px] text-slate-400">{percentage.format(cashPercentage)} do total</span>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200">
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200 cursor-pointer" onClick={() => handleMetricClick('card')}>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Cartão</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">

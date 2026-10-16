@@ -531,11 +531,24 @@
 	flex: 0 0 auto;
 	align-items: center;
 	justify-content: center;
-	width: 48px;
-	height: 48px;
+	width: auto;
+	height: auto;
+	padding: 8px;
 	border-radius: 10px;
 	background: #dbeafe;
-	color: #1d4ed8;
+}
+
+.pdv-pix-icon svg {
+	width: 120px;
+	height: 120px;
+}
+
+.pdv-pix-warning {
+	margin-top: 8px;
+	color: #dc2626;
+	font-size: 12px;
+	font-weight: 600;
+	text-align: center;
 }
 
 .pdv-pix-content h3 {
@@ -1482,4 +1495,107 @@
 .pdv-checkout-btn-done:hover {
 	background: #f1f5f9;
 	border-color: #94a3b8;
+}
+
+/* ── Overlay de QR Code PIX (tela cheia para leitura) ─────────────────── */
+
+.pdv-pix-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1050;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	background: rgb(15 23 42 / 60%);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
+}
+
+.pdv-pix-overlay-content {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	width: min(100%, 440px);
+	padding: 40px 24px 32px;
+	border-radius: 20px;
+	background: #ffffff;
+	box-shadow: 0 20px 50px rgb(15 23 42 / 25%);
+}
+
+.pdv-pix-overlay-close {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border: 1px solid #e5e7eb;
+	border-radius: 12px;
+	background: #ffffff;
+	color: #6b7280;
+	cursor: pointer;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+
+.pdv-pix-overlay-close:hover {
+	background: #f3f4f6;
+	border-color: #cbd5e1;
+	color: #111827;
+}
+
+.pdv-pix-overlay-qr {
+	width: 340px;
+	height: 340px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.pdv-pix-overlay-qr svg {
+	width: 100%;
+	height: 100%;
+}
+
+.pdv-pix-overlay-total {
+	margin: 0;
+	color: #111827;
+	font-size: 28px;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+}
+
+.pdv-pix-overlay-hint {
+	margin: 4px 0 0;
+	color: #6b7280;
+	font-size: 14px;
+	text-align: center;
+}
+
+.pdv-pix-overlay-warning {
+	margin: 0;
+	color: #dc2626;
+	font-size: 15px;
+	font-weight: 600;
+	text-align: center;
+}
+
+@media (max-width: 480px) {
+	.pdv-pix-overlay-content {
+		width: min(100%, 340px);
+		padding: 32px 16px 24px;
+	}
+
+	.pdv-pix-overlay-qr {
+		width: 280px;
+		height: 280px;
+	}
+
+	.pdv-pix-overlay-total {
+		font-size: 24px;
+	}
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getSupabaseClient } from '../lib/supabaseClient'
 
 const STORAGE_KEY = 'pdv_establishment_name'
-const DEFAULT_NAME = 'Padaria PDV'
+const DEFAULT_NAME = 'PDV360'
 
 let cachedName: string | null = null
 

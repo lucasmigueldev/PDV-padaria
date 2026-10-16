@@ -21,7 +21,9 @@ import { getProductsFromSupabase } from '../../data/products'
 import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePixKey } from '../../services/pixConfig'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
+import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import type { ReceiptData } from '../../services/thermalPrinter'
@@ -87,6 +89,7 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const establishmentName = useEstablishmentName()
+    const pixKey = usePixKey()
     const bluetooth = useBluetoothPrinter()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const receiptBakeryName = bakeryId
@@ -108,6 +111,7 @@ export default function PDV() {
     const [receivedValue, setReceivedValue] = useState('')
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
+    const [pixOverlayOpen, setPixOverlayOpen] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
@@ -164,7 +168,12 @@ export default function PDV() {
         closeCheckoutButtonRef.current?.focus()
 
         function handleEscape(event: KeyboardEvent) {
-            if (event.key === 'Escape') closeCheckout()
+            if (event.key !== 'Escape') return
+            if (pixOverlayOpen) {
+                closePixOverlay()
+            } else {
+                closeCheckout()
+            }
         }
 
         document.addEventListener('keydown', handleEscape)
@@ -294,6 +303,7 @@ export default function PDV() {
     function closeCheckout() {
         setIsCheckoutOpen(false)
         setPaymentMethod(null)
+        setPixOverlayOpen(false)
         setReceivedValue('')
         setCheckoutMessage('')
         setCheckoutStep('payment')
@@ -302,10 +312,15 @@ export default function PDV() {
         barcodeInputRef.current?.focus()
     }
 
+    function closePixOverlay() {
+        setPixOverlayOpen(false)
+    }
+
     function selectPaymentMethod(method: PaymentMethod) {
         setPaymentMethod(method)
         setReceivedValue('')
         setCheckoutMessage('')
+        if (method === 'pix') setPixOverlayOpen(true)
     }
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
@@ -417,6 +432,7 @@ export default function PDV() {
             }
             setItems([])
             setCompletedSale(confirmedSale)
+            setPixOverlayOpen(false)
             setCheckoutStep('completed')
             setModalPrintFeedback(null)
             setSaleFeedback('Venda concluída com sucesso.')
@@ -476,7 +492,7 @@ export default function PDV() {
                         <ShoppingCart size={22} />
                     </div>
                     <div>
-                        <strong>Padaria PDV</strong>
+                        <strong>PDV360</strong>
                         <span>Sistema de vendas</span>
                     </div>
                 </div>
@@ -646,7 +662,8 @@ export default function PDV() {
             </main>
 
             {isCheckoutOpen && (
-                <div className="pdv-checkout-overlay" onClick={closeCheckout}>
+                <>
+                    <div className="pdv-checkout-overlay" onClick={closeCheckout}>
                     <div
                         className="pdv-checkout-modal"
                         role="dialog"
@@ -762,12 +779,21 @@ export default function PDV() {
                                 {paymentMethod === 'pix' && (
                                     <div className="pdv-pix-section" aria-label="Pagamento via PIX">
                                         <div className="pdv-pix-icon" aria-hidden="true">
-                                            <QrCode size={26} />
+                                            {pixKey ? (
+                                                <PixQrCode pixKey={pixKey} size={120} />
+                                            ) : (
+                                                <QrCode size={26} />
+                                            )}
                                         </div>
                                         <div className="pdv-pix-content">
                                             <h3>Pagamento via PIX</h3>
                                             <p>Realize o pagamento via PIX no valor total da venda.</p>
                                             <strong>{currency.format(total)}</strong>
+                                            {!pixKey && (
+                                                <p className="pdv-pix-warning">
+                                                    Chave PIX não configurada. Solicite ao administrador.
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -879,6 +905,39 @@ export default function PDV() {
                         )}
                     </div>
                 </div>
+
+                {pixOverlayOpen && (
+                    <div className="pdv-pix-overlay" onClick={closePixOverlay}>
+                        <div className="pdv-pix-overlay-content" onClick={(event) => event.stopPropagation()}>
+                            <button
+                                type="button"
+                                className="pdv-pix-overlay-close"
+                                onClick={closePixOverlay}
+                                aria-label="Fechar código QR"
+                            >
+                                <X size={24} />
+                            </button>
+                            <div className="pdv-pix-overlay-body">
+                                {pixKey ? (
+                                    <>
+                                        <div className="pdv-pix-overlay-qr">
+                                            <PixQrCode pixKey={pixKey} size={340} />
+                                        </div>
+                                        <p className="pdv-pix-overlay-total">{currency.format(total)}</p>
+                                        <p className="pdv-pix-overlay-hint">
+                                            Apresente este código para o cliente escanear
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="pdv-pix-overlay-warning">
+                                        Chave PIX não configurada. Solicite ao administrador.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                </>
             )}
         </div>
     )

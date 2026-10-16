@@ -203,7 +203,7 @@ export default function HistoricoFechamentos() {
                         <ShoppingCart size={22} />
                     </div>
                     <div>
-                        <strong>Padaria PDV</strong>
+                        <strong>PDV360</strong>
                         <span>Sistema de vendas</span>
                     </div>
                 </div>
@@ -256,7 +256,7 @@ export default function HistoricoFechamentos() {
                             <ShoppingCart size={22} />
                         </div>
                         <div>
-                            <strong>Padaria PDV</strong>
+                            <strong>PDV360</strong>
                             <span>Sistema de vendas</span>
                         </div>
                     </div>
@@ -307,11 +307,11 @@ export default function HistoricoFechamentos() {
             <main className="dashboard-main ml-64 min-h-screen flex-1">
                 <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
                     <div className="mobile-topbar">
-                        <div className="mobile-header-brand" aria-label="Padaria PDV">
+                        <div className="mobile-header-brand" aria-label="PDV360">
                             <div className="logo-icon">
                                 <ShoppingCart size={17} />
                             </div>
-                            <span>Padaria PDV</span>
+                            <span>PDV360</span>
                         </div>
                         <UserProfileMenu user={authenticatedUser} />
                     </div>
