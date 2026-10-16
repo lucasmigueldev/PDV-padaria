@@ -29,25 +29,13 @@
   outline-offset: 2px;
 }
 
-.user-profile-trigger .user-avatar {
-  display: flex;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  border-radius: 50%;
-}
 
 .user-profile-trigger-copy {
   display: block;
   min-width: 0;
 }
 
-.user-profile-trigger-copy strong,
-.user-profile-trigger-copy > span {
+.user-profile-trigger-copy strong {
   display: block;
   max-width: min(240px, 45vw);
   overflow: hidden;

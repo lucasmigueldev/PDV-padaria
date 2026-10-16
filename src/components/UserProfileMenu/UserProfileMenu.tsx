@@ -1,3 +1,4 @@
+import { UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { AuthenticatedUser } from '../../services/auth'
 import './UserProfileMenu.css'
@@ -21,9 +22,7 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
     const rootRef = useRef<HTMLDivElement>(null)
     const name = typeof user?.name === 'string' ? user.name.trim() : ''
     const email = typeof user?.email === 'string' ? user.email.trim() : ''
-    const avatarInitial = email.charAt(0).toLocaleUpperCase() || '?'
     const displayName = name || (isLoading ? 'Carregando dados da conta...' : 'Conta indisponível')
-    const roleLabel = user ? roleLabels[user.role] : (isLoading ? 'Carregando...' : 'Acesso indisponível')
 
     useEffect(() => {
         if (!isOpen) return
@@ -55,12 +54,9 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
                 aria-expanded={isOpen}
                 onClick={() => setIsOpen((open) => !open)}
             >
-                <span className="user-avatar" aria-hidden="true">
-                    {avatarInitial}
-                </span>
+                <UserRound size={16} aria-hidden="true" />
                 <span className="user-profile-trigger-copy">
                     <strong>{displayName}</strong>
-                    <span>{roleLabel}</span>
                 </span>
             </button>
 
