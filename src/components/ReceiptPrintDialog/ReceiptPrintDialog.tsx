@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Bluetooth, BluetoothOff, Printer, X } from 'lucide-react'
 import type { Sale } from '../../types/Sale'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
+import { useEstablishmentName } from '../../services/establishment'
 import type { ReceiptData } from '../../services/thermalPrinter'
 import './ReceiptPrintDialog.css'
 
@@ -70,8 +71,9 @@ function getReceiptProblem(sale: Sale, bakeryName: string | null): string | null
     return null
 }
 
-function saleToReceiptData(sale: Sale, bakeryName: string): ReceiptData {
+function saleToReceiptData(sale: Sale, bakeryName: string, establishmentName?: string): ReceiptData {
     return {
+        establishmentName,
         bakeryName,
         saleId: sale.id,
         date: sale.date,
@@ -104,6 +106,7 @@ export function ReceiptPrintDialog({
     const shortSaleId = sale.id.slice(0, 8).toUpperCase()
 
     const bluetooth = useBluetoothPrinter()
+    const establishmentName = useEstablishmentName()
 
     const printReceipt = useCallback(() => {
         if (receiptProblem || isPrintDialogOpenRef.current) {
@@ -140,8 +143,8 @@ export function ReceiptPrintDialog({
             return
         }
 
-        await bluetooth.print(saleToReceiptData(sale, bakeryName))
-    }, [receiptProblem, bakeryName, bluetooth, sale])
+        await bluetooth.print(saleToReceiptData(sale, bakeryName, establishmentName))
+    }, [receiptProblem, bakeryName, bluetooth, sale, establishmentName])
 
     useEffect(() => {
         isMountedRef.current = true
@@ -205,7 +208,10 @@ export function ReceiptPrintDialog({
                         {contextMessage && <p className="receipt-dialog-message">{contextMessage}</p>}
                         <div className="thermal-print-root">
                             <article className="thermal-receipt">
-                                <h1>{bakeryName}</h1>
+                                <h1>{establishmentName || bakeryName}</h1>
+                                {establishmentName && bakeryName && bakeryName !== establishmentName && (
+                                    <p className="thermal-receipt-unit">Unidade: {bakeryName}</p>
+                                )}
                                 <p className="thermal-receipt-legal">COMPROVANTE NÃO FISCAL — SEM VALOR FISCAL</p>
                                 <div className="thermal-receipt-separator" />
                                 <p><strong>Venda:</strong> #{shortSaleId}</p>

@@ -1,5 +1,6 @@
 import { LogOut, Store, UserRound } from 'lucide-react'
 import PrinterStatusButton from '../PrinterStatusButton/PrinterStatusButton'
+import { useEstablishmentName } from '../../services/establishment'
 import './AppTopbar.css'
 
 interface AppTopbarProps {
@@ -11,9 +12,11 @@ interface AppTopbarProps {
 }
 
 export default function AppTopbar({ userName, bakeryName, userRole, onLogout, showPrinter = false }: AppTopbarProps) {
+    const establishmentName = useEstablishmentName()
+
     return (
         <header className="app-topbar">
-            <strong className="app-topbar-title">Padaria PDV</strong>
+            <strong className="app-topbar-title">{establishmentName}</strong>
             <div className="app-topbar-right">
                 <div className="app-topbar-session">
                     <div className="app-session-field">

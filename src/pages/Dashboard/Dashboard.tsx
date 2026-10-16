@@ -23,6 +23,7 @@ import { getSalesFromSupabase } from '../../data/sales'
 import { getOpenCashRegister } from '../../services/operations'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { useBakeries } from '../../hooks/useBakeries'
+import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
@@ -74,6 +75,7 @@ export default function Dashboard() {
   const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
   const [loadError, setLoadError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const establishmentName = useEstablishmentName()
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
@@ -273,11 +275,11 @@ export default function Dashboard() {
       <main className="dashboard-main ml-64 min-h-screen flex-1">
         <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
           <div className="mobile-topbar">
-            <div className="mobile-header-brand" aria-label="Padaria PDV">
+            <div className="mobile-header-brand" aria-label={establishmentName}>
               <div className="logo-icon">
                 <ShoppingCart size={17} />
               </div>
-              <span>Padaria PDV</span>
+              <span>{establishmentName}</span>
             </div>
 
             <UserProfileMenu user={authenticatedUser} />

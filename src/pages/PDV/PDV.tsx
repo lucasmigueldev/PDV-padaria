@@ -61,8 +61,11 @@ function parseMoneyToCents(value: string): number | null {
     return Number.isSafeInteger(cents) ? cents : null
 }
 
-function saleToReceiptData(sale: Sale, bakeryName: string): ReceiptData {
+import { useEstablishmentName } from '../../services/establishment'
+
+function saleToReceiptData(sale: Sale, bakeryName: string, establishmentName?: string): ReceiptData {
     return {
+        establishmentName,
         bakeryName,
         saleId: sale.id,
         date: sale.date,
@@ -83,6 +86,7 @@ export default function PDV() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
+    const establishmentName = useEstablishmentName()
     const bluetooth = useBluetoothPrinter()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const receiptBakeryName = bakeryId
@@ -444,7 +448,7 @@ export default function PDV() {
             if (bluetooth.status !== 'connected') {
                 await bluetooth.connect()
             }
-            await bluetooth.print(saleToReceiptData(completedSale, bakery))
+            await bluetooth.print(saleToReceiptData(completedSale, bakery, establishmentName))
             setModalPrintFeedback({ isError: false, message: '✓ Cupom impresso com sucesso!' })
         } catch (error) {
             console.error('Erro ao imprimir via Bluetooth:', error)

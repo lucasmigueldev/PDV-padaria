@@ -5,6 +5,46 @@
   max-width: 900px;
 }
 
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 12px;
+  background: #f1f5f9;
+}
+
+.settings-tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.settings-tab-button:hover:not(.is-active) {
+  background: rgb(255 255 255 / 60%);
+  color: #374151;
+}
+
+.settings-tab-button.is-active {
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 10%);
+}
+
+
 .settings-card {
   padding: 30px;
   border: 1px solid #e5e7eb;
@@ -113,7 +153,17 @@
   margin-top: 16px;
   color: #166534;
   font-size: 13px;
-  line-height: 1.5;
+  font-weight: 500;
+}
+
+.establishment-form {
+  margin-top: 20px;
+  max-width: 520px;
+}
+
+.establishment-form .settings-button {
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .users-card {
