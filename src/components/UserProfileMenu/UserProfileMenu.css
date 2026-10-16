@@ -1,6 +1,7 @@
 .user-profile-menu {
   position: relative;
-  z-index: 20;
+  z-index: 100;
+  margin-left: auto;
 }
 
 .user-profile-trigger {

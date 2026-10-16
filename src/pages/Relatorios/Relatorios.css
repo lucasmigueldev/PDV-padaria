@@ -136,6 +136,10 @@
   font-weight: 700;
 }
 
+.desktop-user-profile {
+  margin-left: auto;
+}
+
 .reports-section-heading p {
   margin: 7px 0 0;
   color: #6b7280;
@@ -653,8 +657,9 @@
 
   .reports-layout .header-user {
     display: flex;
-    width: 100%;
+    width: auto;
     gap: 10px;
+    margin-left: auto;
   }
 
   .reports-layout .user-avatar {
