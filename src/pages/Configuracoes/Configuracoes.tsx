@@ -8,7 +8,6 @@ import {
   LogOut,
   Package,
   Pencil,
-  QrCode,
   Settings,
   ShoppingCart,
   Store,
@@ -100,7 +99,7 @@ export default function Configuracoes() {
   const [bakeryForm, setBakeryForm] = useState(initialBakeryForm)
   const [bakeryFormError, setBakeryFormError] = useState('')
   const [isSavingBakery, setIsSavingBakery] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'bakeries' | 'general' | 'pix'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'bakeries' | 'general'>('users')
   const currentEstablishmentName = useEstablishmentName()
   const pixKeyFromService = usePixKey()
   const [pixKeyInput, setPixKeyInput] = useState(pixKeyFromService)
@@ -674,19 +673,10 @@ export default function Configuracoes() {
               <Building2 size={16} aria-hidden="true" />
               Unidades
             </button>
-            {isOwner && (
-              <button
-                type="button"
-                className={`settings-tab-button${activeTab === 'pix' ? ' is-active' : ''}`}
-                onClick={() => setActiveTab('pix')}
-              >
-                <QrCode size={16} aria-hidden="true" />
-                PIX QR Code
-              </button>
-            )}
           </nav>
 
           {activeTab === 'general' && (
+            <>
             <section className="settings-card establishment-card" aria-labelledby="establishment-section-title">
               <div className="settings-card-heading">
                 <div>
@@ -722,6 +712,85 @@ export default function Configuracoes() {
                 </div>
               </form>
             </section>
+
+            {isOwner && (
+              <section className="settings-card pix-card" aria-labelledby="pix-section-title">
+                <div className="settings-card-heading">
+                  <div>
+                    <span className="settings-card-overline">PIX QR CODE</span>
+                    <h2 id="pix-section-title">Chave PIX e QR Code</h2>
+                    <p>
+                      Informe a chave PIX da padaria. O QR Code gerado será exibido no PDV quando o cliente
+                      selecionar PIX como forma de pagamento.
+                    </p>
+                  </div>
+                </div>
+
+                {pixKeyFeedback && (
+                  <p
+                    className={pixKeyFeedback.isError ? 'user-form-error' : 'settings-message'}
+                    role={pixKeyFeedback.isError ? 'alert' : 'status'}
+                  >
+                    {pixKeyFeedback.message}
+                  </p>
+                )}
+
+                {pixKeyFromService && !isEditingPixKey ? (
+                  <>
+                    <div className="pix-qr-preview">
+                      <h3 className="pix-qr-preview-title">Pré-visualização do QR Code</h3>
+                      <PixQrCode pixKey={pixKeyFromService} size={200} />
+                      <p className="pix-qr-preview-hint">O QR Code será exibido no PDV quando o cliente selecionar PIX.</p>
+                    </div>
+
+                    <div className="pix-actions">
+                      <button type="button" className="settings-button pix-action-button" onClick={() => {
+                        setPixKeyInput(pixKeyFromService)
+                        setIsEditingPixKey(true)
+                        setPixKeyFeedback(null)
+                      }}>
+                        <Pencil size={16} aria-hidden="true" />
+                        Editar chave
+                      </button>
+                      <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={handleDeletePixKey}>
+                        <Trash2 size={16} aria-hidden="true" />
+                        Excluir
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <form onSubmit={handleSavePixKey} className="pix-form">
+                    <div className="settings-field">
+                      <label htmlFor="pix-key-input">Chave PIX</label>
+                      <input
+                        id="pix-key-input"
+                        type="text"
+                        value={pixKeyInput}
+                        onChange={(event) => setPixKeyInput(event.target.value)}
+                        placeholder="E-mail, CPF, CNPJ, telefone ou chave aleatória"
+                        maxLength={255}
+                        required
+                      />
+                    </div>
+
+                    <div className="pix-actions">
+                      <button type="submit" className="settings-button pix-action-button" disabled={isSavingPixKey}>
+                        {isSavingPixKey ? 'Salvando...' : 'Salvar chave PIX'}
+                      </button>
+                      {!isEditingPixKey && (
+                        <button type="button" className="settings-button pix-action-button pix-cancel-button" onClick={() => {
+                          setPixKeyInput('')
+                          setPixKeyFeedback(null)
+                        }}>
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+              </section>
+            )}
+            </>
           )}
 
           {activeTab === 'users' && (
@@ -891,85 +960,6 @@ export default function Configuracoes() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </section>
-          )}
-
-          {activeTab === 'pix' && (
-            <section className="settings-card pix-card" aria-labelledby="pix-section-title">
-              <div className="settings-card-heading">
-                <div>
-                  <span className="settings-card-overline">PIX QR CODE</span>
-                  <h2 id="pix-section-title">Chave PIX e QR Code</h2>
-                  <p>
-                    Informe a chave PIX da padaria. O QR Code gerado será exibido no PDV quando o cliente
-                    selecionar PIX como forma de pagamento.
-                  </p>
-                </div>
-              </div>
-
-              {pixKeyFeedback && (
-                <p
-                  className={pixKeyFeedback.isError ? 'user-form-error' : 'settings-message'}
-                  role={pixKeyFeedback.isError ? 'alert' : 'status'}
-                >
-                  {pixKeyFeedback.message}
-                </p>
-              )}
-
-              {pixKeyFromService && !isEditingPixKey ? (
-                <>
-                  <div className="pix-qr-preview">
-                    <h3 className="pix-qr-preview-title">Pré-visualização do QR Code</h3>
-                    <PixQrCode pixKey={pixKeyFromService} size={200} />
-                    <p className="pix-qr-preview-hint">O QR Code será exibido no PDV quando o cliente selecionar PIX.</p>
-                  </div>
-
-                  <div className="pix-actions">
-                    <button type="button" className="settings-button pix-action-button" onClick={() => {
-                      setPixKeyInput(pixKeyFromService)
-                      setIsEditingPixKey(true)
-                      setPixKeyFeedback(null)
-                    }}>
-                      <Pencil size={16} aria-hidden="true" />
-                      Editar chave
-                    </button>
-                    <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={handleDeletePixKey}>
-                      <Trash2 size={16} aria-hidden="true" />
-                      Excluir
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <form onSubmit={handleSavePixKey} className="pix-form">
-                  <div className="settings-field">
-                    <label htmlFor="pix-key-input">Chave PIX</label>
-                    <input
-                      id="pix-key-input"
-                      type="text"
-                      value={pixKeyInput}
-                      onChange={(event) => setPixKeyInput(event.target.value)}
-                      placeholder="E-mail, CPF, CNPJ, telefone ou chave aleatória"
-                      maxLength={255}
-                      required
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="pix-actions">
-                    <button type="submit" className="settings-button pix-action-button" disabled={isSavingPixKey}>
-                      {isSavingPixKey ? 'Salvando...' : 'Salvar chave PIX'}
-                    </button>
-                    {!isEditingPixKey && (
-                      <button type="button" className="settings-button pix-action-button pix-cancel-button" onClick={() => {
-                        setPixKeyInput('')
-                        setPixKeyFeedback(null)
-                      }}>
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
-                </form>
               )}
             </section>
           )}

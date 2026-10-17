@@ -7,8 +7,8 @@
 
 .settings-tabs {
   display: flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   border-radius: 12px;
   background: #f1f5f9;
   overflow-x: auto;
@@ -22,22 +22,22 @@
 .settings-tab-button {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
   justify-content: center;
-  min-height: 36px;
-  padding: 0 6px;
+  gap: 8px;
+  /* Com apenas 3 abas, distribui igualmente pela largura disponível */
+  flex: 1 1 0;
+  min-height: 42px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
   color: #6b7280;
   font: inherit;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
-  min-width: 0;
 }
 
 .settings-tab-button:hover:not(.is-active) {
@@ -775,7 +775,9 @@
   }
 
   .settings-content {
-    padding: 24px 16px 32px;
+    /* Respiro inferior para a MobileBottomNav fixa (60px + safe-area)
+       não cobrir os últimos elementos da página (ex.: botões do card PIX). */
+    padding: 24px 16px calc(84px + var(--sab));
   }
 
   .settings-card {
