@@ -694,7 +694,6 @@ export default function Configuracoes() {
                   <h2 id="establishment-section-title">Nome do Estabelecimento</h2>
                   <p>Nome exibido no topo do sistema e impresso no cabeçalho do cupom não fiscal.</p>
                 </div>
-                <Store size={22} aria-hidden="true" />
               </div>
 
               {establishmentFeedback && (
@@ -734,7 +733,6 @@ export default function Configuracoes() {
                   <p>Consulte os usuários cadastrados para acessar o sistema.</p>
                 </div>
                 <div className="users-heading-actions">
-                  <Users size={22} aria-hidden="true" />
                   <button type="button" className="settings-button users-new-button" onClick={openUserModal}>
                     <Users size={17} />
                     Novo usuário
@@ -834,7 +832,6 @@ export default function Configuracoes() {
                   <p>Gerencie as unidades disponíveis no sistema.</p>
                 </div>
                 <div className="users-heading-actions">
-                  <Building2 size={22} aria-hidden="true" />
                   <button type="button" className="settings-button users-new-button" onClick={openBakeryModal}>
                     <Building2 size={17} />
                     Nova unidade
