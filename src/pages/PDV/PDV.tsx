@@ -23,6 +23,10 @@ import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePixKey } from '../../services/pixConfig'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
+import { useConnectionStatus } from '../../hooks/useConnectionStatus'
+import { enqueueSale, getPendingSyncCount } from '../../services/offlineSalesQueue'
+import { startSalesSync } from '../../services/syncOfflineSales'
+import { isNetworkError, startConnectionMonitor } from '../../services/connection'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -92,6 +96,8 @@ export default function PDV() {
     const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const connection = useConnectionStatus()
+    const pendingCount = getPendingSyncCount()
     const receiptBakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
         : null
@@ -200,6 +206,18 @@ export default function PDV() {
             receivedValueInputRef.current?.focus()
         }
     }, [isCheckoutOpen, paymentMethod])
+
+    // Inicia o monitor de conectividade e a sincronização de vendas pendentes
+    // quando o PDV está ativo para uma unidade.
+    useEffect(() => {
+        if (!bakeryId) return
+        const stopConnection = startConnectionMonitor()
+        const stopSync = startSalesSync()
+        return () => {
+            stopConnection()
+            stopSync()
+        }
+    }, [bakeryId])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -455,11 +473,65 @@ export default function PDV() {
                 setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
             }
         } catch (error) {
-            setCheckoutMessage(getOperationalErrorMessage(
-                error,
-                'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
-                'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
-            ))
+            if (isNetworkError(error)) {
+                // Sem conexão: enfileira a venda para sincronizar depois
+                const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
+                try {
+                    enqueueSale({
+                        id: saleId,
+                        idempotencyKey: saleId,
+                        localRef: saleId,
+                        cashRegisterId: currentRegister.id,
+                        bakeryId: authenticatedUser.bakeryId,
+                        occurredAt: new Date().toISOString(),
+                        paymentMethod,
+                        receivedAmount,
+                        changeAmount,
+                        total,
+                        items: items.map((item) => ({
+                            productId: item.id,
+                            name: item.name,
+                            barcode: item.barcode,
+                            price: item.price,
+                            quantity: item.quantity,
+                        })),
+                        status: 'pending',
+                        createdAt: new Date().toISOString(),
+                    })
+                    idempotencyRef.current = null
+                    const confirmedSale: Sale = {
+                        id: saleId,
+                        date: new Date().toISOString(),
+                        items: items.map((item) => ({
+                            productId: item.id,
+                            name: item.name,
+                            barcode: item.barcode,
+                            price: item.price,
+                            quantity: item.quantity,
+                            subtotal: item.quantity * item.price,
+                        })),
+                        total,
+                        paymentMethod,
+                        bakeryId: authenticatedUser.bakeryId,
+                        ...(receivedAmount !== null ? { receivedAmount } : {}),
+                        ...(changeAmount !== null ? { change: changeAmount } : {}),
+                    }
+                    setItems([])
+                    setCompletedSale(confirmedSale)
+                    setPixOverlayOpen(false)
+                    setCheckoutStep('completed')
+                    setModalPrintFeedback(null)
+                    setSaleFeedback('Venda registrada offline. Será sincronizada quando a conexão voltar.')
+                } catch {
+                    setCheckoutMessage('Não foi possível registrar a venda. Verifique a conexão e tente novamente.')
+                }
+            } else {
+                setCheckoutMessage(getOperationalErrorMessage(
+                    error,
+                    'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
+                    'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
+                ))
+            }
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
@@ -496,6 +568,19 @@ export default function PDV() {
                 onLogout={handleLogout}
                 showPrinter
             />
+
+            {pendingCount > 0 && connection.status === 'offline' && (
+                <div className="pdv-offline-banner">
+                    <span>● Sem conexão</span>
+                    <span>{pendingCount} venda(ões) aguardando sincronização</span>
+                </div>
+            )}
+            {pendingCount > 0 && connection.status === 'online' && (
+                <div className="pdv-offline-banner pdv-offline-banner--syncing">
+                    <span>● Sincronizando vendas pendentes...</span>
+                    <span>{pendingCount} venda(ões) na fila</span>
+                </div>
+            )}
 
             <aside className="pdv-sidebar">
                 <div className="pdv-brand">
