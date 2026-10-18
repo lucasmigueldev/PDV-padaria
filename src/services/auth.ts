@@ -2,6 +2,11 @@ import type { AuthChangeEvent, Session, User as AuthUser } from '@supabase/supab
 
 import { getSupabaseClient } from '../lib/supabaseClient'
 import type { User, UserRole } from '../types/User'
+import {
+    getActiveBakeriesByIds,
+    getPersistedActiveBakeryId,
+    persistActiveBakeryId,
+} from './userBakeries'
 
 export type AuthenticatedUser = Omit<User, 'password'> & {
     createdAt?: string
@@ -29,6 +34,7 @@ type UserProfileRecord = {
     email: string
     role: string
     bakery_id: string | null
+    bakery_ids?: string[] | null
 }
 
 export function mapUserProfile(profile: UserProfileRecord): AuthenticatedUser {
@@ -36,14 +42,53 @@ export function mapUserProfile(profile: UserProfileRecord): AuthenticatedUser {
         throw new Error('Perfil de usuário com função inválida.')
     }
 
+    const bakeryIds = profile.role === 'owner'
+        ? []
+        : profile.bakery_ids?.length
+            ? profile.bakery_ids
+            : (profile.bakery_id ? [profile.bakery_id] : [])
+
     return {
         id: profile.id,
         name: profile.name,
         email: profile.email,
         role: profile.role as UserRole,
-        bakeryIds: profile.role === 'owner' ? [] : (profile.bakery_id ? [profile.bakery_id] : []),
+        bakeryIds,
         activeBakeryId: profile.role === 'owner' ? null : profile.bakery_id,
     }
+}
+
+const PROFILE_SELECT_WITH_MULTIPLE_UNITS = 'id, name, email, role, bakery_id, bakery_ids'
+const PROFILE_SELECT_FALLBACK = 'id, name, email, role, bakery_id'
+
+async function fetchUserProfileRecord(userId: string): Promise<UserProfileRecord> {
+    const { data, error } = await getSupabaseClient()
+        .from('users')
+        .select(PROFILE_SELECT_WITH_MULTIPLE_UNITS)
+        .eq('id', userId)
+        .maybeSingle()
+
+    if (!error) {
+        if (!data) throw new UserProfileNotFoundError()
+        return data as UserProfileRecord
+    }
+
+    // A migration de múltiplas unidades pode ainda não ter sido aplicada:
+    // nesse caso a coluna `bakery_ids` não existe e voltamos para `bakery_id`.
+    const isMissingColumn = error.code === '42703'
+        || (typeof error.message === 'string' && error.message.includes('bakery_ids'))
+
+    if (!isMissingColumn) throw error
+
+    const { data: fallbackData, error: fallbackError } = await getSupabaseClient()
+        .from('users')
+        .select(PROFILE_SELECT_FALLBACK)
+        .eq('id', userId)
+        .maybeSingle()
+
+    if (fallbackError) throw fallbackError
+    if (!fallbackData) throw new UserProfileNotFoundError()
+    return fallbackData as UserProfileRecord
 }
 
 export async function isCashierBakeryActive(bakeryId: string): Promise<boolean> {
@@ -59,29 +104,43 @@ export async function isCashierBakeryActive(bakeryId: string): Promise<boolean> 
     return data !== null
 }
 
-async function ensureOperationalBakeryIsActive(user: AuthenticatedUser): Promise<void> {
-    if (user.role === 'owner') return
-    if (user.bakeryIds.length === 0 || !user.activeBakeryId || !await isCashierBakeryActive(user.activeBakeryId)) {
+async function resolveActiveBakeryId(
+    user: AuthenticatedUser,
+    overrideBakeryId?: string | null,
+): Promise<string> {
+    const activeBakeries = await getActiveBakeriesByIds(user.bakeryIds)
+    const activeBakeryIds = activeBakeries.map((bakery) => bakery.id)
+
+    const persistedBakeryId = getPersistedActiveBakeryId(user.id)
+    const resolvedBakeryId = overrideBakeryId && activeBakeryIds.includes(overrideBakeryId)
+        ? overrideBakeryId
+        : persistedBakeryId && activeBakeryIds.includes(persistedBakeryId)
+            ? persistedBakeryId
+            : activeBakeryIds[0]
+
+    if (!resolvedBakeryId) {
         throw new UnavailableBakeryError()
     }
+
+    persistActiveBakeryId(user.id, resolvedBakeryId)
+    return resolvedBakeryId
 }
 
-export async function getUserProfile(userId: string, createdAt?: string): Promise<AuthenticatedUser> {
-    const { data, error } = await getSupabaseClient()
-        .from('users')
-        .select('id, name, email, role, bakery_id')
-        .eq('id', userId)
-        .maybeSingle()
+export async function getUserProfile(
+    userId: string,
+    createdAt?: string,
+    activeBakeryIdOverride?: string | null,
+): Promise<AuthenticatedUser> {
+    const user = mapUserProfile(await fetchUserProfileRecord(userId))
 
-    if (error) throw error
-    if (!data) throw new UserProfileNotFoundError()
+    if (user.role === 'cashier') {
+        user.activeBakeryId = await resolveActiveBakeryId(user, activeBakeryIdOverride)
+    }
 
-    const user = {
-        ...mapUserProfile(data as UserProfileRecord),
+    return {
+        ...user,
         ...(createdAt ? { createdAt } : {}),
     }
-    await ensureOperationalBakeryIsActive(user)
-    return user
 }
 
 export async function signInWithEmailPassword(

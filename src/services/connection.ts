@@ -106,11 +106,18 @@ async function pingSupabase(): Promise<boolean> {
     }
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), pingTimeoutMs)
+    // The Supabase gateway rejects requests without an apikey header
+    // (401 "No API key found in request"), so the ping must send it.
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    const apiKey = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
+    if (apiKey) {
+        headers.apikey = apiKey
+    }
     try {
         const response = await fetch(`${baseUrl}${pingPath}`, {
             method: 'GET',
             cache: 'no-store',
-            headers: { Accept: 'application/json' },
+            headers,
             signal: controller.signal,
         })
         // Any HTTP response (even 401/404) proves the server is reachable.

@@ -544,7 +544,9 @@
   .reports-content {
     width: 100%;
     min-width: 0;
-    padding: 24px 16px 32px;
+    /* Respiro inferior para a MobileBottomNav fixa (60px + safe-area)
+       não cobrir os últimos elementos da página (ex.: acordeão de Estoque). */
+    padding: 24px 16px calc(84px + var(--sab));
   }
 
   .reports-section {

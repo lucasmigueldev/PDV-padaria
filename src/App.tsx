@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isNetworkError, reportNetworkFailure, startConnectionMonitor } from './services/connection'
 import { startSalesSync } from './services/syncOfflineSales'
@@ -96,9 +96,11 @@ function CashierSessionMonitor({ user, onUnavailable }: {
     if (user.role !== 'cashier' || !user.activeBakeryId) return
     const bakeryId = user.activeBakeryId
 
+    const MAX_CONSECUTIVE_FAILURES = 3
     let isActive = true
     let isChecking = false
     let hasEndedSession = false
+    let consecutiveFailureCount = 0
 
     async function endSession(message: string) {
       if (hasEndedSession) return
@@ -120,6 +122,7 @@ function CashierSessionMonitor({ user, onUnavailable }: {
 
       try {
         const isBakeryActive = await isCashierBakeryActive(bakeryId)
+        consecutiveFailureCount = 0
         if (isActive && !isBakeryActive) {
           await endSession('A unidade vinculada ao seu usuário está indisponível.')
         }
@@ -131,8 +134,11 @@ function CashierSessionMonitor({ user, onUnavailable }: {
           reportNetworkFailure()
           return
         }
-        // Erro de aplicação do servidor: encerra a sessão.
-        if (isActive) {
+        // Erro de aplicação do servidor: tolera falhas seguidas para não
+        // encerrar a sessão por um transitório (ex.: gateway 5xx ou falha
+        // pontual no momento em que o foco volta para a aba).
+        consecutiveFailureCount += 1
+        if (isActive && consecutiveFailureCount >= MAX_CONSECUTIVE_FAILURES) {
           await endSession('Não foi possível confirmar a disponibilidade da sua unidade. Entre novamente.')
         }
       } finally {
@@ -168,12 +174,19 @@ function App() {
   const [authenticatedUser, setAuthenticatedUserState] = useState<AuthenticatedUser | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
   const [authMessage, setAuthMessage] = useState<string | null>(null)
+  // Espelho síncrono do usuário autenticado para que callbacks assíncronos
+  // saibam se já existe uma sessão renderizada (sem depender de closures).
+  const authenticatedUserRef = useRef<AuthenticatedUser | null>(null)
+  const setAuthenticatedUser = useCallback((user: AuthenticatedUser | null) => {
+    authenticatedUserRef.current = user
+    setAuthenticatedUserState(user)
+  }, [])
   const clearAuthMessage = useCallback(() => setAuthMessage(null), [])
   const handleCashierUnavailable = useCallback((message: string) => {
-    setAuthenticatedUserState(null)
+    setAuthenticatedUser(null)
     setIsAuthLoading(false)
     setAuthMessage(message)
-  }, [])
+  }, [setAuthenticatedUser])
 
   useEffect(() => {
     let isActive = true
@@ -181,32 +194,48 @@ function App() {
 
     function loadProfileForSession(session: Session | null, eventVersion: number) {
       if (!session) {
-        setAuthenticatedUserState(null)
+        setAuthenticatedUser(null)
         setIsAuthLoading(false)
         return
       }
 
-      setIsAuthLoading(true)
+      // Eventos posteriores de autenticação (TOKEN_REFRESHED, SIGNED_IN
+      // vindos de outra aba, recuperação de sessão ao voltar o foco etc.)
+      // não podem desmontar a UI: `isAuthLoading` só importa no boot, quando
+      // ainda não existe usuário renderizado.
       window.setTimeout(() => {
         if (!isActive || eventVersion !== authEventVersion) return
 
         void getUserProfile(session.user.id, session.user.created_at).then((user) => {
           if (!isActive || eventVersion !== authEventVersion) return
-          setAuthenticatedUserState(user)
+          setAuthenticatedUser(user)
           setIsAuthLoading(false)
           setAuthMessage(null)
         }).catch(async (error: unknown) => {
-          console.error('Não foi possível carregar o perfil do usuário.', error)
           if (!isActive || eventVersion !== authEventVersion) return
 
-          setAuthenticatedUserState(null)
+          const isDefinitiveError = error instanceof UnavailableBakeryError
+            || error instanceof UserProfileNotFoundError
+
+          if (!isDefinitiveError) {
+            // Falha transitória (rede/gateway): preserva a sessão e a tela
+            // atual em vez de deslogar o usuário.
+            console.error('Não foi possível atualizar o perfil do usuário; mantendo a sessão atual.', error)
+            if (authenticatedUserRef.current === null) {
+              // Boot sem usuário renderizado: sai do loading e mostra o aviso.
+              setIsAuthLoading(false)
+              setAuthMessage('Não foi possível carregar seus dados de acesso. Verifique a conexão e tente novamente.')
+            }
+            return
+          }
+
+          console.error('Não foi possível carregar o perfil do usuário.', error)
+          setAuthenticatedUser(null)
           setIsAuthLoading(false)
           if (error instanceof UnavailableBakeryError) {
             setAuthMessage('A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.')
-          } else if (error instanceof UserProfileNotFoundError) {
-            setAuthMessage('Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.')
           } else {
-            setAuthMessage('Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
+            setAuthMessage('Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.')
           }
           try {
             await signOutLocalSession()
@@ -229,7 +258,7 @@ function App() {
     }).catch((error: unknown) => {
       if (!isActive || authEventVersion > 0) return
       console.error('Não foi possível recuperar a sessão Supabase.', error)
-      setAuthenticatedUserState(null)
+      setAuthenticatedUser(null)
       setIsAuthLoading(false)
       setAuthMessage('Não foi possível verificar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
     })
@@ -238,7 +267,7 @@ function App() {
       isActive = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [setAuthenticatedUser])
 
   useEffect(() => {
     const stopMonitor = startConnectionMonitor()
@@ -256,7 +285,7 @@ function App() {
   }, [authenticatedUser?.role, authenticatedUser?.activeBakeryId])
 
   return (
-    <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>
+    <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage, setAuthenticatedUser }}>
       <BluetoothPrinterProvider>
         <BrowserRouter>
         {authenticatedUser?.role === 'cashier' && (

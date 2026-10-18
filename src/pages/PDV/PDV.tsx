@@ -172,8 +172,11 @@ export default function PDV() {
 
     useEffect(() => {
         if (!isCheckoutOpen) return
-
         closeCheckoutButtonRef.current?.focus()
+    }, [isCheckoutOpen])
+
+    useEffect(() => {
+        if (!isCheckoutOpen && !pixOverlayOpen && !pixKeyDisplayOpen) return
 
         function handleEscape(event: KeyboardEvent) {
             if (event.key !== 'Escape') return
@@ -181,7 +184,7 @@ export default function PDV() {
                 closePixOverlay()
             } else if (pixKeyDisplayOpen) {
                 closePixKeyDisplay()
-            } else {
+            } else if (isCheckoutOpen) {
                 closeCheckout()
             }
         }
@@ -1019,6 +1022,8 @@ export default function PDV() {
                         )}
                     </div>
                 </div>
+                </>
+            )}
 
                 {pixOverlayOpen && (
                     <div className="pdv-pix-overlay" onClick={closePixOverlay}>
@@ -1091,8 +1096,6 @@ export default function PDV() {
                         </div>
                     </div>
                 )}
-                </>
-            )}
         </div>
     )
 }
