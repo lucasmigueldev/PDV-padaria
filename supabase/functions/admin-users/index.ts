@@ -556,8 +556,12 @@ deno.serve(async (request: Request) => {
                 email,
                 role,
                 bakery_id: role === 'owner' ? null : cashierBakeryId,
+                // A coluna bakery_ids alimenta as políticas RLS via user_bakeries;
+                // gravar apenas o bakery_id legado deixa o operador sem unidades e
+                // todo acesso RLS dele cai com 42501.
+                bakery_ids: role === 'owner' || !cashierBakeryId ? null : [cashierBakeryId],
             })
-            .select('id, name, email, role, bakery_id')
+            .select('id, name, email, role, bakery_id, bakery_ids')
             .single()
 
         if (createProfileError || !createdProfile) {
@@ -584,6 +588,7 @@ deno.serve(async (request: Request) => {
                 email: createdProfile.email,
                 role: createdProfile.role,
                 bakery_id: createdProfile.bakery_id,
+                bakery_ids: createdProfile.bakery_ids,
             },
         }, 201, corsHeaders)
     } catch (error) {
