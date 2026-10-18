@@ -817,7 +817,7 @@ export default function Configuracoes() {
                             onChange={(event) => setSelectedBakeryId(event.target.value)}
                           >
                             <option value="">Selecione a unidade</option>
-                            {activeBakeries.map((bakery) => (
+                            {bakeries.filter((bakery) => bakery.active).map((bakery) => (
                               <option key={bakery.id} value={bakery.id}>
                                 {bakery.name}
                               </option>

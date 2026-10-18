@@ -13,6 +13,7 @@ import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
 import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
+import RelatorioOffline from './pages/RelatorioOffline/RelatorioOffline'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
@@ -350,6 +351,18 @@ function App() {
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
               <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <Relatorios />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Relatório de interrupções de conexão (fora do ar) protegido */}
+        <Route
+          path="/relatorios-offline"
+          element={
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
+                <RelatorioOffline />
               </RoleRoute>
             </ProtectedRoute>
           }

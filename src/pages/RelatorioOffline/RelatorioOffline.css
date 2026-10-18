@@ -1,0 +1,287 @@
+.relatorio-offline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: 100vh;
+    background: var(--bg-body, #f5f5f5);
+    color: var(--text-primary, #1a1a1a);
+    font-family: var(--font-family, system-ui, -apple-system, sans-serif);
+}
+
+/* Cabeçalho */
+.relatorio-offline-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.relatorio-offline-header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary, #1a1a1a);
+    letter-spacing: -0.01em;
+}
+
+.relatorio-offline-header p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--text-secondary, #5f6368);
+}
+
+/* Indicadores */
+.relatorio-offline-indicators {
+    display: flex;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+    background: var(--bg-surface, #ffffff);
+}
+
+.relatorio-offline-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: var(--bg-card, #fafafa);
+    border: 1px solid var(--border-color, #e5e5e5);
+    flex: 1;
+    min-width: 0;
+}
+
+.relatorio-offline-card--highlight {
+    background: var(--bg-highlight, #fef3e2);
+    border-color: var(--border-highlight, #f2c98a);
+}
+
+.relatorio-offline-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-icon, #eef1f5);
+    color: var(--text-primary, #1a1a1a);
+    flex-shrink: 0;
+}
+
+.relatorio-offline-card--highlight .relatorio-offline-card-icon {
+    background: #ffe0a8;
+}
+
+.relatorio-offline-card span {
+    font-size: 14px;
+    color: var(--text-secondary, #5f6368);
+}
+
+.relatorio-offline-card strong {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary, #1a1a1a);
+}
+
+/* Filtro */
+.relatorio-offline-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+    background: var(--bg-surface, #ffffff);
+}
+
+.relatorio-offline-filter label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a1a);
+    margin: 0;
+}
+
+.relatorio-offline-filter input {
+    flex: 1;
+    max-width: 260px;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border-color, #e5e5e5);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--text-primary, #1a1a1a);
+}
+
+/* Tabela */
+.relatorio-offline-table-section {
+    padding: 24px;
+}
+
+.relatorio-offline-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #e5e5e5);
+}
+
+.relatorio-offline-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary, #5f6368);
+    background: #fafafa;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+    white-space: nowrap;
+}
+
+.relatorio-offline-table td {
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-primary, #1a1a1a);
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.relatorio-offline-table tr:last-child td {
+    border-bottom: none;
+}
+
+.relatorio-offline-table tr:hover td {
+    background: #fafafa;
+}
+
+.relatorio-offline-empty {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--text-secondary, #5f6368);
+}
+
+.relatorio-offline-empty History {
+    color: #9aa0a6;
+}
+
+.relatorio-offline-empty p {
+    margin: 12px 0 0;
+    font-size: 15px;
+}
+
+/* Ações */
+.relatorio-offline-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.relatorio-offline-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a1a);
+    border: 1px solid var(--border-color, #e5e5e5);
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.relatorio-offline-button:hover {
+    background: #f5f5f5;
+}
+
+.relatorio-offline-button--danger {
+    color: #b3261e;
+    border-color: #e8c7c4;
+    background: #fdf3f2;
+}
+
+.relatorio-offline-button--danger:hover {
+    background: #f5e6e3;
+}
+
+/* Badges */
+.relatorio-offline-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.relatorio-offline-badge--ended {
+    background: #e7f4ea;
+    color: #1e7b45;
+    border: 1px solid #bfe3cb;
+}
+
+.relatorio-offline-badge--ongoing {
+    background: #fff7e6;
+    color: #b06e00;
+    border: 1px solid #ffe0a8;
+}
+
+/* Modal */
+.relatorio-offline-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: grid;
+    place-items: center;
+    z-index: 1000;
+    padding: 24px;
+}
+
+.relatorio-offline-modal {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.relatorio-offline-modal h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary, #1a1a1a);
+}
+
+.relatorio-offline-modal p {
+    margin: 0 0 20px;
+    font-size: 14px;
+    color: var(--text-secondary, #5f6368);
+    line-height: 1.5;
+}
+
+.relatorio-offline-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Layout responsivo */
+@media (max-width: 768px) {
+    .relatorio-offline {
+        flex-direction: column;
+    }
+
+    .relatorio-offline-indicators {
+        flex-direction: column;
+    }
+
+    .relatorio-offline-table {
+        font-size: 13px;
+    }
+
+    .relatorio-offline-table th,
+    .relatorio-offline-table td {
+        padding: 10px 12px;
+    }
+}

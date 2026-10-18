@@ -27,6 +27,7 @@ import { useConnectionStatus } from '../../hooks/useConnectionStatus'
 import { enqueueSale, getPendingSyncCount } from '../../services/offlineSalesQueue'
 import { startSalesSync } from '../../services/syncOfflineSales'
 import { isNetworkError, startConnectionMonitor } from '../../services/connection'
+import { startOfflinePeriodTracking } from '../../services/offlinePeriods'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -207,15 +208,17 @@ export default function PDV() {
         }
     }, [isCheckoutOpen, paymentMethod])
 
-    // Inicia o monitor de conectividade e a sincronização de vendas pendentes
-    // quando o PDV está ativo para uma unidade.
+    // Inicia o monitor de conectividade, a sincronização de vendas pendentes
+    // e o rastreamento de períodos fora do ar quando o PDV está ativo para uma unidade.
     useEffect(() => {
         if (!bakeryId) return
         const stopConnection = startConnectionMonitor()
         const stopSync = startSalesSync()
+        const stopOfflineTracking = startOfflinePeriodTracking()
         return () => {
             stopConnection()
             stopSync()
+            stopOfflineTracking()
         }
     }, [bakeryId])
 
