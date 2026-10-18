@@ -3,6 +3,7 @@ import {
   Banknote,
   Calculator,
   ChevronDown,
+  Clock,
   CreditCard,
   DollarSign,
   History,
@@ -65,6 +66,11 @@ function validateDateInput(value: string, today: Date): string | null {
   return null
 }
 
+function formatPeriodDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
+}
+
 function getPaymentSummary(sales: Sale[], paymentMethod: PaymentMethod) {
   const paymentSales = sales.filter((sale) => sale.paymentMethod === paymentMethod)
 
@@ -123,10 +129,6 @@ export default function Relatorios() {
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const [bakeryFilter, setBakeryFilter] = useState('all')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [appliedStartDate, setAppliedStartDate] = useState('')
-  const [appliedEndDate, setAppliedEndDate] = useState('')
   const today = new Date()
   const currentYear = today.getFullYear()
   const todayInputValue = [
@@ -134,6 +136,16 @@ export default function Relatorios() {
     String(today.getMonth() + 1).padStart(2, '0'),
     String(today.getDate()).padStart(2, '0'),
   ].join('-')
+  // Período padrão: mês corrente (dia 1 até hoje).
+  const defaultStartDate = [
+    currentYear,
+    String(today.getMonth() + 1).padStart(2, '0'),
+    '01',
+  ].join('-')
+  const [startDate, setStartDate] = useState(defaultStartDate)
+  const [endDate, setEndDate] = useState(todayInputValue)
+  const [appliedStartDate, setAppliedStartDate] = useState(defaultStartDate)
+  const [appliedEndDate, setAppliedEndDate] = useState(todayInputValue)
   const minimumDate = `${currentYear}-01-01`
   const startDateError = validateDateInput(startDate, today)
   const endDateError = validateDateInput(endDate, today)
@@ -231,10 +243,10 @@ export default function Relatorios() {
   }
 
   function clearPeriod() {
-    setStartDate('')
-    setEndDate('')
-    setAppliedStartDate('')
-    setAppliedEndDate('')
+    setStartDate(defaultStartDate)
+    setEndDate(todayInputValue)
+    setAppliedStartDate(defaultStartDate)
+    setAppliedEndDate(todayInputValue)
     setShowAllSoldProducts(false)
   }
 
@@ -283,6 +295,10 @@ export default function Relatorios() {
           {isOwner && <Link to="/relatorios" className="sidebar-link active">
             <BarChart3 size={19} />
             <span>Relatórios</span>
+          </Link>}
+          {isOwner && <Link to="/relatorios-offline" className="sidebar-link">
+            <Clock size={19} />
+            <span>Fora do ar</span>
           </Link>}
         </nav>
 
@@ -341,6 +357,10 @@ export default function Relatorios() {
             <BarChart3 size={19} />
             <span>Relatórios</span>
           </Link>}
+          {isOwner && <Link to="/relatorios-offline" className="sidebar-link" onClick={closeMobileMenu}>
+            <Clock size={19} />
+            <span>Fora do ar</span>
+          </Link>}
         </nav>
 
         <div className="mobile-drawer-bottom">
@@ -385,7 +405,11 @@ export default function Relatorios() {
             <div className="reports-section-heading reports-section-heading-compact">
               <div>
                 <h2 id="sales-indicators-title">Resumo dos resultados</h2>
-                <p>Resultados correspondentes às vendas filtradas.</p>
+                <p>
+                  {appliedStartDate && appliedEndDate
+                    ? `Período: ${formatPeriodDate(appliedStartDate)} a ${formatPeriodDate(appliedEndDate)}`
+                    : 'Resultados correspondentes às vendas filtradas.'}
+                </p>
               </div>
             </div>
             <div className="reports-indicators-grid">
@@ -456,7 +480,13 @@ export default function Relatorios() {
                 <button type="button" className="reports-primary-button" onClick={applyPeriod} disabled={Boolean(dateError)}>
                   Aplicar período
                 </button>
-                <button type="button" className="reports-secondary-button" onClick={clearPeriod} disabled={!startDate && !endDate && !appliedStartDate && !appliedEndDate}>
+                <button
+                  type="button"
+                  className="reports-secondary-button"
+                  onClick={clearPeriod}
+                  disabled={startDate === defaultStartDate && endDate === todayInputValue
+                    && appliedStartDate === defaultStartDate && appliedEndDate === todayInputValue}
+                >
                   Limpar período
                 </button>
               </div>

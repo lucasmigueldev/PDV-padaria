@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, BarChart3, Settings, Calculator, LogOut, Clock } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Settings, Calculator, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
@@ -43,11 +43,6 @@ export function MobileBottomNav() {
       label: 'Relatórios',
       path: '/relatorios',
       icon: BarChart3,
-    },
-    {
-      label: 'Fora do ar',
-      path: '/relatorios-offline',
-      icon: Clock,
     },
     {
       label: 'Ajustes',
