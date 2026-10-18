@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { CashClosure } from '../types/CashClosure'
 
 type ClosureRow = {
@@ -61,6 +62,9 @@ export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
             ((registerRows ?? []) as RegisterRow[]).map((register) => [register.id, register]),
         )
     } catch (error) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
+        }
         if (error instanceof Error && /^(Seu acesso|Não foi possível carregar|O histórico)/.test(error.message)) {
             throw error
         }

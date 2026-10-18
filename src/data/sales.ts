@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { PaymentMethod, Sale } from '../types/Sale'
 
 type SaleRow = {
@@ -41,6 +42,9 @@ export async function getSalesFromSupabase(): Promise<Sale[]> {
             throw new Error('Não foi possível carregar o histórico de vendas. Atualize a tela e tente novamente.')
         }
     } catch (error) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
+        }
         if (error instanceof Error && error.message.startsWith('Seu acesso não permite')) throw error
         if (error instanceof Error && error.message.includes('temporariamente indisponível')) throw error
         if (error instanceof TypeError) {

@@ -5,6 +5,8 @@ import type { User, UserRole } from '../types/User'
 
 export type AuthenticatedUser = Omit<User, 'password'> & {
     createdAt?: string
+    bakeryIds: string[]
+    activeBakeryId: string | null
 }
 
 export class UserProfileNotFoundError extends Error {
@@ -39,7 +41,8 @@ export function mapUserProfile(profile: UserProfileRecord): AuthenticatedUser {
         name: profile.name,
         email: profile.email,
         role: profile.role as UserRole,
-        bakeryId: profile.role === 'owner' ? null : profile.bakery_id,
+        bakeryIds: profile.role === 'owner' ? [] : (profile.bakery_id ? [profile.bakery_id] : []),
+        activeBakeryId: profile.role === 'owner' ? null : profile.bakery_id,
     }
 }
 
@@ -58,7 +61,7 @@ export async function isCashierBakeryActive(bakeryId: string): Promise<boolean> 
 
 async function ensureOperationalBakeryIsActive(user: AuthenticatedUser): Promise<void> {
     if (user.role === 'owner') return
-    if (!user.bakeryId || !await isCashierBakeryActive(user.bakeryId)) {
+    if (user.bakeryIds.length === 0 || !user.activeBakeryId || !await isCashierBakeryActive(user.activeBakeryId)) {
         throw new UnavailableBakeryError()
     }
 }

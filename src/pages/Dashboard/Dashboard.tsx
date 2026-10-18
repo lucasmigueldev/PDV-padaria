@@ -25,6 +25,9 @@ import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMen
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePdvHeartbeats, PDV_OFFLINE_THRESHOLD_MS } from '../../hooks/usePdvHeartbeats'
+import { WifiOff } from 'lucide-react'
+import { OfflineNotification } from '../../components/OfflineNotification/OfflineNotification'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
 import './Dashborad.css'
@@ -81,9 +84,22 @@ export default function Dashboard() {
   const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
   const [loadError, setLoadError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [lastUpdatedAt] = useState<string | null>(null)
   const establishmentName = useEstablishmentName()
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
+  const { heartbeats } = usePdvHeartbeats(isOwner)
+  const offlineUnits = activeBakeries.filter((bakery) => {
+    const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
+    if (!heartbeat) return false
+    // Date.now() is needed here to check PDV offline status. The value only needs to be refreshed when heartbeats change (every 30s via polling).
+    // eslint-disable-next-line react-hooks/purity
+    return Date.now() - new Date(heartbeat.lastSeenAt).getTime() > PDV_OFFLINE_THRESHOLD_MS
+  })
+  const pendingUnits = activeBakeries.filter((bakery) => {
+    const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
+    return (heartbeat?.pendingSales ?? 0) > 0
+  })
   const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
   const selectedDateObj = new Date(selectedDate)
   const previousDateObj = new Date(selectedDateObj)
@@ -301,6 +317,8 @@ export default function Dashboard() {
         </div>
       </aside>
 
+      <OfflineNotification />
+
       <main className="dashboard-main ml-64 min-h-screen flex-1">
         <header className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7">
           <div className="mobile-topbar">
@@ -330,6 +348,32 @@ export default function Dashboard() {
         <section className="dashboard-content p-10">
           {loadError && <p role="alert" className="mb-4 text-red-700">{loadError}</p>}
           {isLoading && <p role="status" className="mb-4">Carregando dados operacionais...</p>}
+          {isOwner && offlineUnits.length > 0 && (
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800" role="alert">
+              <WifiOff size={20} aria-hidden="true" />
+              <div>
+                <strong>PDV sem conexão</strong>
+                <p className="text-sm">
+                  {offlineUnits.map((bakery) => bakery.name).join(', ')} não respondeu na última verificação.
+                  Os valores exibidos abaixo podem estar desatualizados.
+                </p>
+              </div>
+            </div>
+          )}
+          {isOwner && pendingUnits.length > 0 && offlineUnits.length === 0 && (
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800" role="status">
+              <Clock3 size={20} aria-hidden="true" />
+              <div>
+                <strong>Vendas aguardando sincronização</strong>
+                <p className="text-sm">
+                  {pendingUnits.map((bakery) => {
+                    const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
+                    return `${bakery.name} (${heartbeat?.pendingSales})`
+                  }).join(', ')}. As vendas serão registradas automaticamente quando a conexão for restabelecida.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="dashboard-filters">
             <div className="dashboard-unit-filter">
               <label htmlFor="dashboard-bakery-filter">Unidade</label>
@@ -353,6 +397,9 @@ export default function Dashboard() {
                 value={selectedDate}
                 onChange={(event) => setSelectedDate(event.target.value)}
               />
+              <span className="text-xs text-slate-400" title="Última atualização dos indicadores">
+                Atualizado às {lastUpdatedAt ?? '-'}
+              </span>
             </div>
           </div>
 

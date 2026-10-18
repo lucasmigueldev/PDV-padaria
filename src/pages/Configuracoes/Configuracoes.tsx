@@ -28,7 +28,7 @@ import {
 } from '../../services/adminUsers'
 import { addBakery, updateBakery } from '../../services/bakeries'
 import { useEstablishmentName, saveEstablishmentName } from '../../services/establishment'
-import { usePixKey, savePixKey } from '../../services/pixConfig'
+import { usePixKey, savePixKey, deletePixKey } from '../../services/pixConfig'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Bakery } from '../../types/Bakery'
@@ -41,11 +41,13 @@ function getRoleLabel(role: User['role']): string {
   return role === 'owner' ? 'Proprietário' : 'Operador de caixa'
 }
 
-function getBakeryLabel(bakeryId: User['bakeryId'], bakeries: Bakery[]): string {
-  if (bakeryId === null) return 'Todas as unidades'
+function getBakeryLabel(bakeryIds: string[], bakeries: Bakery[]): string {
+  if (bakeryIds.length === 0) return 'Todas as unidades'
 
-  const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
-  return bakery?.active ? bakery.name : 'Unidade indisponível'
+  return bakeryIds.map((bakeryId) => {
+    const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
+    return bakery?.active ? bakery.name : 'Unidade indisponível'
+  }).join(', ')
 }
 
 type NewUserForm = {
@@ -106,6 +108,8 @@ export default function Configuracoes() {
   const [isSavingPixKey, setIsSavingPixKey] = useState(false)
   const [pixKeyFeedback, setPixKeyFeedback] = useState<{ isError: boolean; message: string } | null>(null)
   const [isEditingPixKey, setIsEditingPixKey] = useState(false)
+  const [pixScope, setPixScope] = useState<'global' | 'specific'>('global')
+  const [selectedBakeryId, setSelectedBakeryId] = useState('')
   const [establishmentInput, setEstablishmentInput] = useState(currentEstablishmentName)
   const [isSavingEstablishment, setIsSavingEstablishment] = useState(false)
   const [establishmentFeedback, setEstablishmentFeedback] = useState<{ isError: boolean; message: string } | null>(null)
@@ -137,11 +141,15 @@ export default function Configuracoes() {
       setPixKeyFeedback({ isError: true, message: 'Informe a chave PIX.' })
       return
     }
+    if (pixScope === 'specific' && !selectedBakeryId) {
+      setPixKeyFeedback({ isError: true, message: 'Selecione a unidade para a qual a chave PIX será aplicada.' })
+      return
+    }
 
     setIsSavingPixKey(true)
     setPixKeyFeedback(null)
     try {
-      await savePixKey(key)
+      await savePixKey(key, pixScope === 'specific' ? selectedBakeryId : null)
       setPixKeyInput('')
       setIsEditingPixKey(false)
       setPixKeyFeedback({ isError: false, message: 'Chave PIX salva com sucesso!' })
@@ -152,14 +160,16 @@ export default function Configuracoes() {
     }
   }
 
-  async function handleDeletePixKey() {
+  async function handleDeletePixKey(bakeryId?: string | null) {
     if (!window.confirm('Tem certeza que deseja excluir a chave PIX?')) return
     setIsSavingPixKey(true)
     setPixKeyFeedback(null)
     try {
-      await savePixKey('')
+      await deletePixKey(bakeryId ?? null)
       setPixKeyInput('')
       setIsEditingPixKey(false)
+      setPixScope('global')
+      setSelectedBakeryId('')
       setPixKeyFeedback({ isError: false, message: 'Chave PIX excluída com sucesso!' })
     } catch {
       setPixKeyFeedback({ isError: true, message: 'Não foi possível excluir a chave PIX.' })
@@ -176,7 +186,7 @@ export default function Configuracoes() {
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
-      || (user.role === 'cashier' && user.bakeryId === userBakeryFilter)
+      || (user.role === 'cashier' && user.bakeryIds.includes(userBakeryFilter))
   ))
 
   useEffect(() => {
@@ -247,7 +257,7 @@ export default function Configuracoes() {
   function openEditOperatorModal(operator: User) {
     if (operator.role !== 'cashier') return
 
-    const currentBakery = bakeries.find((bakery) => bakery.id === operator.bakeryId)
+    const currentBakery = bakeries.find((bakery) => bakery.id === operator.activeBakeryId)
     setEditingOperator(operator)
     setActiveBakeries([
       ...bakeries.filter((bakery) => bakery.active),
@@ -257,7 +267,7 @@ export default function Configuracoes() {
       name: operator.name,
       email: operator.email,
       password: '',
-      bakeryId: operator.bakeryId ?? '',
+      bakeryId: operator.activeBakeryId ?? '',
     })
     setUserFormError('')
     setUserManagementError('')
@@ -318,13 +328,13 @@ export default function Configuracoes() {
         await updateAdminUser({
           id: editingOperator.id,
           name,
-          bakeryId: operatorEditForm.bakeryId,
+          bakeryIds: [operatorEditForm.bakeryId],
           ...(email !== editingOperator.email.trim().toLowerCase() ? { email } : {}),
           ...(password !== undefined ? { password } : {}),
         })
         setUsers((currentUsers) => currentUsers.map((user) => (
           user.id === editingOperator.id
-            ? { ...user, name, email, bakeryId: operatorEditForm.bakeryId }
+            ? { ...user, name, email, bakeryIds: [operatorEditForm.bakeryId], activeBakeryId: operatorEditForm.bakeryId }
             : user
         )))
         setIsUserModalOpen(false)
@@ -388,7 +398,7 @@ export default function Configuracoes() {
         email,
         password,
         role: newUserForm.role,
-        bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+        bakeryIds: newUserForm.role === 'owner' ? [] : [newUserForm.bakeryId],
       })
       const savedUser = { ...createdUser, password: '' }
 
@@ -741,18 +751,21 @@ export default function Configuracoes() {
                       <h3 className="pix-qr-preview-title">Pré-visualização do QR Code</h3>
                       <PixQrCode pixKey={pixKeyFromService} size={200} />
                       <p className="pix-qr-preview-hint">O QR Code será exibido no PDV quando o cliente selecionar PIX.</p>
+                      <p className="pix-qr-preview-scope">Escopo: Todas as unidades</p>
                     </div>
 
                     <div className="pix-actions">
                       <button type="button" className="settings-button pix-action-button" onClick={() => {
                         setPixKeyInput(pixKeyFromService)
+                        setPixScope('global')
+                        setSelectedBakeryId('')
                         setIsEditingPixKey(true)
                         setPixKeyFeedback(null)
                       }}>
                         <Pencil size={16} aria-hidden="true" />
                         Editar chave
                       </button>
-                      <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={handleDeletePixKey}>
+                      <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={() => { void handleDeletePixKey() }}>
                         <Trash2 size={16} aria-hidden="true" />
                         Excluir
                       </button>
@@ -773,6 +786,49 @@ export default function Configuracoes() {
                       />
                     </div>
 
+                    <div className="settings-field pix-scope-field">
+                      <label>Aplicar chave PIX em</label>
+                      <div className="pix-scope-options">
+                        <label className="pix-scope-option">
+                          <input
+                            type="radio"
+                            name="pix-scope"
+                            value="global"
+                            checked={pixScope === 'global'}
+                            onChange={() => setPixScope('global')}
+                          />
+                          <span>Todas as unidades</span>
+                        </label>
+                        <label className="pix-scope-option">
+                          <input
+                            type="radio"
+                            name="pix-scope"
+                            value="specific"
+                            checked={pixScope === 'specific'}
+                            onChange={() => setPixScope('specific')}
+                          />
+                          <span>Uma unidade específica</span>
+                        </label>
+                      </div>
+                      {pixScope === 'specific' && (
+                        <div className="pix-specific-unit">
+                          <label htmlFor="pix-bakery-select">Unidade</label>
+                          <select
+                            id="pix-bakery-select"
+                            value={selectedBakeryId}
+                            onChange={(event) => setSelectedBakeryId(event.target.value)}
+                          >
+                            <option value="">Selecione a unidade</option>
+                            {bakeries.filter((bakery) => bakery.active).map((bakery) => (
+                              <option key={bakery.id} value={bakery.id}>
+                                {bakery.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="pix-actions">
                       <button type="submit" className="settings-button pix-action-button" disabled={isSavingPixKey}>
                         {isSavingPixKey ? 'Salvando...' : 'Salvar chave PIX'}
@@ -780,6 +836,8 @@ export default function Configuracoes() {
                       {!isEditingPixKey && (
                         <button type="button" className="settings-button pix-action-button pix-cancel-button" onClick={() => {
                           setPixKeyInput('')
+                          setPixScope('global')
+                          setSelectedBakeryId('')
                           setPixKeyFeedback(null)
                         }}>
                           Cancelar
@@ -854,7 +912,7 @@ export default function Configuracoes() {
                           <td data-label="Perfil">
                             <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
                           </td>
-                          <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
+                          <td data-label="Unidade">{getBakeryLabel(user.bakeryIds, bakeries)}</td>
                           <td data-label="Gerenciamento">
                             {user.role === 'cashier' ? (
                               <div className="operator-management-actions">

@@ -19,7 +19,7 @@ export function getSupabaseClient(): SupabaseClient {
     if (!supabaseClient) {
         supabaseClient = createClient(supabaseUrl!, supabasePublishableKey!, {
             auth: {
-                storage: window.sessionStorage,
+                storage: window.localStorage,
             },
         })
     }

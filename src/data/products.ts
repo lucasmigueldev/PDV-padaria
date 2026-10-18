@@ -1,5 +1,6 @@
 import { createProductWithInitialStock, updateProductWithStock } from '../services/operations'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { ProductWithStock } from '../types/Product'
 
 type ProductRow = {
@@ -53,7 +54,8 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
         client.from('product_stock').select('product_id, bakery_id, quantity'),
     ]).catch((error: unknown) => {
         console.error('Falha inesperada ao carregar produtos e estoque.', error)
-        if (error instanceof TypeError) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
             throw new Error('Não foi possível conectar ao sistema para carregar os produtos. Verifique sua conexão e tente novamente.', { cause: error })
         }
         throw new Error('Não foi possível carregar os produtos e seus estoques. Atualize a tela e tente novamente.', { cause: error })

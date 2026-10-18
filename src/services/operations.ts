@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { isNetworkError, reportNetworkFailure } from './connection'
 
 import type { CashRegister } from '../types/CashRegister'
 import type { PaymentMethod, SaleItemSnapshot } from '../types/Sale'
@@ -15,6 +16,10 @@ function getUnexpectedOperationError(error: unknown, operation: string): Error {
 
 function throwOperationError(error: SupabaseError, operation: string): never {
     console.error(`Erro na operação ${operation} no Supabase.`, error)
+    if (isNetworkError(error)) {
+        reportNetworkFailure()
+        throw new Error('Não foi possível conectar ao sistema. Verifique sua conexão e tente novamente.', { cause: error })
+    }
     const message = error.message.toLowerCase()
 
     if (error.code === '42501') {
@@ -118,6 +123,9 @@ export async function openCashRegister(initialAmount: number): Promise<CashRegis
             p_initial_amount: initialAmount,
         })
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado da abertura do caixa.', requestError)
         throw new Error('Não foi possível confirmar se o caixa foi aberto. Atualize os dados do caixa antes de tentar novamente.', { cause: requestError })
     }
@@ -159,6 +167,7 @@ export async function createSaleWithItems(input: {
     changeAmount: number | null
     items: Pick<SaleItemSnapshot, 'productId' | 'quantity'>[]
     idempotencyKey: string
+    occurredAt?: string | null
 }): Promise<string> {
     let client: ReturnType<typeof getSupabaseClient>
     try {
@@ -183,6 +192,9 @@ export async function createSaleWithItems(input: {
             p_idempotency_key: input.idempotencyKey,
         }))
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado do registro da venda.', requestError)
         throw new Error(
             'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
@@ -203,6 +215,9 @@ export async function closeCashRegister(cashRegisterId: string, countedAmount: n
             p_counted_amount: countedAmount,
         })
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado do fechamento do caixa.', requestError)
         throw new Error('Não foi possível confirmar se o caixa foi fechado. Consulte o histórico de fechamentos antes de tentar novamente.', { cause: requestError })
     }
@@ -228,6 +243,9 @@ export async function setProductStock(
             p_quantity: quantity,
         })
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado da atualização do estoque.', requestError)
         throw new Error('Não foi possível confirmar se o estoque foi atualizado. Atualize os dados antes de tentar novamente.', { cause: requestError })
     }
@@ -256,6 +274,9 @@ export async function createProductWithInitialStock(input: {
             p_initial_quantity: input.initialQuantity,
         })
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado do cadastro do produto.', requestError)
         throw new Error('Não foi possível confirmar se o produto foi cadastrado. Atualize a lista antes de tentar novamente, para evitar duplicidades.', { cause: requestError })
     }
@@ -283,6 +304,9 @@ export async function updateProductWithStock(input: {
             p_quantity: input.quantity,
         })
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Não foi possível confirmar o resultado da atualização do produto.', requestError)
         throw new Error('Não foi possível confirmar se o produto foi atualizado. Atualize a lista antes de tentar novamente.', { cause: requestError })
     }

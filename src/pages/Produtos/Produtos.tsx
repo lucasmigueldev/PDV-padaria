@@ -60,7 +60,7 @@ export default function Produtos() {
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
     const { bakeries } = useBakeries()
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : null

@@ -23,6 +23,11 @@ import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePixKey } from '../../services/pixConfig'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
+import { useConnectionStatus } from '../../hooks/useConnectionStatus'
+import { enqueueSale, getPendingSyncCount } from '../../services/offlineSalesQueue'
+import { startSalesSync } from '../../services/syncOfflineSales'
+import { isNetworkError, startConnectionMonitor } from '../../services/connection'
+import { startOfflinePeriodTracking } from '../../services/offlinePeriods'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -89,9 +94,11 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const establishmentName = useEstablishmentName()
-    const pixKey = usePixKey()
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
+    const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const connection = useConnectionStatus()
+    const pendingCount = getPendingSyncCount()
     const receiptBakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
         : null
@@ -112,6 +119,7 @@ export default function PDV() {
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
     const [pixOverlayOpen, setPixOverlayOpen] = useState(false)
+    const [pixKeyDisplayOpen, setPixKeyDisplayOpen] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
@@ -171,6 +179,8 @@ export default function PDV() {
             if (event.key !== 'Escape') return
             if (pixOverlayOpen) {
                 closePixOverlay()
+            } else if (pixKeyDisplayOpen) {
+                closePixKeyDisplay()
             } else {
                 closeCheckout()
             }
@@ -178,7 +188,7 @@ export default function PDV() {
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
-    }, [isCheckoutOpen])
+    }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
 
     useEffect(() => {
         function handleFinishShortcut(event: KeyboardEvent) {
@@ -197,6 +207,20 @@ export default function PDV() {
             receivedValueInputRef.current?.focus()
         }
     }, [isCheckoutOpen, paymentMethod])
+
+    // Inicia o monitor de conectividade, a sincronização de vendas pendentes
+    // e o rastreamento de períodos fora do ar quando o PDV está ativo para uma unidade.
+    useEffect(() => {
+        if (!bakeryId) return
+        const stopConnection = startConnectionMonitor()
+        const stopSync = startSalesSync()
+        const stopOfflineTracking = startOfflinePeriodTracking()
+        return () => {
+            stopConnection()
+            stopSync()
+            stopOfflineTracking()
+        }
+    }, [bakeryId])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -316,6 +340,14 @@ export default function PDV() {
         setPixOverlayOpen(false)
     }
 
+    function openPixKeyDisplay() {
+        setPixKeyDisplayOpen(true)
+    }
+
+    function closePixKeyDisplay() {
+        setPixKeyDisplayOpen(false)
+    }
+
     function selectPaymentMethod(method: PaymentMethod) {
         setPaymentMethod(method)
         setReceivedValue('')
@@ -360,14 +392,14 @@ export default function PDV() {
             return
         }
 
-        if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.bakeryId?.trim()) {
+        if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.activeBakeryId?.trim()) {
             setCheckoutMessage('Não foi possível identificar a unidade do operador.')
             return
         }
 
         let currentRegister
         try {
-            currentRegister = await getOpenCashRegister(authenticatedUser.bakeryId)
+            currentRegister = await getOpenCashRegister(authenticatedUser.activeBakeryId)
         } catch (error) {
             setCheckoutMessage(getOperationalErrorMessage(
                 error,
@@ -426,7 +458,7 @@ export default function PDV() {
                 })),
                 total,
                 paymentMethod,
-                bakeryId: authenticatedUser.bakeryId,
+                bakeryId: authenticatedUser.activeBakeryId,
                 ...(receivedAmount !== null ? { receivedAmount } : {}),
                 ...(changeAmount !== null ? { change: changeAmount } : {}),
             }
@@ -438,17 +470,72 @@ export default function PDV() {
             setSaleFeedback('Venda concluída com sucesso.')
 
             try {
-                setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
+                setProducts(await getProductsFromSupabase(authenticatedUser.activeBakeryId))
             } catch (error) {
                 console.error('Venda registrada, mas a atualização do estoque exibido falhou.', error)
                 setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
             }
         } catch (error) {
-            setCheckoutMessage(getOperationalErrorMessage(
-                error,
-                'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
-                'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
-            ))
+            const isOffline = !navigator.onLine || isNetworkError(error)
+            if (isOffline) {
+                // Sem conexão: enfileira a venda para sincronizar depois
+                const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
+                try {
+                    enqueueSale({
+                        id: saleId,
+                        idempotencyKey: saleId,
+                        localRef: saleId,
+                        cashRegisterId: currentRegister.id,
+                        bakeryId: authenticatedUser.activeBakeryId,
+                        occurredAt: new Date().toISOString(),
+                        paymentMethod,
+                        receivedAmount,
+                        changeAmount,
+                        total,
+                        items: items.map((item) => ({
+                            productId: item.id,
+                            name: item.name,
+                            barcode: item.barcode,
+                            price: item.price,
+                            quantity: item.quantity,
+                        })),
+                        status: 'pending',
+                        createdAt: new Date().toISOString(),
+                    })
+                    idempotencyRef.current = null
+                    const confirmedSale: Sale = {
+                        id: saleId,
+                        date: new Date().toISOString(),
+                        items: items.map((item) => ({
+                            productId: item.id,
+                            name: item.name,
+                            barcode: item.barcode,
+                            price: item.price,
+                            quantity: item.quantity,
+                            subtotal: item.quantity * item.price,
+                        })),
+                        total,
+                        paymentMethod,
+                        bakeryId: authenticatedUser.activeBakeryId,
+                        ...(receivedAmount !== null ? { receivedAmount } : {}),
+                        ...(changeAmount !== null ? { change: changeAmount } : {}),
+                    }
+                    setItems([])
+                    setCompletedSale(confirmedSale)
+                    setPixOverlayOpen(false)
+                    setCheckoutStep('completed')
+                    setModalPrintFeedback(null)
+                    setSaleFeedback('Venda registrada offline. Será sincronizada quando a conexão voltar.')
+                } catch {
+                    setCheckoutMessage('Não foi possível registrar a venda. Verifique a conexão e tente novamente.')
+                }
+            } else {
+                setCheckoutMessage(getOperationalErrorMessage(
+                    error,
+                    'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
+                    'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
+                ))
+            }
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
@@ -485,6 +572,19 @@ export default function PDV() {
                 onLogout={handleLogout}
                 showPrinter
             />
+
+            {pendingCount > 0 && connection.status === 'offline' && (
+                <div className="pdv-offline-banner">
+                    <span>● Sem conexão</span>
+                    <span>{pendingCount} venda(ões) aguardando sincronização</span>
+                </div>
+            )}
+            {pendingCount > 0 && connection.status === 'online' && (
+                <div className="pdv-offline-banner pdv-offline-banner--syncing">
+                    <span>● Sincronizando vendas pendentes...</span>
+                    <span>{pendingCount} venda(ões) na fila</span>
+                </div>
+            )}
 
             <aside className="pdv-sidebar">
                 <div className="pdv-brand">
@@ -536,6 +636,19 @@ export default function PDV() {
                         <span>Voltar ao PDV</span>
                         <kbd>F4</kbd>
                     </Link>
+                </nav>
+
+                <nav className="pdv-shortcuts" aria-label="Pagamento">
+                    <span className="pdv-sidebar-label">Pagamento</span>
+                    <button
+                        type="button"
+                        className="pdv-shortcut"
+                        onClick={openPixKeyDisplay}
+                        aria-label="Exibir chave PIX"
+                    >
+                        <QrCode size={19} />
+                        <span>Chave PIX</span>
+                    </button>
                 </nav>
 
             </aside>
@@ -791,7 +904,8 @@ export default function PDV() {
                                             <strong>{currency.format(total)}</strong>
                                             {!pixKey && (
                                                 <p className="pdv-pix-warning">
-                                                    Chave PIX não configurada. Solicite ao administrador.
+                                                    Chave PIX não configurada para esta unidade. O pagamento
+                                                    será registrado manualmente como PIX.
                                                 </p>
                                             )}
                                         </div>
@@ -926,6 +1040,46 @@ export default function PDV() {
                                         <p className="pdv-pix-overlay-total">{currency.format(total)}</p>
                                         <p className="pdv-pix-overlay-hint">
                                             Apresente este código para o cliente escanear
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="pdv-pix-overlay-warning">
+                                        Chave PIX não configurada. Solicite ao administrador.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {pixKeyDisplayOpen && (
+                    <div className="pdv-pix-overlay" onClick={closePixKeyDisplay}>
+                        <div className="pdv-pix-overlay-content" onClick={(event) => event.stopPropagation()}>
+                            <button
+                                type="button"
+                                className="pdv-pix-overlay-close"
+                                onClick={closePixKeyDisplay}
+                                aria-label="Fechar código QR"
+                            >
+                                <X size={24} />
+                            </button>
+                            <div className="pdv-pix-overlay-body">
+                                {pixKey ? (
+                                    <>
+                                        <div className="pdv-pix-overlay-qr">
+                                            <PixQrCode pixKey={pixKey} size={340} />
+                                        </div>
+                                        <p className="pdv-pix-overlay-hint" style={{ fontWeight: 600, color: '#111827', marginTop: 8 }}>
+                                            Chave PIX da padaria
+                                        </p>
+                                        <p className="pdv-pix-overlay-hint">
+                                            Código para pagamento via PIX (valor livre)
+                                        </p>
+                                        <p className="pdv-pix-overlay-key" style={{ wordBreak: 'break-all', marginTop: 12, fontFamily: 'monospace', fontSize: 14, color: '#374151', background: '#f3f4f6', padding: 10, borderRadius: 8 }}>
+                                            {pixKey}
+                                        </p>
+                                        <p className="pdv-pix-overlay-hint">
+                                            Apresente este código para o cliente escanear ou informe a chave acima
                                         </p>
                                     </>
                                 ) : (

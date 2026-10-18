@@ -1,6 +1,9 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isNetworkError, reportNetworkFailure, startConnectionMonitor } from './services/connection'
+import { startSalesSync } from './services/syncOfflineSales'
+import { startPdvHeartbeat } from './services/pdvHeartbeat'
 import './App.css'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -10,6 +13,7 @@ import HistoricoVendas from './pages/HistoricoVendas/HistoricoVendas'
 import Fechamento from './pages/Fechamento/Fechamento'
 import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamentos'
 import Relatorios from './pages/Relatorios/Relatorios'
+import RelatorioOffline from './pages/RelatorioOffline/RelatorioOffline'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
@@ -89,8 +93,8 @@ function CashierSessionMonitor({ user, onUnavailable }: {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (user.role !== 'cashier' || !user.bakeryId) return
-    const bakeryId = user.bakeryId
+    if (user.role !== 'cashier' || !user.activeBakeryId) return
+    const bakeryId = user.activeBakeryId
 
     let isActive = true
     let isChecking = false
@@ -121,6 +125,13 @@ function CashierSessionMonitor({ user, onUnavailable }: {
         }
       } catch (error) {
         console.error('Não foi possível verificar a disponibilidade da unidade do operador.', error)
+        if (isNetworkError(error)) {
+          // Rede instável ou offline: mantém a sessão do operador e
+          // apenas reporta a falha de conexão.
+          reportNetworkFailure()
+          return
+        }
+        // Erro de aplicação do servidor: encerra a sessão.
         if (isActive) {
           await endSession('Não foi possível confirmar a disponibilidade da sua unidade. Entre novamente.')
         }
@@ -148,7 +159,7 @@ function CashierSessionMonitor({ user, onUnavailable }: {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [navigate, onUnavailable, user.bakeryId, user.role])
+  }, [navigate, onUnavailable, user.activeBakeryId, user.role])
 
   return null
 }
@@ -228,6 +239,21 @@ function App() {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    const stopMonitor = startConnectionMonitor()
+    return () => stopMonitor()
+  }, [])
+
+  useEffect(() => {
+    if (authenticatedUser?.role !== 'cashier' || !authenticatedUser.activeBakeryId) return
+    const stopHeartbeat = startPdvHeartbeat(authenticatedUser.activeBakeryId)
+    const stopSalesSync = startSalesSync()
+    return () => {
+      stopHeartbeat()
+      stopSalesSync()
+    }
+  }, [authenticatedUser?.role, authenticatedUser?.activeBakeryId])
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>
@@ -325,6 +351,18 @@ function App() {
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
               <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <Relatorios />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Relatório de interrupções de conexão (fora do ar) protegido */}
+        <Route
+          path="/relatorios-offline"
+          element={
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
+                <RelatorioOffline />
               </RoleRoute>
             </ProtectedRoute>
           }

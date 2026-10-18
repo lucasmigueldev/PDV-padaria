@@ -16,6 +16,9 @@ import type { CashRegister } from '../../types/CashRegister'
 import { closeCashRegister, getOpenCashRegister, openCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
+import { useConnectionStatus } from '../../hooks/useConnectionStatus'
+import { useOfflineQueue } from '../../hooks/useOfflineQueue'
+import { isNetworkError } from '../../services/connection'
 import { logoutAndRedirect } from '../../utils/auth'
 import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import './Fechamento.css'
@@ -57,6 +60,7 @@ function parseMoneyInput(value: string): number | null {
 
 function getCashOperationErrorMessage(error: unknown, fallback: string, connectionMessage: string): string {
     if (error instanceof TypeError) return connectionMessage
+    if (isNetworkError(error)) return connectionMessage
     if (!(error instanceof Error)) return fallback
 
     const containsTechnicalDetails = /(supabase|rpc|postgres|pgrst|jwt|\.env)/i.test(error.message)
@@ -82,7 +86,10 @@ export default function Fechamento() {
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
     const { bakeries } = useBakeries()
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const connection = useConnectionStatus()
+    const queue = useOfflineQueue()
+    const pendingCount = queue.filter((sale) => sale.status === 'pending').length
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
@@ -132,6 +139,10 @@ export default function Fechamento() {
     }
 
     function requestOpenCash() {
+        if (connection.status === 'offline') {
+            setCloseError('Sem conexão. Abrir o caixa exige conexão com o sistema.')
+            return
+        }
         setCloseError('')
         setIsOpeningModalOpen(true)
     }
@@ -160,6 +171,10 @@ export default function Fechamento() {
     }
 
     async function handleOpenCash() {
+        if (connection.status === 'offline') {
+            setCloseError('Sem conexão. Abrir o caixa exige conexão com o sistema.')
+            return
+        }
         const initialAmount = parseMoneyInput(initialAmountInput)
         if (initialAmount === null || cashRegister || !bakeryId) return
 
@@ -179,6 +194,15 @@ export default function Fechamento() {
     }
 
     function handleRequestClose() {
+        if (connection.status === 'offline') {
+            setCloseError('Sem conexão. Fechar o caixa exige conexão com o sistema.')
+            return
+        }
+        if (pendingCount > 0) {
+            setCloseError(`Há ${pendingCount} venda(s) aguardando sincronização. Sincronize antes de fechar o caixa.`)
+            return
+        }
+
         if (countedCash === null) {
             setCloseError('Informe um valor contado válido antes de fechar o caixa.')
             return
@@ -196,6 +220,14 @@ export default function Fechamento() {
     }
 
     async function handleConfirmClose() {
+        if (connection.status === 'offline') {
+            setCloseError('Sem conexão. Fechar o caixa exige conexão com o sistema.')
+            return
+        }
+        if (pendingCount > 0) {
+            setCloseError(`Há ${pendingCount} venda(s) aguardando sincronização. Sincronize antes de fechar o caixa.`)
+            return
+        }
         if (isClosingRef.current || !cashRegister) return
 
         const countedAmount = parseMoneyInput(countedCashInput)
@@ -324,6 +356,7 @@ export default function Fechamento() {
                         </div>
                     </header>
                     {cashLoadError && <p className="fechamento-close-error" role="alert">{cashLoadError}</p>}
+                    {closeError && !isOpeningModalOpen && !isCloseModalOpen && <p className="fechamento-close-error" role="alert">{closeError}</p>}
                     {isLoadingCashRegister ? (
                         <p role="status">Carregando o caixa...</p>
                     ) : !cashRegister ? (
