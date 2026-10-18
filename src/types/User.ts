@@ -6,5 +6,6 @@ export interface User {
     email: string
     password: string
     role: UserRole
-    bakeryId: string | null
+    bakeryIds: string[]
+    activeBakeryId: string | null
 }

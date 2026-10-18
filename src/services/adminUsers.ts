@@ -6,7 +6,8 @@ export type AdminUser = {
     name: string
     email: string
     role: UserRole
-    bakeryId: string | null
+    bakeryIds: string[]
+    activeBakeryId: string | null
 }
 
 type CreateAdminUserResponse = {
@@ -16,6 +17,7 @@ type CreateAdminUserResponse = {
         email: string
         role: UserRole
         bakery_id: string | null
+        bakery_ids: string[]
     }
 }
 
@@ -29,6 +31,7 @@ type AdminUserRecord = {
     email: string
     role: string
     bakery_id: string | null
+    bakery_ids: string[]
 }
 
 function isErrorResponse(value: unknown): value is { error: string } {
@@ -63,7 +66,8 @@ function mapAdminUser(record: AdminUserRecord): User {
         email: record.email,
         password: '',
         role: record.role,
-        bakeryId: record.bakery_id,
+        bakeryIds: record.role === 'owner' ? [] : (record.bakery_ids?.length ? record.bakery_ids : (record.bakery_id ? [record.bakery_id] : [])),
+        activeBakeryId: record.role === 'owner' ? null : (record.bakery_ids?.[0] ?? record.bakery_id ?? null),
     }
 }
 
@@ -105,8 +109,9 @@ export async function createAdminUser(user: {
     email: string
     password: string
     role: UserRole
-    bakeryId: string | null
+    bakeryIds: string[]
 }): Promise<AdminUser> {
+    const firstBakeryId = user.bakeryIds.length > 0 ? user.bakeryIds[0] : null
     const { data, error } = await getSupabaseClient().functions.invoke<CreateAdminUserResponse>(
         'admin-users',
         {
@@ -116,7 +121,8 @@ export async function createAdminUser(user: {
                 email: user.email,
                 password: user.password,
                 role: user.role,
-                bakery_id: user.bakeryId,
+                bakery_id: firstBakeryId,
+                bakery_ids: user.bakeryIds,
             },
         },
     )
@@ -134,29 +140,33 @@ export async function createAdminUser(user: {
         name: data.user.name,
         email: data.user.email,
         role: data.user.role,
-        bakeryId: data.user.bakery_id,
+        bakeryIds: data.user.bakery_ids?.length ? data.user.bakery_ids : (data.user.bakery_id ? [data.user.bakery_id] : []),
+        activeBakeryId: data.user.bakery_ids?.[0] ?? data.user.bakery_id ?? null,
     }
 }
 
 export async function updateAdminUser(user: {
     id: string
     name: string
-    bakeryId: string
+    bakeryIds: string[]
     email?: string
     password?: string
 }): Promise<void> {
+    const firstBakeryId = user.bakeryIds.length > 0 ? user.bakeryIds[0] : null
     const body: {
         action: 'update'
         user_id: string
         name: string
-        bakery_id: string
+        bakery_id: string | null
+        bakery_ids: string[]
         email?: string
         password?: string
     } = {
         action: 'update',
         user_id: user.id,
         name: user.name,
-        bakery_id: user.bakeryId,
+        bakery_id: firstBakeryId,
+        bakery_ids: user.bakeryIds,
     }
 
     if (user.email !== undefined) body.email = user.email
