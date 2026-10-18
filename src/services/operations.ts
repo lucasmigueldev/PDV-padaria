@@ -190,7 +190,6 @@ export async function createSaleWithItems(input: {
                 quantity: item.quantity,
             })),
             p_idempotency_key: input.idempotencyKey,
-            p_occurred_at: input.occurredAt ?? null,
         }))
     } catch (requestError) {
         if (isNetworkError(requestError)) {
