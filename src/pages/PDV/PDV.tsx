@@ -93,9 +93,9 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const establishmentName = useEstablishmentName()
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const connection = useConnectionStatus()
     const pendingCount = getPendingSyncCount()
     const receiptBakeryName = bakeryId
