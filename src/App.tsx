@@ -1,6 +1,9 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isNetworkError, reportNetworkFailure, startConnectionMonitor } from './services/connection'
+import { startSalesSync } from './services/syncOfflineSales'
+import { startPdvHeartbeat } from './services/pdvHeartbeat'
 import './App.css'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -121,6 +124,13 @@ function CashierSessionMonitor({ user, onUnavailable }: {
         }
       } catch (error) {
         console.error('Não foi possível verificar a disponibilidade da unidade do operador.', error)
+        if (isNetworkError(error)) {
+          // Rede instável ou offline: mantém a sessão do operador e
+          // apenas reporta a falha de conexão.
+          reportNetworkFailure()
+          return
+        }
+        // Erro de aplicação do servidor: encerra a sessão.
         if (isActive) {
           await endSession('Não foi possível confirmar a disponibilidade da sua unidade. Entre novamente.')
         }
@@ -228,6 +238,21 @@ function App() {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    const stopMonitor = startConnectionMonitor()
+    return () => stopMonitor()
+  }, [])
+
+  useEffect(() => {
+    if (authenticatedUser?.role !== 'cashier' || !authenticatedUser.bakeryId) return
+    const stopHeartbeat = startPdvHeartbeat(authenticatedUser.bakeryId)
+    const stopSalesSync = startSalesSync()
+    return () => {
+      stopHeartbeat()
+      stopSalesSync()
+    }
+  }, [authenticatedUser?.role, authenticatedUser?.bakeryId])
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>

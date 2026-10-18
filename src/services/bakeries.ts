@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { Bakery } from '../types/Bakery'
 
 const bakeryFields = 'id, name, active'
@@ -59,6 +60,9 @@ export async function addBakery(bakery: Omit<Bakery, 'id'>): Promise<Bakery> {
             .select(bakeryFields)
             .single()
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Falha inesperada ao cadastrar unidade.', requestError)
         if (requestError instanceof TypeError) {
             throw new Error('Não foi possível conectar ao sistema para cadastrar a unidade. Verifique sua conexão e tente novamente.', { cause: requestError })
@@ -85,6 +89,9 @@ export async function updateBakery(id: string, bakery: Omit<Bakery, 'id'>): Prom
             .select(bakeryFields)
             .maybeSingle()
     } catch (requestError) {
+        if (isNetworkError(requestError)) {
+            reportNetworkFailure()
+        }
         console.error('Falha inesperada ao atualizar unidade.', requestError)
         if (requestError instanceof TypeError) {
             throw new Error('Não foi possível conectar ao sistema para atualizar a unidade. Verifique sua conexão e tente novamente.', { cause: requestError })

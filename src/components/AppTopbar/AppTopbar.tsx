@@ -1,6 +1,7 @@
 import { LogOut, Store, UserRound } from 'lucide-react'
 import PrinterStatusButton from '../PrinterStatusButton/PrinterStatusButton'
 import { useEstablishmentName } from '../../services/establishment'
+import ConnectionStatusBadge from '../../components/ConnectionStatusBadge/ConnectionStatusBadge'
 import './AppTopbar.css'
 
 interface AppTopbarProps {
@@ -35,6 +36,7 @@ export default function AppTopbar({ userName, bakeryName, userRole, onLogout, sh
                         </>
                     )}
                 </div>
+                <ConnectionStatusBadge />
                 {showPrinter && (
                     <>
                         <div className="app-session-divider" aria-hidden="true" />
