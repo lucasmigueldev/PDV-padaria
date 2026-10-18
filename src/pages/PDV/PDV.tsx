@@ -89,7 +89,7 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const establishmentName = useEstablishmentName()
-    const pixKey = usePixKey()
+    const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
     const receiptBakeryName = bakeryId
@@ -112,6 +112,7 @@ export default function PDV() {
     const [checkoutMessage, setCheckoutMessage] = useState('')
     const [isRegisteringSale, setIsRegisteringSale] = useState(false)
     const [pixOverlayOpen, setPixOverlayOpen] = useState(false)
+    const [pixKeyDisplayOpen, setPixKeyDisplayOpen] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
@@ -171,6 +172,8 @@ export default function PDV() {
             if (event.key !== 'Escape') return
             if (pixOverlayOpen) {
                 closePixOverlay()
+            } else if (pixKeyDisplayOpen) {
+                closePixKeyDisplay()
             } else {
                 closeCheckout()
             }
@@ -178,7 +181,7 @@ export default function PDV() {
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
-    }, [isCheckoutOpen])
+    }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
 
     useEffect(() => {
         function handleFinishShortcut(event: KeyboardEvent) {
@@ -314,6 +317,14 @@ export default function PDV() {
 
     function closePixOverlay() {
         setPixOverlayOpen(false)
+    }
+
+    function openPixKeyDisplay() {
+        setPixKeyDisplayOpen(true)
+    }
+
+    function closePixKeyDisplay() {
+        setPixKeyDisplayOpen(false)
     }
 
     function selectPaymentMethod(method: PaymentMethod) {
@@ -536,6 +547,19 @@ export default function PDV() {
                         <span>Voltar ao PDV</span>
                         <kbd>F4</kbd>
                     </Link>
+                </nav>
+
+                <nav className="pdv-shortcuts" aria-label="Pagamento">
+                    <span className="pdv-sidebar-label">Pagamento</span>
+                    <button
+                        type="button"
+                        className="pdv-shortcut"
+                        onClick={openPixKeyDisplay}
+                        aria-label="Exibir chave PIX"
+                    >
+                        <QrCode size={19} />
+                        <span>Chave PIX</span>
+                    </button>
                 </nav>
 
             </aside>
@@ -791,7 +815,8 @@ export default function PDV() {
                                             <strong>{currency.format(total)}</strong>
                                             {!pixKey && (
                                                 <p className="pdv-pix-warning">
-                                                    Chave PIX não configurada. Solicite ao administrador.
+                                                    Chave PIX não configurada para esta unidade. O pagamento
+                                                    será registrado manualmente como PIX.
                                                 </p>
                                             )}
                                         </div>
@@ -926,6 +951,46 @@ export default function PDV() {
                                         <p className="pdv-pix-overlay-total">{currency.format(total)}</p>
                                         <p className="pdv-pix-overlay-hint">
                                             Apresente este código para o cliente escanear
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="pdv-pix-overlay-warning">
+                                        Chave PIX não configurada. Solicite ao administrador.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {pixKeyDisplayOpen && (
+                    <div className="pdv-pix-overlay" onClick={closePixKeyDisplay}>
+                        <div className="pdv-pix-overlay-content" onClick={(event) => event.stopPropagation()}>
+                            <button
+                                type="button"
+                                className="pdv-pix-overlay-close"
+                                onClick={closePixKeyDisplay}
+                                aria-label="Fechar código QR"
+                            >
+                                <X size={24} />
+                            </button>
+                            <div className="pdv-pix-overlay-body">
+                                {pixKey ? (
+                                    <>
+                                        <div className="pdv-pix-overlay-qr">
+                                            <PixQrCode pixKey={pixKey} size={340} />
+                                        </div>
+                                        <p className="pdv-pix-overlay-hint" style={{ fontWeight: 600, color: '#111827', marginTop: 8 }}>
+                                            Chave PIX da padaria
+                                        </p>
+                                        <p className="pdv-pix-overlay-hint">
+                                            Código para pagamento via PIX (valor livre)
+                                        </p>
+                                        <p className="pdv-pix-overlay-key" style={{ wordBreak: 'break-all', marginTop: 12, fontFamily: 'monospace', fontSize: 14, color: '#374151', background: '#f3f4f6', padding: 10, borderRadius: 8 }}>
+                                            {pixKey}
+                                        </p>
+                                        <p className="pdv-pix-overlay-hint">
+                                            Apresente este código para o cliente escanear ou informe a chave acima
                                         </p>
                                     </>
                                 ) : (

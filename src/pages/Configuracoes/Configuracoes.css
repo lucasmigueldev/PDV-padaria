@@ -769,6 +769,73 @@
   line-height: 1.5;
 }
 
+.pix-qr-preview-scope {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pix-scope-field {
+  margin-top: 14px;
+}
+
+.pix-scope-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.pix-scope-options {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.pix-scope-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #374151;
+}
+
+.pix-scope-option input {
+  margin: 0;
+}
+
+.pix-specific-unit {
+  margin-top: 8px;
+}
+
+.pix-specific-unit label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.pix-specific-unit select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #111827;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.pix-specific-unit select:focus {
+  outline: none;
+  border-color: #2563eb;
+  ring-color: #2563eb;
+}
+
 @media (max-width: 767px) {
   .settings-layout {
     overflow-x: hidden;
