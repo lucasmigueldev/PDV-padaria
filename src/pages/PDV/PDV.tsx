@@ -473,7 +473,8 @@ export default function PDV() {
                 setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
             }
         } catch (error) {
-            if (isNetworkError(error)) {
+            const isOffline = !navigator.onLine || isNetworkError(error)
+            if (isOffline) {
                 // Sem conexão: enfileira a venda para sincronizar depois
                 const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
                 try {
