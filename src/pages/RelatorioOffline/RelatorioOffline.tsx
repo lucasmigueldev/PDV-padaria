@@ -6,7 +6,6 @@ import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMen
 import { useAuth } from '../../contexts/AuthContext'
 import { useOfflinePeriods } from '../../hooks/useOfflinePeriods'
 import { clearOfflinePeriods } from '../../services/offlinePeriods'
-import { logoutAndRedirect } from '../../utils/auth'
 import './RelatorioOffline.css'
 
 function formatDateBR(timestamp: number): string {
@@ -43,7 +42,6 @@ export default function RelatorioOffline() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const [dateFilter, setDateFilter] = useState<string>('')
     const [confirmClearOpen, setConfirmClearOpen] = useState(false)
 
@@ -62,10 +60,6 @@ export default function RelatorioOffline() {
         }
     }, [isOwner, navigate])
 
-    function handleLogout() {
-        logoutAndRedirect(navigate)
-    }
-
     function handleClear() {
         setConfirmClearOpen(true)
     }
@@ -76,12 +70,7 @@ export default function RelatorioOffline() {
     return (
         <div className="relatorio-offline">
             <aside className="relatorio-offline-sidebar">
-                <UserProfileMenu
-                    user={authenticatedUser}
-                    onLogout={handleLogout}
-                    isOpen={isMobileMenuOpen}
-                    setIsOpen={setIsMobileMenuOpen}
-                />
+                <UserProfileMenu user={authenticatedUser} />
                 <nav className="relatorio-offline-nav">
                     <Link to="/dashboard" className="relatorio-offline-nav-link">
                         <LayoutList size={20} aria-hidden="true" />

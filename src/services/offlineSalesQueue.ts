@@ -1,5 +1,4 @@
 import type { PaymentMethod } from '../types/Sale'
-import { PDV_CACHE_KEYS, readCache, writeCache } from './offlineCache'
 
 export type QueuedSaleStatus = 'pending' | 'failed'
 

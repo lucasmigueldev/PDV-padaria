@@ -93,7 +93,7 @@ export default function HistoricoVendas() {
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
     const copyFeedbackTimeoutRef = useRef<number | null>(null)
     const { bakeries } = useBakeries()
-    const bakeryName = bakeries.find((bakery) => bakery.id === authenticatedUser?.bakeryId)?.name ?? null
+    const bakeryName = bakeries.find((bakery) => bakery.id === authenticatedUser?.activeBakeryId)?.name ?? null
     const today = new Date()
     const currentYear = today.getFullYear()
     const todayInputValue = [
@@ -116,7 +116,7 @@ export default function HistoricoVendas() {
     const dateError = startDateError || endDateError || (hasInvalidDateRange
         ? 'A data inicial não pode ser posterior à data final.'
         : null)
-    const authenticatedBakeryId = authenticatedUser?.bakeryId
+    const authenticatedBakeryId = authenticatedUser?.activeBakeryId
     const filteredSales = sales.filter((sale) => {
         const matchesPayment = paymentFilter === 'all' || sale.paymentMethod === paymentFilter
         const matchesBakery = authenticatedBakeryId !== null &&

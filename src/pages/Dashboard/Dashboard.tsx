@@ -98,7 +98,7 @@ export default function Dashboard() {
   })
   const pendingUnits = activeBakeries.filter((bakery) => {
     const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
-    return heartbeat?.pendingSales > 0
+    return (heartbeat?.pendingSales ?? 0) > 0
   })
   const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
   const selectedDateObj = new Date(selectedDate)

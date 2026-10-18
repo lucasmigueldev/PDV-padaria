@@ -1,15 +1,13 @@
 import { createSaleWithItems } from './operations'
 import {
     getPendingSales,
-    getFailedSales,
     getPendingSyncCount,
     getQueueSnapshot,
     markSaleFailed,
     markSaleSynced,
-    retryFailedSale,
     subscribeQueue,
 } from './offlineSalesQueue'
-import { isNetworkError, reportNetworkFailure, reportNetworkSuccess } from './connection'
+import { getConnectionState, isNetworkError, reportNetworkFailure, reportNetworkSuccess } from './connection'
 import { updateSyncState } from './syncState'
 
 const RETRY_DELAYS_MS = [15_000, 60_000, 300_000]

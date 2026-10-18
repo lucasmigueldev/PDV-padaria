@@ -93,8 +93,8 @@ function CashierSessionMonitor({ user, onUnavailable }: {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (user.role !== 'cashier' || !user.bakeryId) return
-    const bakeryId = user.bakeryId
+    if (user.role !== 'cashier' || !user.activeBakeryId) return
+    const bakeryId = user.activeBakeryId
 
     let isActive = true
     let isChecking = false
@@ -159,7 +159,7 @@ function CashierSessionMonitor({ user, onUnavailable }: {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [navigate, onUnavailable, user.bakeryId, user.role])
+  }, [navigate, onUnavailable, user.activeBakeryId, user.role])
 
   return null
 }
@@ -246,14 +246,14 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (authenticatedUser?.role !== 'cashier' || !authenticatedUser.bakeryId) return
-    const stopHeartbeat = startPdvHeartbeat(authenticatedUser.bakeryId)
+    if (authenticatedUser?.role !== 'cashier' || !authenticatedUser.activeBakeryId) return
+    const stopHeartbeat = startPdvHeartbeat(authenticatedUser.activeBakeryId)
     const stopSalesSync = startSalesSync()
     return () => {
       stopHeartbeat()
       stopSalesSync()
     }
-  }, [authenticatedUser?.role, authenticatedUser?.bakeryId])
+  }, [authenticatedUser?.role, authenticatedUser?.activeBakeryId])
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage }}>

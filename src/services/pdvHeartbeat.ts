@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../lib/supabaseClient'
-import { getConnectionState, reportNetworkFailure, reportNetworkSuccess } from './connection'
+import { getConnectionState, reportNetworkSuccess } from './connection'
 import { getPendingSyncCount } from './offlineSalesQueue'
 
 const HEARTBEAT_INTERVAL_MS = 30_000

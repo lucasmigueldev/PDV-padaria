@@ -94,7 +94,7 @@ export default function PDV() {
     const { authenticatedUser } = useAuth()
     const { bakeries } = useBakeries()
     const establishmentName = useEstablishmentName()
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
     const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
     const connection = useConnectionStatus()
@@ -392,14 +392,14 @@ export default function PDV() {
             return
         }
 
-        if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.bakeryId?.trim()) {
+        if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.activeBakeryId?.trim()) {
             setCheckoutMessage('Não foi possível identificar a unidade do operador.')
             return
         }
 
         let currentRegister
         try {
-            currentRegister = await getOpenCashRegister(authenticatedUser.bakeryId)
+            currentRegister = await getOpenCashRegister(authenticatedUser.activeBakeryId)
         } catch (error) {
             setCheckoutMessage(getOperationalErrorMessage(
                 error,
@@ -458,7 +458,7 @@ export default function PDV() {
                 })),
                 total,
                 paymentMethod,
-                bakeryId: authenticatedUser.bakeryId,
+                bakeryId: authenticatedUser.activeBakeryId,
                 ...(receivedAmount !== null ? { receivedAmount } : {}),
                 ...(changeAmount !== null ? { change: changeAmount } : {}),
             }
@@ -470,7 +470,7 @@ export default function PDV() {
             setSaleFeedback('Venda concluída com sucesso.')
 
             try {
-                setProducts(await getProductsFromSupabase(authenticatedUser.bakeryId))
+                setProducts(await getProductsFromSupabase(authenticatedUser.activeBakeryId))
             } catch (error) {
                 console.error('Venda registrada, mas a atualização do estoque exibido falhou.', error)
                 setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
@@ -486,7 +486,7 @@ export default function PDV() {
                         idempotencyKey: saleId,
                         localRef: saleId,
                         cashRegisterId: currentRegister.id,
-                        bakeryId: authenticatedUser.bakeryId,
+                        bakeryId: authenticatedUser.activeBakeryId,
                         occurredAt: new Date().toISOString(),
                         paymentMethod,
                         receivedAmount,
@@ -516,7 +516,7 @@ export default function PDV() {
                         })),
                         total,
                         paymentMethod,
-                        bakeryId: authenticatedUser.bakeryId,
+                        bakeryId: authenticatedUser.activeBakeryId,
                         ...(receivedAmount !== null ? { receivedAmount } : {}),
                         ...(changeAmount !== null ? { change: changeAmount } : {}),
                     }

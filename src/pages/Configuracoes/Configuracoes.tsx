@@ -41,11 +41,13 @@ function getRoleLabel(role: User['role']): string {
   return role === 'owner' ? 'Proprietário' : 'Operador de caixa'
 }
 
-function getBakeryLabel(bakeryId: User['bakeryId'], bakeries: Bakery[]): string {
-  if (bakeryId === null) return 'Todas as unidades'
+function getBakeryLabel(bakeryIds: string[], bakeries: Bakery[]): string {
+  if (bakeryIds.length === 0) return 'Todas as unidades'
 
-  const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
-  return bakery?.active ? bakery.name : 'Unidade indisponível'
+  return bakeryIds.map((bakeryId) => {
+    const bakery = bakeries.find((currentBakery) => currentBakery.id === bakeryId)
+    return bakery?.active ? bakery.name : 'Unidade indisponível'
+  }).join(', ')
 }
 
 type NewUserForm = {
@@ -184,7 +186,7 @@ export default function Configuracoes() {
   const activeBakeryOptions = bakeries.filter((bakery) => bakery.active)
   const filteredUsers = users.filter((user) => (
     userBakeryFilter === 'all'
-      || (user.role === 'cashier' && user.bakeryId === userBakeryFilter)
+      || (user.role === 'cashier' && user.bakeryIds.includes(userBakeryFilter))
   ))
 
   useEffect(() => {
@@ -255,7 +257,7 @@ export default function Configuracoes() {
   function openEditOperatorModal(operator: User) {
     if (operator.role !== 'cashier') return
 
-    const currentBakery = bakeries.find((bakery) => bakery.id === operator.bakeryId)
+    const currentBakery = bakeries.find((bakery) => bakery.id === operator.activeBakeryId)
     setEditingOperator(operator)
     setActiveBakeries([
       ...bakeries.filter((bakery) => bakery.active),
@@ -265,7 +267,7 @@ export default function Configuracoes() {
       name: operator.name,
       email: operator.email,
       password: '',
-      bakeryId: operator.bakeryId ?? '',
+      bakeryId: operator.activeBakeryId ?? '',
     })
     setUserFormError('')
     setUserManagementError('')
@@ -326,13 +328,13 @@ export default function Configuracoes() {
         await updateAdminUser({
           id: editingOperator.id,
           name,
-          bakeryId: operatorEditForm.bakeryId,
+          bakeryIds: [operatorEditForm.bakeryId],
           ...(email !== editingOperator.email.trim().toLowerCase() ? { email } : {}),
           ...(password !== undefined ? { password } : {}),
         })
         setUsers((currentUsers) => currentUsers.map((user) => (
           user.id === editingOperator.id
-            ? { ...user, name, email, bakeryId: operatorEditForm.bakeryId }
+            ? { ...user, name, email, bakeryIds: [operatorEditForm.bakeryId], activeBakeryId: operatorEditForm.bakeryId }
             : user
         )))
         setIsUserModalOpen(false)
@@ -396,7 +398,7 @@ export default function Configuracoes() {
         email,
         password,
         role: newUserForm.role,
-        bakeryId: newUserForm.role === 'owner' ? null : newUserForm.bakeryId,
+        bakeryIds: newUserForm.role === 'owner' ? [] : [newUserForm.bakeryId],
       })
       const savedUser = { ...createdUser, password: '' }
 
@@ -763,7 +765,7 @@ export default function Configuracoes() {
                         <Pencil size={16} aria-hidden="true" />
                         Editar chave
                       </button>
-                      <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={handleDeletePixKey}>
+                      <button type="button" className="settings-button pix-action-button pix-delete-button" onClick={() => { void handleDeletePixKey() }}>
                         <Trash2 size={16} aria-hidden="true" />
                         Excluir
                       </button>
@@ -910,7 +912,7 @@ export default function Configuracoes() {
                           <td data-label="Perfil">
                             <span className={`user-role-badge ${user.role}`}>{getRoleLabel(user.role)}</span>
                           </td>
-                          <td data-label="Unidade">{getBakeryLabel(user.bakeryId, bakeries)}</td>
+                          <td data-label="Unidade">{getBakeryLabel(user.bakeryIds, bakeries)}</td>
                           <td data-label="Gerenciamento">
                             {user.role === 'cashier' ? (
                               <div className="operator-management-actions">

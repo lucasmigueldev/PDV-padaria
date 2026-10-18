@@ -89,7 +89,7 @@ export default function Fechamento() {
     const connection = useConnectionStatus()
     const queue = useOfflineQueue()
     const pendingCount = queue.filter((sale) => sale.status === 'pending').length
-    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.bakeryId : null
+    const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
     const bakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? 'Unidade indisponível'
         : 'Unidade indisponível'
