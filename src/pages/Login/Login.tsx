@@ -1,15 +1,18 @@
 import { useRef, useState } from 'react'
-import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, LogIn, Store } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../../contexts/AuthContext'
 import {
   getAuthenticatedUser,
+  getUserProfile,
   signInWithEmailPassword,
   signOutLocalSession,
   UnavailableBakeryError,
   UserProfileNotFoundError,
 } from '../../services/auth'
+import { getActiveBakeriesByIds, persistActiveBakeryId } from '../../services/userBakeries'
+import type { Bakery } from '../../types/Bakery'
 import './Login.css'
 
 function getLoginErrorMessage(error: unknown): string {
@@ -33,16 +36,93 @@ function getLoginErrorMessage(error: unknown): string {
   return 'Não foi possível entrar. Tente novamente. Se o problema continuar, solicite ajuda ao proprietário.'
 }
 
+type PendingUnitSelection = {
+  userId: string
+  createdAt?: string
+  bakeries: Bakery[]
+}
+
 const Login = () => {
   const navigate = useNavigate()
-  const { authMessage, clearAuthMessage } = useAuth()
+  const { authMessage, clearAuthMessage, setAuthenticatedUser } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pendingUnitSelection, setPendingUnitSelection] = useState<PendingUnitSelection | null>(null)
+  const [selectedBakeryId, setSelectedBakeryId] = useState('')
   const isSubmittingRef = useRef(false)
-  const isFormReady = email.trim().length > 0 && password.length > 0
+  const isCredentialsReady = email.trim().length > 0 && password.length > 0
+  const isFormReady = pendingUnitSelection
+    ? selectedBakeryId.length > 0
+    : isCredentialsReady
+
+  async function handleProfileError(error: unknown) {
+    console.error('Não foi possível carregar o perfil do usuário.', error)
+    try {
+      await signOutLocalSession()
+    } catch (signOutError) {
+      console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
+    }
+    setPendingUnitSelection(null)
+    setSelectedBakeryId('')
+    setErrorMessage(error instanceof UnavailableBakeryError
+      ? 'A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.'
+      : error instanceof UserProfileNotFoundError
+        ? 'Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.'
+        : 'Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
+  }
+
+  async function handleUnitSelectionSubmit(pending: PendingUnitSelection) {
+    if (!selectedBakeryId) {
+      setErrorMessage('Selecione a unidade para continuar.')
+      return
+    }
+
+    try {
+      persistActiveBakeryId(pending.userId, selectedBakeryId)
+      const authenticatedUser = await getUserProfile(pending.userId, pending.createdAt, selectedBakeryId)
+      setAuthenticatedUser(authenticatedUser)
+      setPendingUnitSelection(null)
+      setSelectedBakeryId('')
+      navigate('/pdv', { replace: true })
+    } catch (error) {
+      await handleProfileError(error)
+    }
+  }
+
+  async function handleCredentialsSubmit() {
+    try {
+      await signInWithEmailPassword(email.trim().toLowerCase(), password)
+    } catch (error) {
+      console.error('Falha na autenticação pelo Supabase.', error)
+      setErrorMessage(getLoginErrorMessage(error))
+      return
+    }
+
+    try {
+      const authenticatedUser = await getAuthenticatedUser()
+      if (!authenticatedUser) throw new UserProfileNotFoundError()
+
+      if (authenticatedUser.role === 'owner') {
+        navigate('/dashboard', { replace: true })
+        return
+      }
+
+      const activeBakeries = await getActiveBakeriesByIds(authenticatedUser.bakeryIds)
+      if (activeBakeries.length === 0) throw new UnavailableBakeryError()
+
+      setPendingUnitSelection({
+        userId: authenticatedUser.id,
+        createdAt: authenticatedUser.createdAt,
+        bakeries: activeBakeries,
+      })
+      setSelectedBakeryId(activeBakeries.length === 1 ? activeBakeries[0].id : '')
+    } catch (error) {
+      await handleProfileError(error)
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,31 +134,10 @@ const Login = () => {
     clearAuthMessage()
 
     try {
-      try {
-        await signInWithEmailPassword(email.trim().toLowerCase(), password)
-      } catch (error) {
-        console.error('Falha na autenticação pelo Supabase.', error)
-        setErrorMessage(getLoginErrorMessage(error))
-        return
-      }
-
-      try {
-        const authenticatedUser = await getAuthenticatedUser()
-        if (!authenticatedUser) throw new UserProfileNotFoundError()
-
-        navigate(authenticatedUser.role === 'owner' ? '/dashboard' : '/pdv', { replace: true })
-      } catch (error) {
-        console.error('Não foi possível carregar o perfil do usuário.', error)
-        try {
-          await signOutLocalSession()
-        } catch (signOutError) {
-          console.error('Não foi possível encerrar a sessão sem perfil.', signOutError)
-        }
-        setErrorMessage(error instanceof UnavailableBakeryError
-          ? 'A unidade vinculada à sua conta está indisponível. Solicite ajuda ao proprietário.'
-          : error instanceof UserProfileNotFoundError
-            ? 'Esta conta ainda não está configurada para acessar o sistema. Solicite ajuda ao proprietário.'
-            : 'Não foi possível carregar seus dados de acesso. Tente entrar novamente. Se o problema continuar, solicite ajuda ao proprietário.')
+      if (pendingUnitSelection) {
+        await handleUnitSelectionSubmit(pendingUnitSelection)
+      } else {
+        await handleCredentialsSubmit()
       }
     } finally {
       isSubmittingRef.current = false
@@ -155,6 +214,36 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Unidade (operador) */}
+          {pendingUnitSelection && (
+            <div className="form-group">
+              <label htmlFor="bakery">Unidade</label>
+
+              <div className="input-wrapper">
+                <Store className="input-icon" size={18} />
+
+                <select
+                  id="bakery"
+                  value={selectedBakeryId}
+                  disabled={pendingUnitSelection.bakeries.length === 1}
+                  onChange={(event) => {
+                    setSelectedBakeryId(event.target.value)
+                    setErrorMessage('')
+                  }}
+                >
+                  {pendingUnitSelection.bakeries.length > 1 && (
+                    <option value="">Selecione a unidade</option>
+                  )}
+                  {pendingUnitSelection.bakeries.map((bakery) => (
+                    <option key={bakery.id} value={bakery.id}>
+                      {bakery.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Botão */}
           <button
             type="submit"
@@ -162,7 +251,7 @@ const Login = () => {
             disabled={!isFormReady || isSubmitting}
           >
             <LogIn size={17} />
-            {isSubmitting ? 'Entrando...' : 'Entrar'}
+            {isSubmitting ? 'Entrando...' : pendingUnitSelection ? 'Entrar na unidade' : 'Entrar'}
           </button>
 
           {(authMessage || errorMessage) && (

@@ -27,7 +27,7 @@ export async function touchHeartbeat(bakeryId: string): Promise<boolean> {
         if (!userId) {
             return true
         }
-        await client.from('pdv_heartbeats').upsert(
+        const { error: upsertError } = await client.from('pdv_heartbeats').upsert(
             {
                 user_id: userId,
                 bakery_id: bakeryId,
@@ -37,10 +37,15 @@ export async function touchHeartbeat(bakeryId: string): Promise<boolean> {
             },
             { onConflict: 'user_id' },
         )
+        if (upsertError) throw upsertError
         reportNetworkSuccess()
         return true
     } catch (error) {
-        const missingTable = /relation "public.pdv_heartbeats" does not exist/i.test(String(error))
+        // O erro pode vir como Error ou como objeto PostgREST (ex.: PGRST205,
+        // Could not find the table ... in the schema cache).
+        const errorText = error instanceof Error ? error.message : JSON.stringify(error)
+        const missingTable = /pdv_heartbeats/i.test(errorText)
+            && (/does not exist/i.test(errorText) || /schema cache/i.test(errorText))
         if (missingTable) {
             return false // tabela não existe ainda (migration pendente)
         }
@@ -54,8 +59,11 @@ export function startPdvHeartbeat(bakeryId: string): () => void {
     let intervalId: number | null = null
 
     const run = async () => {
-        const missingTable = await touchHeartbeat(bakeryId)
-        if (missingTable && !stopped) {
+        // touchHeartbeat retorna false apenas quando a tabela ainda não existe
+        // (migration pendente): nesse caso paramos o polling para não spammar
+        // erros; com a tabela pronta o toque continua a cada 30s.
+        const tableReady = await touchHeartbeat(bakeryId)
+        if (!tableReady && !stopped) {
             if (intervalId !== null) {
                 window.clearInterval(intervalId)
                 intervalId = null

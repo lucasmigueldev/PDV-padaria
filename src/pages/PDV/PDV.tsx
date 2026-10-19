@@ -34,6 +34,7 @@ import type { PaymentMethod, Sale } from '../../types/Sale'
 import type { ReceiptData } from '../../services/thermalPrinter'
 import { logoutAndRedirect } from '../../utils/auth'
 import AppTopbar from '../../components/AppTopbar/AppTopbar'
+import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog'
 import './PDV.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -108,6 +109,7 @@ export default function PDV() {
     const [barcode, setBarcode] = useState('')
     const [productQuantity, setProductQuantity] = useState('1')
     const [items, setItems] = useState<SaleItem[]>([])
+    const [itemBeingRemoved, setItemBeingRemoved] = useState<{ id: string; name: string } | null>(null)
     const [errorMessage, setErrorMessage] = useState('')
     const [saleFeedback, setSaleFeedback] = useState('')
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
@@ -172,8 +174,11 @@ export default function PDV() {
 
     useEffect(() => {
         if (!isCheckoutOpen) return
-
         closeCheckoutButtonRef.current?.focus()
+    }, [isCheckoutOpen])
+
+    useEffect(() => {
+        if (!isCheckoutOpen && !pixOverlayOpen && !pixKeyDisplayOpen) return
 
         function handleEscape(event: KeyboardEvent) {
             if (event.key !== 'Escape') return
@@ -181,7 +186,7 @@ export default function PDV() {
                 closePixOverlay()
             } else if (pixKeyDisplayOpen) {
                 closePixKeyDisplay()
-            } else {
+            } else if (isCheckoutOpen) {
                 closeCheckout()
             }
         }
@@ -309,6 +314,13 @@ export default function PDV() {
 
     function removeProduct(id: string) {
         setItems((currentItems) => currentItems.filter((item) => item.id !== id))
+    }
+
+    function confirmItemRemoval() {
+        if (!itemBeingRemoved) return
+        removeProduct(itemBeingRemoved.id)
+        setItemBeingRemoved(null)
+        barcodeInputRef.current?.focus()
     }
 
     function openCheckout() {
@@ -723,7 +735,7 @@ export default function PDV() {
                                                         <button
                                                             type="button"
                                                             className="pdv-remove-button"
-                                                            onClick={() => removeProduct(item.id)}
+                                                            onClick={() => setItemBeingRemoved({ id: item.id, name: item.name })}
                                                             aria-label={`Remover ${item.name}`}
                                                             title="Remover item"
                                                         >
@@ -1019,6 +1031,8 @@ export default function PDV() {
                         )}
                     </div>
                 </div>
+                </>
+            )}
 
                 {pixOverlayOpen && (
                     <div className="pdv-pix-overlay" onClick={closePixOverlay}>
@@ -1091,8 +1105,16 @@ export default function PDV() {
                         </div>
                     </div>
                 )}
-                </>
-            )}
+
+            <ConfirmDialog
+                isOpen={itemBeingRemoved !== null}
+                title="Remover produto"
+                message={itemBeingRemoved ? `Remover "${itemBeingRemoved.name}" da venda atual?` : ''}
+                onConfirm={confirmItemRemoval}
+                onCancel={() => setItemBeingRemoved(null)}
+                confirmText="Remover"
+                cancelText="Cancelar"
+            />
         </div>
     )
 }

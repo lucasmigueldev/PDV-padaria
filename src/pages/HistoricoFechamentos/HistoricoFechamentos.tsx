@@ -330,37 +330,39 @@ export default function HistoricoFechamentos() {
                                 ))}
                             </select>
                         </div>
-                        <div className="fechamento-history-date-field">
-                            <label htmlFor="fechamento-history-start-date">Data inicial</label>
-                            <input
-                                id="fechamento-history-start-date"
-                                type="date"
-                                value={startDate}
-                                min={minimumDate}
-                                max={todayInputValue}
-                                aria-invalid={Boolean(startDateError)}
-                                aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
-                                onChange={(event) => {
-                                    setStartDate(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            />
-                        </div>
-                        <div className="fechamento-history-date-field">
-                            <label htmlFor="fechamento-history-end-date">Data final</label>
-                            <input
-                                id="fechamento-history-end-date"
-                                type="date"
-                                value={endDate}
-                                min={minimumDate}
-                                max={todayInputValue}
-                                aria-invalid={Boolean(endDateError)}
-                                aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
-                                onChange={(event) => {
-                                    setEndDate(event.target.value)
-                                    setCurrentPage(1)
-                                }}
-                            />
+                        <div className="fechamento-history-date-range">
+                            <div className="fechamento-history-date-field">
+                                <label htmlFor="fechamento-history-start-date">Data inicial</label>
+                                <input
+                                    id="fechamento-history-start-date"
+                                    type="date"
+                                    value={startDate}
+                                    min={minimumDate}
+                                    max={todayInputValue}
+                                    aria-invalid={Boolean(startDateError)}
+                                    aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
+                                    onChange={(event) => {
+                                        setStartDate(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                />
+                            </div>
+                            <div className="fechamento-history-date-field">
+                                <label htmlFor="fechamento-history-end-date">Data final</label>
+                                <input
+                                    id="fechamento-history-end-date"
+                                    type="date"
+                                    value={endDate}
+                                    min={minimumDate}
+                                    max={todayInputValue}
+                                    aria-invalid={Boolean(endDateError)}
+                                    aria-describedby={dateError ? 'fechamento-history-date-error' : undefined}
+                                    onChange={(event) => {
+                                        setEndDate(event.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                />
+                            </div>
                         </div>
                         <button
                             type="button"

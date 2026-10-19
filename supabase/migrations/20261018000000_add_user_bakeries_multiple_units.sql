@@ -21,6 +21,30 @@ FROM public.users
 WHERE bakery_id IS NOT NULL
   ON CONFLICT (user_id, bakery_id) DO NOTHING;
 
+-- 3. Helper private.is_owner(): é referenciado por dezenas de políticas RLS,
+-- mas nenhuma migration do repositório o criava. Criado aqui (antes de
+-- current_user_bakery_ids, que o utiliza) para qualquer ambiente novo ficar
+-- consistente; em ambientes onde ele já existe, CREATE OR REPLACE preserva
+-- os privilégios concedidos.
+CREATE OR REPLACE FUNCTION private.is_owner()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.users AS u
+        WHERE u.id = (SELECT auth.uid())
+          AND u.role = 'owner'
+    );
+$function$;
+
+ALTER FUNCTION private.is_owner() OWNER TO postgres;
+REVOKE ALL ON FUNCTION private.is_owner() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION private.is_owner() TO authenticated;
+
 -- 4. Atualizar função private.is_cashier() para usar user_bakeries
 CREATE OR REPLACE FUNCTION private.is_cashier()
 RETURNS boolean
@@ -90,6 +114,7 @@ REVOKE ALL ON FUNCTION private.current_user_bakery_id() FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION private.current_user_bakery_id() TO authenticated;
 
 -- 7. Política RLS para user_bakeries
+DROP POLICY IF EXISTS user_bakeries_select_owner_or_self ON public.user_bakeries;
 CREATE POLICY user_bakeries_select_owner_or_self
     ON public.user_bakeries
     FOR SELECT
@@ -115,7 +140,7 @@ CREATE POLICY products_select_by_role
         (SELECT private.is_owner())
         OR (
             (SELECT private.is_cashier())
-            AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+            AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
         )
     );
 
@@ -125,7 +150,7 @@ CREATE POLICY products_insert_cashier_own_bakery
     TO authenticated
     WITH CHECK (
         (SELECT private.is_cashier())
-        AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+        AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
     );
 
 CREATE POLICY products_update_cashier_own_bakery
@@ -134,11 +159,11 @@ CREATE POLICY products_update_cashier_own_bakery
     TO authenticated
     USING (
         (SELECT private.is_cashier())
-        AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+        AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
     )
     WITH CHECK (
         (SELECT private.is_cashier())
-        AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+        AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
     );
 
 CREATE POLICY products_delete_cashier_own_bakery
@@ -147,7 +172,7 @@ CREATE POLICY products_delete_cashier_own_bakery
     TO authenticated
     USING (
         (SELECT private.is_cashier())
-        AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+        AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
     );
 
 -- cash_registers
@@ -161,7 +186,7 @@ CREATE POLICY cash_registers_select_by_role_and_bakery
         (SELECT private.is_owner())
         OR (
             (SELECT private.is_cashier())
-            AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+            AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
         )
     );
 
@@ -176,7 +201,7 @@ CREATE POLICY product_stock_select_by_role_and_bakery
         (SELECT private.is_owner())
         OR (
             (SELECT private.is_cashier())
-            AND bakery_id = ANY(SELECT private.current_user_bakery_ids())
+            AND bakery_id = ANY (SELECT unnest(private.current_user_bakery_ids()))
         )
     );
 
@@ -192,6 +217,6 @@ CREATE POLICY bakeries_select_owner_or_own_active_cashier_bakery
         OR (
             active = true
             AND (SELECT private.is_cashier())
-            AND id = ANY(SELECT private.current_user_bakery_ids())
+            AND id = ANY (SELECT unnest(private.current_user_bakery_ids()))
         )
     );

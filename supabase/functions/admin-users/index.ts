@@ -202,8 +202,8 @@ deno.serve(async (request: Request) => {
             const newPassword = typeof passwordValue === 'string' && passwordValue.trim()
                 ? passwordValue
                 : undefined
-            if (newPassword !== undefined && newPassword.length < 7) {
-                return jsonResponse({ error: 'A nova senha deve ter no mínimo 7 caracteres.' }, 400, corsHeaders)
+            if (newPassword !== undefined && newPassword.length < 6) {
+                return jsonResponse({ error: 'A nova senha deve ter no mínimo 6 caracteres.' }, 400, corsHeaders)
             }
 
             const updatePublicProfile = async (email?: string) => {
@@ -501,6 +501,9 @@ deno.serve(async (request: Request) => {
             return jsonResponse({ error: 'Informe um e-mail válido.' }, 400, corsHeaders)
         }
         if (!password.trim()) return jsonResponse({ error: 'Informe a senha.' }, 400, corsHeaders)
+        if (password.length < 6) {
+            return jsonResponse({ error: 'A senha deve ter no mínimo 6 caracteres.' }, 400, corsHeaders)
+        }
         if (role !== 'owner' && role !== 'cashier') {
             return jsonResponse({ error: 'Selecione um tipo de usuário válido.' }, 400, corsHeaders)
         }
@@ -556,8 +559,12 @@ deno.serve(async (request: Request) => {
                 email,
                 role,
                 bakery_id: role === 'owner' ? null : cashierBakeryId,
+                // A coluna bakery_ids alimenta as políticas RLS via user_bakeries;
+                // gravar apenas o bakery_id legado deixa o operador sem unidades e
+                // todo acesso RLS dele cai com 42501.
+                bakery_ids: role === 'owner' || !cashierBakeryId ? null : [cashierBakeryId],
             })
-            .select('id, name, email, role, bakery_id')
+            .select('id, name, email, role, bakery_id, bakery_ids')
             .single()
 
         if (createProfileError || !createdProfile) {
@@ -584,6 +591,7 @@ deno.serve(async (request: Request) => {
                 email: createdProfile.email,
                 role: createdProfile.role,
                 bakery_id: createdProfile.bakery_id,
+                bakery_ids: createdProfile.bakery_ids,
             },
         }, 201, corsHeaders)
     } catch (error) {

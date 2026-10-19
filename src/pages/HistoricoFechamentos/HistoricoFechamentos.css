@@ -4,10 +4,19 @@
 
 .fechamento-history-date-filter {
     display: grid;
-    grid-template-columns: 230px repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: 230px minmax(0, 1fr) auto;
     gap: 12px;
     align-items: end;
     margin-bottom: 24px;
+}
+
+/* Data inicial e data final sempre na mesma linha,
+   independentemente dos breakpoints do container externo. */
+.fechamento-history-date-range {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
 .fechamento-history-filter {

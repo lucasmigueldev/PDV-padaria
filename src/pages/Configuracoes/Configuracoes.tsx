@@ -318,8 +318,8 @@ export default function Configuracoes() {
         setUserFormError('Selecione uma unidade.')
         return
       }
-      if (password !== undefined && password.length < 7) {
-        setUserFormError('A nova senha deve ter no mínimo 7 caracteres.')
+      if (password !== undefined && password.length < 6) {
+        setUserFormError('A nova senha deve ter no mínimo 6 caracteres.')
         return
       }
 
@@ -367,6 +367,11 @@ export default function Configuracoes() {
 
     if (!password.trim()) {
       setUserFormError('Informe a senha.')
+      return
+    }
+
+    if (password.length < 6) {
+      setUserFormError('A senha deve ter no mínimo 6 caracteres.')
       return
     }
 

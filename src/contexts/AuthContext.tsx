@@ -7,6 +7,7 @@ export type AuthContextValue = {
     isAuthLoading: boolean
     authMessage: string | null
     clearAuthMessage: () => void
+    setAuthenticatedUser: (user: AuthenticatedUser | null) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
