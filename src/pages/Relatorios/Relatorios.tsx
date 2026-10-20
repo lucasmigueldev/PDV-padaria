@@ -14,13 +14,14 @@ import {
   ShoppingCart,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
 import { getProductsFromSupabase } from '../../data/products'
 import { getSalesFromSupabase } from '../../data/sales'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
 import { useBakeries } from '../../hooks/useBakeries'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useAuth } from '../../contexts/AuthContext'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
@@ -202,6 +203,14 @@ export default function Relatorios() {
     estimatedValue: 0,
   })
 
+  const fetchReportData = useCallback(async () => {
+    const [loadedSales, loadedProducts] = await Promise.all([
+      getSalesFromSupabase(),
+      getProductsFromSupabase(bakeryFilter === 'all' ? null : bakeryFilter),
+    ])
+    return { loadedSales, loadedProducts }
+  }, [bakeryFilter])
+
   useEffect(() => {
     let active = true
     void (async () => {
@@ -210,10 +219,7 @@ export default function Relatorios() {
       setIsLoadingReportData(true)
       setReportLoadError('')
       try {
-        const [loadedSales, loadedProducts] = await Promise.all([
-          getSalesFromSupabase(),
-          getProductsFromSupabase(bakeryFilter === 'all' ? null : bakeryFilter),
-        ])
+        const { loadedSales, loadedProducts } = await fetchReportData()
         if (!active) return
         setSales(loadedSales)
         setProducts(loadedProducts)
@@ -233,7 +239,25 @@ export default function Relatorios() {
     return () => {
       active = false
     }
-  }, [bakeryFilter])
+  }, [fetchReportData])
+
+  // Background refresh: keeps report totals in sync with sales made on
+  // other devices while the screen stays open. Failures never touch the
+  // loading/error states already on screen; the next tick retries.
+  const refreshReportData = useCallback(async () => {
+    try {
+      const { loadedSales, loadedProducts } = await fetchReportData()
+      setSales(loadedSales)
+      setProducts(loadedProducts)
+      setReportLoadError('')
+    } catch (error: unknown) {
+      console.error('Falha ao atualizar os dados do relatório.', error)
+    }
+  }, [fetchReportData])
+
+  useAutoRefresh(() => {
+    void refreshReportData()
+  })
   function applyPeriod() {
     if (dateError) return
 

@@ -229,6 +229,54 @@
   box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
 }
 
+.dashboard-date-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-date-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-date-button:focus-visible {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+/*
+ * Input de data real: fica fora do caminho do mouse (pointer-events: none)
+ * e serve apenas para abrir o calendário nativo via showPicker() quando o
+ * botão é clicado em qualquer ponto da sua área.
+ */
+.dashboard-date-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mobile-menu-button,
 .mobile-menu-overlay,
 .mobile-drawer,
@@ -471,6 +519,11 @@
     width: 100%;
     min-height: 38px;
     font-size: 13px;
+  }
+
+  .dashboard-date-filter .dashboard-date-button {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .dashboard-date-filter input[type="date"] {

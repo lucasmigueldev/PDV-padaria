@@ -6,6 +6,7 @@ import {
     CreditCard,
     History,
     Minus,
+    MonitorSmartphone,
     Package,
     Plus,
     Printer,
@@ -106,6 +107,7 @@ export default function PDV() {
     const bakeryName = receiptBakeryName ?? 'Unidade indisponível'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const finishButtonRef = useRef<HTMLButtonElement>(null)
+    const [showScreenNotice, setShowScreenNotice] = useState(true)
     const [barcode, setBarcode] = useState('')
     const [productQuantity, setProductQuantity] = useState('1')
     const [items, setItems] = useState<SaleItem[]>([])
@@ -576,7 +578,35 @@ export default function PDV() {
 
 
     return (
-        <div className="pdv-layout">
+        <>
+            {showScreenNotice && (
+                <div
+                    className="pdv-screen-notice"
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-labelledby="pdv-screen-notice-title"
+                >
+                    <div className="pdv-screen-notice-card">
+                        <MonitorSmartphone size={44} aria-hidden="true" />
+                        <h2 id="pdv-screen-notice-title">Modo PDV para telas maiores</h2>
+                        <p>
+                            O modo operador do PDV foi desenvolvido para telas maiores.
+                            Para uma melhor experiência, acesse pelo computador ou por um
+                            tablet em uma tela maior. Se preferir, você pode continuar
+                            no celular mesmo.
+                        </p>
+                        <button
+                            type="button"
+                            className="pdv-screen-notice-button"
+                            onClick={() => setShowScreenNotice(false)}
+                        >
+                            Continuar mesmo assim
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="pdv-layout">
             <AppTopbar
                 userName={authenticatedUser?.name}
                 bakeryName={bakeryName}
@@ -1115,6 +1145,7 @@ export default function PDV() {
                 confirmText="Remover"
                 cancelText="Cancelar"
             />
-        </div>
+            </div>
+        </>
     )
 }

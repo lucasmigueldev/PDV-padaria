@@ -14,7 +14,7 @@ import {
     ShoppingCart,
     X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { useNavigate, Link } from 'react-router-dom'
 
@@ -23,6 +23,7 @@ import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import { ReceiptPrintDialog } from '../../components/ReceiptPrintDialog/ReceiptPrintDialog'
 import { useAuth } from '../../contexts/AuthContext'
 import { useBakeries } from '../../hooks/useBakeries'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
 import '../PDV/PDV.css'
@@ -179,6 +180,22 @@ export default function HistoricoVendas() {
             active = false
         }
     }, [])
+
+    // Background refresh: keeps the sale list in sync with sales made on
+    // other devices while the screen stays open. Failures never touch the
+    // loading/error states already on screen; the next tick retries.
+    const refreshSalesData = useCallback(async () => {
+        try {
+            setSales(await getSalesFromSupabase())
+            setSalesLoadError('')
+        } catch (error: unknown) {
+            console.error('Falha ao atualizar o histórico de vendas.', error)
+        }
+    }, [])
+
+    useAutoRefresh(() => {
+        void refreshSalesData()
+    })
 
     useEffect(() => {
         if (!selectedSale) return

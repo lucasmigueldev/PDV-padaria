@@ -11,6 +11,7 @@ import {
   UnavailableBakeryError,
   UserProfileNotFoundError,
 } from '../../services/auth'
+import { lookupLoginAccess } from '../../services/loginLookup'
 import { getActiveBakeriesByIds, persistActiveBakeryId } from '../../services/userBakeries'
 import type { Bakery } from '../../types/Bakery'
 import './Login.css'
@@ -52,11 +53,16 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingUnitSelection, setPendingUnitSelection] = useState<PendingUnitSelection | null>(null)
   const [selectedBakeryId, setSelectedBakeryId] = useState('')
+  // Unidades do operador descobertas antes do login (blur do e-mail).
+  const [preLoginBakeries, setPreLoginBakeries] = useState<Bakery[]>([])
+  const [preLoginBakeryId, setPreLoginBakeryId] = useState('')
+  const emailRef = useRef('')
   const isSubmittingRef = useRef(false)
   const isCredentialsReady = email.trim().length > 0 && password.length > 0
+  const hasPreLoginUnitChoice = preLoginBakeries.length > 0
   const isFormReady = pendingUnitSelection
     ? selectedBakeryId.length > 0
-    : isCredentialsReady
+    : isCredentialsReady && (!hasPreLoginUnitChoice || preLoginBakeryId.length > 0)
 
   async function handleProfileError(error: unknown) {
     console.error('Não foi possível carregar o perfil do usuário.', error)
@@ -92,6 +98,35 @@ const Login = () => {
     }
   }
 
+  async function handleEmailBlur() {
+    const targetEmail = emailRef.current.trim().toLowerCase()
+    if (!targetEmail) return
+
+    try {
+      const lookup = await lookupLoginAccess(targetEmail)
+
+      // O e-mail mudou durante a consulta: descarta o resultado antigo.
+      if (emailRef.current.trim().toLowerCase() !== targetEmail) return
+
+      if (lookup.role === 'cashier' && lookup.bakeries.length > 0) {
+        setPreLoginBakeries(lookup.bakeries)
+        // Unidade única já vem escolhida; múltiplas exigem seleção explícita.
+        setPreLoginBakeryId(lookup.bakeries.length === 1 ? lookup.bakeries[0].id : '')
+      } else {
+        setPreLoginBakeries([])
+        setPreLoginBakeryId('')
+      }
+    } catch (error) {
+      // A verificação pré-login é só um adiantamento de UX: se falhar, o
+      // fluxo normal continua e a seleção acontece depois da autenticação.
+      console.error('Não foi possível verificar as unidades do usuário.', error)
+      if (emailRef.current.trim().toLowerCase() === targetEmail) {
+        setPreLoginBakeries([])
+        setPreLoginBakeryId('')
+      }
+    }
+  }
+
   async function handleCredentialsSubmit() {
     try {
       await signInWithEmailPassword(email.trim().toLowerCase(), password)
@@ -102,7 +137,8 @@ const Login = () => {
     }
 
     try {
-      const authenticatedUser = await getAuthenticatedUser()
+      const preLoginOverride = hasPreLoginUnitChoice && preLoginBakeryId ? preLoginBakeryId : null
+      const authenticatedUser = await getAuthenticatedUser(preLoginOverride)
       if (!authenticatedUser) throw new UserProfileNotFoundError()
 
       if (authenticatedUser.role === 'owner') {
@@ -113,12 +149,27 @@ const Login = () => {
       const activeBakeries = await getActiveBakeriesByIds(authenticatedUser.bakeryIds)
       if (activeBakeries.length === 0) throw new UnavailableBakeryError()
 
+      const usedPreLoginChoice = Boolean(preLoginOverride)
+        && authenticatedUser.activeBakeryId === preLoginOverride
+
+      // Unidade escolhida antes do login (blur do e-mail) ou unidade única
+      // do operador: entra direto, sem a tela de seleção pós-login. Se a
+      // unidade escolhida foi desativada no meio do caminho, o override é
+      // ignorado pelo perfil e o fluxo cai na seleção normal.
+      if (usedPreLoginChoice || activeBakeries.length === 1) {
+        setAuthenticatedUser(authenticatedUser)
+        setPreLoginBakeries([])
+        setPreLoginBakeryId('')
+        navigate('/pdv', { replace: true })
+        return
+      }
+
       setPendingUnitSelection({
         userId: authenticatedUser.id,
         createdAt: authenticatedUser.createdAt,
         bakeries: activeBakeries,
       })
-      setSelectedBakeryId(activeBakeries.length === 1 ? activeBakeries[0].id : '')
+      setSelectedBakeryId('')
     } catch (error) {
       await handleProfileError(error)
     }
@@ -170,15 +221,49 @@ const Login = () => {
                 type="email"
                 value={email}
                 onChange={(event) => {
+                  emailRef.current = event.target.value
                   setEmail(event.target.value)
                   setErrorMessage('')
+                  setPreLoginBakeries([])
+                  setPreLoginBakeryId('')
                 }}
+                onBlur={handleEmailBlur}
                 placeholder="Digite seu e-mail"
                 autoComplete="email"
                 required
               />
             </div>
           </div>
+
+          {/* Unidade do operador (antes da senha, via lookup no e-mail) */}
+          {!pendingUnitSelection && preLoginBakeries.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="pre-login-bakery">Unidade</label>
+
+              <div className="input-wrapper">
+                <Store className="input-icon" size={18} />
+
+                <select
+                  id="pre-login-bakery"
+                  value={preLoginBakeryId}
+                  disabled={preLoginBakeries.length === 1}
+                  onChange={(event) => {
+                    setPreLoginBakeryId(event.target.value)
+                    setErrorMessage('')
+                  }}
+                >
+                  {preLoginBakeries.length > 1 && (
+                    <option value="">Selecione a unidade</option>
+                  )}
+                  {preLoginBakeries.map((bakery) => (
+                    <option key={bakery.id} value={bakery.id}>
+                      {bakery.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Senha */}
           <div className="form-group">

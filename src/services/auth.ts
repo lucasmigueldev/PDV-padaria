@@ -171,11 +171,11 @@ export async function getCurrentSession(): Promise<Session | null> {
     return data.session
 }
 
-export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
+export async function getAuthenticatedUser(activeBakeryIdOverride?: string | null): Promise<AuthenticatedUser | null> {
     const session = await getCurrentSession()
     if (!session) return null
 
-    return getUserProfile(session.user.id, session.user.created_at)
+    return getUserProfile(session.user.id, session.user.created_at, activeBakeryIdOverride)
 }
 
 export function onAuthStateChange(
