@@ -261,20 +261,24 @@
 }
 
 /*
- * Input de data real: fica fora do caminho do mouse (pointer-events: none)
- * e serve apenas para abrir o calendário nativo via showPicker() quando o
- * botão é clicado em qualquer ponto da sua área.
+ * Input de data real: cobre o botão inteiro com opacity: 0 para que o
+ * toque/clique do usuário CHEGE ao input (evento real, não sintético).
+ * É a única forma confiável de abrir o date picker nativo em iOS e
+ * Android — showPicker()/click() programáticos não abrem o picker no
+ * mobile. O handler do botão continua cuidando do caminho por teclado.
  */
 .dashboard-date-input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .mobile-menu-button,
