@@ -16,7 +16,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
 import { getSalesFromSupabase } from '../../data/sales'
@@ -26,6 +26,7 @@ import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePdvHeartbeats, PDV_OFFLINE_THRESHOLD_MS } from '../../hooks/usePdvHeartbeats'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { WifiOff } from 'lucide-react'
 import { OfflineNotification } from '../../components/OfflineNotification/OfflineNotification'
 import type { PaymentMethod, Sale } from '../../types/Sale'
@@ -134,6 +135,14 @@ export default function Dashboard() {
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
     : '-'
 
+  const fetchDashboardData = useCallback(async () => {
+    const [loadedSales, register] = await Promise.all([
+      getSalesFromSupabase(),
+      selectedBakeryId ? getOpenCashRegister(selectedBakeryId) : Promise.resolve(null),
+    ])
+    return { loadedSales, register }
+  }, [selectedBakeryId])
+
   useEffect(() => {
     let active = true
     void (async () => {
@@ -142,10 +151,7 @@ export default function Dashboard() {
       setIsLoading(true)
       setLoadError('')
       try {
-        const [loadedSales, register] = await Promise.all([
-          getSalesFromSupabase(),
-          selectedBakeryId ? getOpenCashRegister(selectedBakeryId) : Promise.resolve(null),
-        ])
+        const { loadedSales, register } = await fetchDashboardData()
         if (!active) return
         setSales(loadedSales)
         setCashRegister(register)
@@ -165,7 +171,25 @@ export default function Dashboard() {
     return () => {
       active = false
     }
-  }, [selectedBakeryId])
+  }, [fetchDashboardData])
+
+  // Background refresh: keeps totals in sync with sales made on other
+  // devices while the dashboard stays open. Failures never touch the
+  // loading/error states already on screen; the next tick retries.
+  const refreshDashboardData = useCallback(async () => {
+    try {
+      const { loadedSales, register } = await fetchDashboardData()
+      setSales(loadedSales)
+      setCashRegister(register)
+      setLoadError('')
+    } catch (error: unknown) {
+      console.error('Falha ao atualizar os indicadores do dashboard.', error)
+    }
+  }, [fetchDashboardData])
+
+  useAutoRefresh(() => {
+    void refreshDashboardData()
+  })
 
   function handleLogout() {
     void logoutAndRedirect(navigate)
