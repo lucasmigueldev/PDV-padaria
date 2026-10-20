@@ -59,10 +59,10 @@ const Login = () => {
   const emailRef = useRef('')
   const isSubmittingRef = useRef(false)
   const isCredentialsReady = email.trim().length > 0 && password.length > 0
-  const isUnitRequiredBeforeLogin = preLoginBakeries.length > 1
+  const hasPreLoginUnitChoice = preLoginBakeries.length > 0
   const isFormReady = pendingUnitSelection
     ? selectedBakeryId.length > 0
-    : isCredentialsReady && (!isUnitRequiredBeforeLogin || preLoginBakeryId.length > 0)
+    : isCredentialsReady && (!hasPreLoginUnitChoice || preLoginBakeryId.length > 0)
 
   async function handleProfileError(error: unknown) {
     console.error('Não foi possível carregar o perfil do usuário.', error)
@@ -108,8 +108,10 @@ const Login = () => {
       // O e-mail mudou durante a consulta: descarta o resultado antigo.
       if (emailRef.current.trim().toLowerCase() !== targetEmail) return
 
-      if (lookup.role === 'cashier' && lookup.bakeries.length > 1) {
+      if (lookup.role === 'cashier' && lookup.bakeries.length > 0) {
         setPreLoginBakeries(lookup.bakeries)
+        // Unidade única já vem escolhida; múltiplas exigem seleção explícita.
+        setPreLoginBakeryId(lookup.bakeries.length === 1 ? lookup.bakeries[0].id : '')
       } else {
         setPreLoginBakeries([])
         setPreLoginBakeryId('')
@@ -135,7 +137,7 @@ const Login = () => {
     }
 
     try {
-      const preLoginOverride = isUnitRequiredBeforeLogin && preLoginBakeryId ? preLoginBakeryId : null
+      const preLoginOverride = hasPreLoginUnitChoice && preLoginBakeryId ? preLoginBakeryId : null
       const authenticatedUser = await getAuthenticatedUser(preLoginOverride)
       if (!authenticatedUser) throw new UserProfileNotFoundError()
 
@@ -234,7 +236,7 @@ const Login = () => {
           </div>
 
           {/* Unidade do operador (antes da senha, via lookup no e-mail) */}
-          {isUnitRequiredBeforeLogin && !pendingUnitSelection && (
+          {!pendingUnitSelection && preLoginBakeries.length > 0 && (
             <div className="form-group">
               <label htmlFor="pre-login-bakery">Unidade</label>
 
@@ -244,12 +246,15 @@ const Login = () => {
                 <select
                   id="pre-login-bakery"
                   value={preLoginBakeryId}
+                  disabled={preLoginBakeries.length === 1}
                   onChange={(event) => {
                     setPreLoginBakeryId(event.target.value)
                     setErrorMessage('')
                   }}
                 >
-                  <option value="">Selecione a unidade</option>
+                  {preLoginBakeries.length > 1 && (
+                    <option value="">Selecione a unidade</option>
+                  )}
                   {preLoginBakeries.map((bakery) => (
                     <option key={bakery.id} value={bakery.id}>
                       {bakery.name}

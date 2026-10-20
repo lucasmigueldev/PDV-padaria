@@ -2,6 +2,7 @@ import {
   BarChart3,
   Banknote,
   Calculator,
+  CalendarDays,
   CreditCard,
   DollarSign,
   Clock3,
@@ -16,7 +17,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
 import { getSalesFromSupabase } from '../../data/sales'
@@ -43,6 +44,8 @@ const percentage = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
+
+const clockTime = new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' })
 
 function isSameDay(dateValue: string, referenceDate: Date): boolean {
   const date = new Date(dateValue)
@@ -74,6 +77,16 @@ function getLocalDateString(date: Date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/**
+ * Converte "YYYY-MM-DD" para meia-noite no fuso local. `new Date("YYYY-MM-DD")`
+ * interpreta a string como UTC, o que no Brasil resulta nas 21h do dia
+ * ANTERIOR — e fazia os cards de "Hoje"/"Ontem" filtrarem o dia errado.
+ */
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
@@ -85,7 +98,8 @@ export default function Dashboard() {
   const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
   const [loadError, setLoadError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
-  const [lastUpdatedAt] = useState<string | null>(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const datePickerRef = useRef<HTMLInputElement>(null)
   const establishmentName = useEstablishmentName()
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
@@ -102,7 +116,7 @@ export default function Dashboard() {
     return (heartbeat?.pendingSales ?? 0) > 0
   })
   const selectedBakeryId = bakeryFilter === 'all' ? null : bakeryFilter
-  const selectedDateObj = new Date(selectedDate)
+  const selectedDateObj = parseLocalDate(selectedDate)
   const previousDateObj = new Date(selectedDateObj)
   previousDateObj.setDate(previousDateObj.getDate() - 1)
   const filteredSales = sales.filter((sale) => !selectedBakeryId || sale.bakeryId === selectedBakeryId)
@@ -123,13 +137,18 @@ export default function Dashboard() {
   const pixAmountPercentage = totalReceived > 0 ? pixSalesToday / totalReceived : 0
 
   const isSelectedDateToday = selectedDate === getLocalDateString()
+  const yesterdayDate = new Date()
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const isSelectedDateYesterday = selectedDate === getLocalDateString(yesterdayDate)
   const selectedDateLabel = isSelectedDateToday
     ? 'Hoje'
-    : new Date(selectedDate).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
+    : isSelectedDateYesterday
+      ? 'Ontem'
+      : parseLocalDate(selectedDate).toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
   const isCashRegisterOpen = cashRegister !== null
   const openingTime = cashRegister
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
@@ -155,6 +174,7 @@ export default function Dashboard() {
         if (!active) return
         setSales(loadedSales)
         setCashRegister(register)
+        setLastUpdatedAt(clockTime.format(new Date()))
       } catch (error: unknown) {
         if (!active) return
         console.error('Erro ao carregar os dados do dashboard.', error)
@@ -182,6 +202,7 @@ export default function Dashboard() {
       setSales(loadedSales)
       setCashRegister(register)
       setLoadError('')
+      setLastUpdatedAt(clockTime.format(new Date()))
     } catch (error: unknown) {
       console.error('Falha ao atualizar os indicadores do dashboard.', error)
     }
@@ -193,6 +214,23 @@ export default function Dashboard() {
 
   function handleLogout() {
     void logoutAndRedirect(navigate)
+  }
+
+  function handleDateButtonClick() {
+    const input = datePickerRef.current
+    if (!input) return
+
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker()
+        return
+      } catch {
+        // Navegadores podem lançar se o elemento não estiver pronto; usa o fallback abaixo.
+      }
+    }
+
+    input.focus()
+    input.click()
   }
 
   function handleMetricClick(metric: 'sales' | 'sales-count' | 'cash' | 'card' | 'pix') {
@@ -414,13 +452,34 @@ export default function Dashboard() {
             </div>
 
             <div className="dashboard-date-filter">
-              <label htmlFor="dashboard-date-filter">Data</label>
-              <input
-                id="dashboard-date-filter"
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-              />
+              <label>Data</label>
+              <div className="dashboard-date-picker">
+                <button
+                  type="button"
+                  className="dashboard-date-button"
+                  onClick={handleDateButtonClick}
+                  aria-label={`Data: ${selectedDateLabel}. Escolher nova data`}
+                >
+                  <CalendarDays size={15} aria-hidden="true" />
+                  {selectedDateLabel}
+                </button>
+                <input
+                  ref={datePickerRef}
+                  id="dashboard-date-filter"
+                  type="date"
+                  className="dashboard-date-input"
+                  value={selectedDate}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  max={getLocalDateString()}
+                  onChange={(event) => {
+                    const nextDate = event.target.value
+                    if (nextDate && nextDate <= getLocalDateString()) {
+                      setSelectedDate(nextDate)
+                    }
+                  }}
+                />
+              </div>
               <span className="text-xs text-slate-400" title="Última atualização dos indicadores">
                 Atualizado às {lastUpdatedAt ?? '-'}
               </span>
