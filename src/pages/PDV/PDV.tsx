@@ -722,6 +722,7 @@ export default function PDV() {
                 userRole="Operador"
                 onLogout={handleLogout}
                 showPrinter
+                onPixKeyDisplay={openPixKeyDisplay}
             />
             {pendingCount > 0 && connection.status === 'offline' && (
                 <div className="pdv-offline-banner">
@@ -785,16 +786,6 @@ export default function PDV() {
                     </Link>
                 </nav>
                 <nav className="pdv-shortcuts" aria-label="Pagamento">
-                    <span className="pdv-sidebar-label">Pagamento</span>
-                    <button
-                        type="button"
-                        className="pdv-shortcut"
-                        onClick={openPixKeyDisplay}
-                        aria-label="Exibir chave PIX"
-                    >
-                        <QrCode size={19} />
-                        <span>Exibir Chave Pix</span>
-                    </button>
                 </nav>
             </aside>
             <main className="pdv-main">

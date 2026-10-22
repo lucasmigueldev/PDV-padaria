@@ -1,4 +1,4 @@
-import { LogOut, RefreshCw, Store, UserRound } from 'lucide-react'
+import { LogOut, RefreshCw, Store, UserRound, QrCode } from 'lucide-react'
 import PrinterStatusButton from '../PrinterStatusButton/PrinterStatusButton'
 import { useEstablishmentName } from '../../services/establishment'
 import ConnectionStatusBadge from '../../components/ConnectionStatusBadge/ConnectionStatusBadge'
@@ -12,6 +12,7 @@ interface AppTopbarProps {
     showPrinter?: boolean
     onRefresh?: () => void
     isRefreshing?: boolean
+    onPixKeyDisplay?: () => void
 }
 
 export default function AppTopbar({
@@ -29,6 +30,16 @@ export default function AppTopbar({
         <header className="app-topbar">
             <strong className="app-topbar-title">{establishmentName}</strong>
             <div className="app-topbar-right">
+                <div className="app-session-divider" aria-hidden="true" />
+                <button
+                    type="button"
+                    className="app-topbar-pixkey"
+                    onClick={() => window.location.href='/pix-key'}
+                    aria-label="Exibir chave PIX"
+                >
+                    <QrCode size={19} />
+                    <span>Chave PIX</span>
+                </button>
                 <div className="app-topbar-session">
                     <div className="app-session-field">
                         <UserRound size={15} aria-hidden="true" />
