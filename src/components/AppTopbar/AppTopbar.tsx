@@ -47,11 +47,11 @@ export default function AppTopbar({
                     )}
                 </div>
                 <ConnectionStatusBadge />
-                {onRefresh && (
+                {userRole !== 'Operador' && (
                     <button
                         type="button"
                         className="app-topbar-refresh"
-                        onClick={onRefresh}
+                        onClick={onRefresh ?? (() => window.location.reload())}
                         disabled={isRefreshing}
                         aria-label="Atualizar dados"
                         title="Atualizar dados"

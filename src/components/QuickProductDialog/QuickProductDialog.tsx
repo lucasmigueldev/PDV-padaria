@@ -44,28 +44,40 @@ export function QuickProductDialog({
     onConfirm,
     onCancel,
 }: QuickProductDialogProps) {
-    const [form, setForm] = useState<QuickProductForm>({ name: '', barcode: '', price: '', stock: '' })
+    const [form, setForm] = useState<QuickProductForm>(
+        () => ({ name: '', barcode: barcode, price: '', stock: '' })
+    )
     const [validationError, setValidationError] = useState('')
+    const [apiStatus, setApiStatus] = useState('')
     const nameInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         if (!isOpen || !barcode) return
         let cancelled = false
-        queueMicrotask(() => {
-            if (cancelled) return
-            setForm((current) => ({ ...current, barcode }))
-        })
 
         fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`)
             .then((res) => res.json())
             .then((data) => {
                 if (cancelled) return
-                const name = data?.product?.product_name || data?.product?.generic_name
+                const product = data?.product
+                const name =
+                    product?.product_name_pt ||
+                    product?.product_name ||
+                    product?.generic_name ||
+                    product?.brands
                 if (name) {
                     setForm((current) => ({ ...current, name: current.name || name }))
+                } else {
+                    setApiStatus(
+                        `Nenhuma informação encontrada para o código ${barcode} nas bases atuais.`
+                    )
+                    console.warn('Open Food Facts não retornou nome para o código', barcode, data?.status)
                 }
             })
-            .catch(() => {})
+            .catch((err) => {
+                setApiStatus('Não foi possível consultar o Open Food Facts. Tente novamente.')
+                console.error('Falha ao consultar Open Food Facts:', err)
+            })
 
         return () => {
             cancelled = true
@@ -214,6 +226,7 @@ export function QuickProductDialog({
                     </div>
 
                     {message && <p className="quick-product-error" role="alert">{message}</p>}
+                    {apiStatus && <p className="quick-product-status" role="status">{apiStatus}</p>}
 
                     <div className="quick-product-actions">
                         <button type="button" className="quick-product-cancel" onClick={onCancel}>

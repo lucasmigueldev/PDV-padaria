@@ -126,6 +126,7 @@ export default function PDV() {
     const isSavingQuickProductRef = useRef(false)
     const scanBufferRef = useRef('')
     const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const scanLastKeyRef = useRef(0)
     const addProductByBarcodeRef = useRef(addProductByBarcode)
     useEffect(() => {
         addProductByBarcodeRef.current = addProductByBarcode
@@ -259,7 +260,15 @@ export default function PDV() {
                 return
             }
             if (event.key.length !== 1) return
+            const now = Date.now()
+            // Separa múltiplos scans enviados em ritmo rápido: se o último caractere
+            // chegou há mais de 120ms, o scan anterior já foi encerrado e o buffer
+            // pode ser recomeçado sem ficar concatenando códigos anteriores.
+            if (now - scanLastKeyRef.current > 120 && scanBufferRef.current) {
+                scanBufferRef.current = ''
+            }
             scanBufferRef.current += event.key
+            scanLastKeyRef.current = now
             // Digitação humana é descartada: o buffer só vale se os caracteres chegarem
             // no ritmo típico de um leitor.
             if (scanTimerRef.current) clearTimeout(scanTimerRef.current)
@@ -329,12 +338,6 @@ export default function PDV() {
         }
         if (!product) {
             setBarcode(normalizedBarcode)
-            if (!window.confirm('Produto com código ' + normalizedBarcode + ' não cadastrado. Deseja cadastrar agora?')) {
-                setUnknownBarcode(normalizedBarcode)
-                setErrorMessage('Produto não cadastrado.')
-                barcodeInputRef.current?.focus()
-                return
-            }
             setUnknownBarcode(normalizedBarcode)
             setQuickProductError('')
             setErrorMessage('')
