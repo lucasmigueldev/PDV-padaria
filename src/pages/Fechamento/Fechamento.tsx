@@ -14,6 +14,9 @@ import { useNavigate, Link } from 'react-router-dom'
 
 import type { CashRegister } from '../../types/CashRegister'
 import { closeCashRegister, getOpenCashRegister, openCashRegister } from '../../services/operations'
+import { getCashSalesTotalForRegister } from '../../data/sales'
+import type { CashOperationReceiptData } from '../../services/thermalPrinter'
+import { CashOperationReceiptDialog } from '../../components/CashOperationReceiptDialog/CashOperationReceiptDialog'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { useConnectionStatus } from '../../hooks/useConnectionStatus'
@@ -102,6 +105,9 @@ export default function Fechamento() {
     const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
     const [isClosing, setIsClosing] = useState(false)
     const [closeError, setCloseError] = useState('')
+    const [pendingReceipt, setPendingReceipt] = useState<CashOperationReceiptData | null>(null)
+    const [receiptData, setReceiptData] = useState<CashOperationReceiptData | null>(null)
+    const [receiptContextMessage, setReceiptContextMessage] = useState('')
     const isClosingRef = useRef(false)
     const confirmCloseButtonRef = useRef<HTMLButtonElement>(null)
     const countedCash = parseMoneyInput(countedCashInput)
@@ -183,6 +189,15 @@ export default function Fechamento() {
             const register = await openCashRegister(initialAmount)
             setCashRegister(register)
             closeOpeningModal()
+            setReceiptContextMessage('O caixa foi aberto com sucesso. O comprovante de abertura é opcional.')
+            setPendingReceipt({
+                operation: 'opening',
+                bakeryName,
+                operatorName: authenticatedUser?.name,
+                date: register.openedAt,
+                registerId: register.id,
+                initialAmount: register.initialAmount,
+            })
         } catch (error) {
             console.error('Erro ao abrir o caixa.', error)
             setCloseError(getCashOperationErrorMessage(
@@ -245,16 +260,37 @@ export default function Fechamento() {
         setIsClosing(true)
         setCloseError('')
 
+        const registerId = cashRegister.id
+        const initialAmount = cashRegister.initialAmount
+
         try {
             const currentCashRegister = await getOpenCashRegister(bakeryId)
             if (!currentCashRegister || currentCashRegister.id !== cashRegister.id) {
                 setCloseError('O caixa aberto não está mais disponível para fechamento.')
                 return
             }
-            await closeCashRegister(currentCashRegister.id, countedAmount)
+            const closureId = await closeCashRegister(currentCashRegister.id, countedAmount)
             setCashRegister(null)
             setCountedCashInput('')
             setIsCloseModalOpen(false)
+
+            // A impressão é opcional e nunca invalida o fechamento já concluído.
+            const cashSalesAmount = await getCashSalesTotalForRegister(registerId)
+            const expectedAmount = initialAmount + cashSalesAmount
+            setReceiptContextMessage('O caixa foi fechado com sucesso. O comprovante de fechamento é opcional.')
+            setPendingReceipt({
+                operation: 'closing',
+                bakeryName,
+                operatorName: authenticatedUser?.name,
+                date: new Date().toISOString(),
+                registerId,
+                initialAmount,
+                cashSalesAmount,
+                expectedAmount,
+                countedAmount,
+                differenceAmount: countedAmount - expectedAmount,
+                ...(closureId ? { closureId } : {}),
+            })
         } catch (error) {
             console.error('Erro ao fechar o caixa.', error)
             setCloseError(getCashOperationErrorMessage(
@@ -356,6 +392,33 @@ export default function Fechamento() {
                         </div>
                     </header>
                     {cashLoadError && <p className="fechamento-close-error" role="alert">{cashLoadError}</p>}
+                    {pendingReceipt && (
+                        <section className="fechamento-receipt-offer" role="group" aria-label="Comprovante da operação de caixa">
+                            <div>
+                                <strong>{receiptContextMessage}</strong>
+                                <p>Deseja imprimir o comprovante de {pendingReceipt.operation === 'closing' ? 'fechamento' : 'abertura'}?</p>
+                            </div>
+                            <div className="fechamento-receipt-offer-actions">
+                                <button
+                                    type="button"
+                                    className="fechamento-secondary-button"
+                                    onClick={() => setPendingReceipt(null)}
+                                >
+                                    <span>Não imprimir</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="fechamento-primary-button"
+                                    onClick={() => {
+                                        setReceiptData(pendingReceipt)
+                                        setPendingReceipt(null)
+                                    }}
+                                >
+                                    <span>Imprimir comprovante</span>
+                                </button>
+                            </div>
+                        </section>
+                    )}
                     {closeError && !isOpeningModalOpen && !isCloseModalOpen && <p className="fechamento-close-error" role="alert">{closeError}</p>}
                     {isLoadingCashRegister ? (
                         <p role="status">Carregando o caixa...</p>
@@ -394,7 +457,7 @@ export default function Fechamento() {
                                 <section className="fechamento-cash-movement">
                                     <h3>Movimentação em dinheiro</h3>
                                     <div className="fechamento-cash-movement-row"><span>Valor inicial</span><strong>{currency.format(cashRegister.initialAmount)}</strong></div>
-                                    <div className="fechamento-cash-movement-row total"><span>Conferência</span><strong>Calculada pelo servidor no fechamento</strong></div>
+                                    <div className="fechamento-cash-movement-row total"><span>Conferência</span><strong>Calculada automaticamente pelo sistema</strong></div>
                                 </section>
                                 <div className="fechamento-counted-panel">
                                     <div className="fechamento-counted-cash">
@@ -494,7 +557,7 @@ export default function Fechamento() {
                             <div className="fechamento-close-summary">
                                 <div><span>Valor inicial</span><strong>{currency.format(cashRegister.initialAmount)}</strong></div>
                                 <div><span>Valor contado</span><strong>{currency.format(countedCash)}</strong></div>
-                                <div><span>Conferência</span><strong>Calculada pelo servidor no fechamento</strong></div>
+                                <div><span>Conferência</span><strong>Calculada automaticamente pelo sistema</strong></div>
                             </div>
                             {closeError && <p className="fechamento-close-error">{closeError}</p>}
                         </div>

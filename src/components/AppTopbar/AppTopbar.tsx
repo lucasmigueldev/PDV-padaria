@@ -1,4 +1,4 @@
-import { LogOut, Store, UserRound } from 'lucide-react'
+import { LogOut, RefreshCw, Store, UserRound } from 'lucide-react'
 import PrinterStatusButton from '../PrinterStatusButton/PrinterStatusButton'
 import { useEstablishmentName } from '../../services/establishment'
 import ConnectionStatusBadge from '../../components/ConnectionStatusBadge/ConnectionStatusBadge'
@@ -10,9 +10,19 @@ interface AppTopbarProps {
     userRole?: string | null
     onLogout: () => void
     showPrinter?: boolean
+    onRefresh?: () => void
+    isRefreshing?: boolean
 }
 
-export default function AppTopbar({ userName, bakeryName, userRole, onLogout, showPrinter = false }: AppTopbarProps) {
+export default function AppTopbar({
+    userName,
+    bakeryName,
+    userRole,
+    onLogout,
+    showPrinter = true,
+    onRefresh,
+    isRefreshing = false,
+}: AppTopbarProps) {
     const establishmentName = useEstablishmentName()
 
     return (
@@ -37,6 +47,19 @@ export default function AppTopbar({ userName, bakeryName, userRole, onLogout, sh
                     )}
                 </div>
                 <ConnectionStatusBadge />
+                {onRefresh && (
+                    <button
+                        type="button"
+                        className="app-topbar-refresh"
+                        onClick={onRefresh}
+                        disabled={isRefreshing}
+                        aria-label="Atualizar dados"
+                        title="Atualizar dados"
+                    >
+                        <RefreshCw size={15} className={isRefreshing ? 'app-topbar-refresh-spin' : undefined} aria-hidden="true" />
+                        <span>{isRefreshing ? 'Atualizando...' : 'Atualizar'}</span>
+                    </button>
+                )}
                 {showPrinter && (
                     <>
                         <div className="app-session-divider" aria-hidden="true" />

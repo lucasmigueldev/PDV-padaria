@@ -1,8 +1,6 @@
 import {
     Banknote,
-    Check,
     Clock3,
-    Copy,
     CreditCard,
     DollarSign,
     FileDown,
@@ -87,12 +85,9 @@ export default function HistoricoVendas() {
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
-    const [copiedSaleId, setCopiedSaleId] = useState<string | null>(null)
-    const [copyStatusMessage, setCopyStatusMessage] = useState('')
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
     const [receiptSale, setReceiptSale] = useState<Sale | null>(null)
     const closeDetailsButtonRef = useRef<HTMLButtonElement>(null)
-    const copyFeedbackTimeoutRef = useRef<number | null>(null)
     const { bakeries } = useBakeries()
     const bakeryName = bakeries.find((bakery) => bakery.id === authenticatedUser?.activeBakeryId)?.name ?? null
     const today = new Date()
@@ -210,37 +205,12 @@ export default function HistoricoVendas() {
         return () => window.removeEventListener('keydown', handleEscape)
     }, [selectedSale])
 
-    useEffect(() => () => {
-        if (copyFeedbackTimeoutRef.current !== null) {
-            window.clearTimeout(copyFeedbackTimeoutRef.current)
-        }
-    }, [])
-
     function handleLogout() {
         void logoutAndRedirect(navigate)
     }
 
     function openSaleDetails(sale: Sale) {
         setSelectedSale(sale)
-    }
-
-    async function copySaleId(saleId: string) {
-        try {
-            await navigator.clipboard.writeText(saleId)
-            setCopiedSaleId(saleId)
-            setCopyStatusMessage('Identificador completo copiado.')
-            if (copyFeedbackTimeoutRef.current !== null) {
-                window.clearTimeout(copyFeedbackTimeoutRef.current)
-            }
-            copyFeedbackTimeoutRef.current = window.setTimeout(() => {
-                setCopiedSaleId(null)
-                copyFeedbackTimeoutRef.current = null
-            }, 1800)
-        } catch (error) {
-            console.error('Não foi possível copiar o identificador completo da venda.', error)
-            setCopiedSaleId(null)
-            setCopyStatusMessage('Não foi possível copiar o identificador completo.')
-        }
     }
 
     function exportSales() {
@@ -570,20 +540,17 @@ export default function HistoricoVendas() {
                     <section className="sales-history-registered overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-100 p-6">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-900">Vendas registradas</h2>
-                                <p className="mt-1 text-sm text-slate-500">{filteredSales.length} venda(s) encontrada(s)</p>
+                                <p className="text-sm text-slate-500">{filteredSales.length} venda(s) encontrada(s)</p>
                             </div>
-                            <Clock3 className="text-slate-400" size={21} aria-hidden="true" />
                         </div>
 
                         {sales.length > 0 && filteredSales.length > 0 ? (
                             <>
                                 <div className="sales-history-table-container overflow-x-auto">
-                                    <table className="sales-history-table w-full min-w-[38rem] text-left text-sm">
+                                    <table className="sales-history-table w-full min-w-[30rem] text-left text-sm">
                                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
                                             <th className="px-4 py-4 font-semibold">Data e hora</th>
-                                            <th className="px-4 py-4 font-semibold">Venda</th>
                                             <th className="px-4 py-4 font-semibold">Forma de pagamento</th>
                                             <th className="px-4 py-4 text-right font-semibold">Valor total</th>
                                         </tr>
@@ -605,26 +572,6 @@ export default function HistoricoVendas() {
                                                 aria-label={`Visualizar detalhes da venda ${sale.id}`}
                                             >
                                                 <td data-label="Data e hora" className="whitespace-nowrap px-4 py-4">{dateTime.format(new Date(sale.date))}</td>
-                                                <td data-label="Venda" className="px-4 py-4 font-medium text-slate-900">
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <span>#{sale.id.slice(0, 7)}</span>
-                                                        <button
-                                                            type="button"
-                                                            className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
-                                                            aria-label={`${copiedSaleId === sale.id ? 'Identificador copiado' : 'Copiar identificador completo'} da venda ${sale.id}`}
-                                                            title="Copiar identificador completo"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation()
-                                                                void copySaleId(sale.id)
-                                                            }}
-                                                            onKeyDown={(event) => event.stopPropagation()}
-                                                        >
-                                                            {copiedSaleId === sale.id
-                                                                ? <Check size={15} aria-hidden="true" />
-                                                                : <Copy size={15} aria-hidden="true" />}
-                                                        </button>
-                                                    </span>
-                                                </td>
                                                 <td data-label="Forma de pagamento" className="px-4 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
                                                 <td data-label="Valor total" className="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
                                             </tr>
@@ -632,7 +579,6 @@ export default function HistoricoVendas() {
                                     </tbody>
                                     </table>
                                 </div>
-                                <span className="sr-only" role="status" aria-live="polite">{copyStatusMessage}</span>
                                 {totalPages > 1 && (
                                     <div className="sales-history-pagination">
                                         <button

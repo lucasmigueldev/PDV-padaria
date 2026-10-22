@@ -419,9 +419,10 @@
 .sales-history-date-filter {
     display: grid;
     grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: max-content max-content auto;
     gap: 12px;
     align-items: end;
+    justify-content: start;
     padding-top: 2px;
 }
 
@@ -439,7 +440,7 @@
 }
 
 .sales-history-date-field input {
-    width: 100%;
+    width: 170px;
     min-width: 0;
     padding: 13px 14px;
     border: 1px solid #dbe2ea;
@@ -774,6 +775,10 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    .sales-history-date-field input {
+        width: 100%;
+    }
+
     .sales-history-summary {
         padding: 20px;
     }
@@ -865,11 +870,11 @@
         text-transform: uppercase;
     }
 
-    .sales-history-table tbody td:nth-child(-n + 2) {
+    .sales-history-table tbody td:nth-child(-n + 1) {
         grid-column: 1 / -1;
     }
 
-    .sales-history-table tbody td:nth-child(4) {
+    .sales-history-table tbody td:nth-child(3) {
         font-weight: 700;
     }
 
@@ -1186,24 +1191,14 @@
     padding: 16px 20px;
 }
 
-.sales-history-page .sales-history-registered > div:first-child h2 {
-    color: #172b45;
-    font-size: 18px;
-    font-weight: 750;
-}
-
 .sales-history-page .sales-history-registered > div:first-child p {
     margin-top: 4px;
     color: #64748b;
     font-size: 13px;
 }
 
-.sales-history-page .sales-history-registered > div:first-child > svg {
-    color: var(--history-blue);
-}
-
 .sales-history-page .sales-history-table {
-    min-width: 700px;
+    min-width: 560px;
     border-collapse: collapse;
     color: #334155;
     font-size: 14px;
@@ -1241,28 +1236,7 @@
     outline-offset: -3px;
 }
 
-.sales-history-page .sales-history-table tbody td:nth-child(2) {
-    color: #172b45;
-    font-weight: 650;
-    font-variant-numeric: tabular-nums;
-}
-
-.sales-history-page .sales-history-table tbody td:nth-child(2) button {
-    border-radius: 4px;
-    color: #64748b;
-}
-
-.sales-history-page .sales-history-table tbody td:nth-child(2) button:hover {
-    background: #edf2f7;
-    color: var(--history-blue-dark);
-}
-
-.sales-history-page .sales-history-table tbody td:nth-child(2) button:focus-visible {
-    outline: 3px solid rgb(37 99 235 / 28%);
-    outline-offset: 2px;
-}
-
-.sales-history-page .sales-history-table tbody td:nth-child(4) {
+.sales-history-page .sales-history-table tbody td:nth-child(3) {
     color: #172b45;
     font-weight: 750;
     font-variant-numeric: tabular-nums;

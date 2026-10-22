@@ -2,6 +2,40 @@ import { getSupabaseClient } from '../lib/supabaseClient'
 import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { PaymentMethod, Sale } from '../types/Sale'
 
+/**
+ * Soma das vendas pagas em dinheiro de um caixa (sessão).
+ *
+ * O mesmo cálculo é feito pelo servidor em `close_cash_register`, mas aqui
+ * precisamos do valor antes/depois do fechamento para compor o comprovante.
+ * A política de leitura permite que o caixaier consulte as vendas da própria
+ * unidade.
+ */
+export async function getCashSalesTotalForRegister(cashRegisterId: string): Promise<number> {
+    try {
+        const { data, error } = await getSupabaseClient()
+            .from('sales')
+            .select('total')
+            .eq('cash_register_id', cashRegisterId)
+            .eq('payment_method', 'cash')
+
+        if (error) {
+            console.error('Erro ao calcular as vendas em dinheiro do caixa.', error)
+            return 0
+        }
+
+        return ((data ?? []) as Array<{ total: number | string }>).reduce(
+            (sum, sale) => sum + Number(sale.total ?? 0),
+            0,
+        )
+    } catch (error) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
+        }
+        console.error('Falha ao calcular as vendas em dinheiro do caixa.', error)
+        return 0
+    }
+}
+
 type SaleRow = {
     id: string
     date: string

@@ -999,6 +999,37 @@
 	font-weight: 700;
 }
 
+.pdv-shortcut:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.pdv-shortcut:disabled:hover {
+	background: transparent;
+	color: #e1eaf5;
+}
+
+.pdv-refresh-spin {
+	animation: pdv-refresh-spin 1s linear infinite;
+}
+
+@keyframes pdv-refresh-spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.pdv-last-updated {
+	padding: 2px 10px 8px;
+	color: #b3c6df;
+	font-size: 11px;
+	font-weight: 600;
+}
+
 .pdv-main {
 	display: block;
 	grid-column: 2;

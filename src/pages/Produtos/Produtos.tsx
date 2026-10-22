@@ -419,8 +419,8 @@ export default function Produtos() {
                                             <td>{product.stock}</td>
                                             {!isOwner && (
                                                 <td><div className="products-actions">
-                                                    <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} />Editar</button>
-                                                    <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} />Excluir</button>
+                                                    <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} /></button>
+                                                    <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} /></button>
                                                 </div></td>
                                             )}
                                         </tr>

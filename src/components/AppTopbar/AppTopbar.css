@@ -68,6 +68,47 @@
     flex-shrink: 0;
 }
 
+.app-topbar-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    border: 1px solid rgb(255 255 255 / 35%);
+    border-radius: 4px;
+    padding: 0 11px;
+    background: transparent;
+    color: #ffffff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.app-topbar-refresh:hover:not(:disabled) {
+    background: rgb(255 255 255 / 12%);
+}
+
+.app-topbar-refresh:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.app-topbar-refresh-spin {
+    animation: app-topbar-refresh-spin 1s linear infinite;
+}
+
+@keyframes app-topbar-refresh-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .app-topbar-logout {
     display: inline-flex;
     align-items: center;

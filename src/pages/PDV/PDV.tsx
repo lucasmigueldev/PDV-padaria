@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
-    Banknote,
     CircleAlert,
     CircleCheck,
     CreditCard,
@@ -17,12 +16,12 @@ import {
     X,
 } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
-
-import { getProductsFromSupabase } from '../../data/products'
+import { addProduct as createProduct, getProductsFromSupabase } from '../../data/products'
 import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePixKey } from '../../services/pixConfig'
+import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
 import { useConnectionStatus } from '../../hooks/useConnectionStatus'
 import { enqueueSale, getPendingSyncCount } from '../../services/offlineSalesQueue'
@@ -36,42 +35,31 @@ import type { ReceiptData } from '../../services/thermalPrinter'
 import { logoutAndRedirect } from '../../utils/auth'
 import AppTopbar from '../../components/AppTopbar/AppTopbar'
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog'
+import { QuickProductDialog, type QuickProductData } from '../../components/QuickProductDialog/QuickProductDialog'
 import './PDV.css'
-
 const currency = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
 })
-
 const moneyInputPattern = /^\d*(?:[,.]\d{0,2})?$/
-
 function getOperationalErrorMessage(error: unknown, fallback: string, connectionMessage: string): string {
     if (error instanceof TypeError) return connectionMessage
-
     if (error instanceof Error) {
         const containsTechnicalDetails = /(supabase|rpc|postgres|pgrst|jwt|\.env)/i.test(error.message)
             || /\b[0-9A-Z]{5}\b/.test(error.message)
         if (!containsTechnicalDetails) return error.message
     }
-
     return fallback
 }
-
 function parseMoneyToCents(value: string): number | null {
     if (!value || !moneyInputPattern.test(value)) return null
-
     const normalizedValue = value.replace(',', '.')
     const [wholePart, decimalPart = ''] = normalizedValue.split('.')
-
     if (!wholePart && !decimalPart) return null
-
     const cents = Number(wholePart || '0') * 100 + Number(decimalPart.padEnd(2, '0'))
-
     return Number.isSafeInteger(cents) ? cents : null
 }
-
 import { useEstablishmentName } from '../../services/establishment'
-
 function saleToReceiptData(sale: Sale, bakeryName: string, establishmentName?: string): ReceiptData {
     return {
         establishmentName,
@@ -90,7 +78,6 @@ function saleToReceiptData(sale: Sale, bakeryName: string, establishmentName?: s
         change: sale.change,
     }
 }
-
 export default function PDV() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
@@ -127,17 +114,22 @@ export default function PDV() {
     const [products, setProducts] = useState<ProductWithStock[]>([])
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
+    const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null)
+    const [isSavingQuickProduct, setIsSavingQuickProduct] = useState(false)
+    const [quickProductError, setQuickProductError] = useState('')
+
+    const isRefreshingOperationalDataRef = useRef(false)
     const closeCheckoutButtonRef = useRef<HTMLButtonElement>(null)
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
     const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
+    const isSavingQuickProductRef = useRef(false)
     const scanBufferRef = useRef('')
     const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const addProductByBarcodeRef = useRef(addProductByBarcode)
     useEffect(() => {
         addProductByBarcodeRef.current = addProductByBarcode
     })
-
     useEffect(() => {
         let active = true
         void (async () => {
@@ -170,24 +162,59 @@ export default function PDV() {
                 if (active) setIsLoadingOperationalData(false)
             }
         })()
-
         return () => {
             active = false
         }
     }, [bakeryId])
-
+    // Recarrega o catálogo e o caixa sob demanda (botão "Atualizar dados") sem
+    // desfazer a venda em andamento: os itens da venda mantêm seus próprios valores.
+    const reloadOperationalData = useCallback(async (showFeedback = false) => {
+        if (!bakeryId || isRefreshingOperationalDataRef.current) return
+        isRefreshingOperationalDataRef.current = true
+        try {
+            const [catalog, register] = await Promise.all([
+                getProductsFromSupabase(bakeryId),
+                getOpenCashRegister(bakeryId),
+            ])
+            setProducts(catalog)
+            setCashRegister(register)
+            // Reflete o novo estoque nos itens já presentes na venda, sem alterar
+            // as quantidades escolhidas pelo operador (apenas limita ao estoque).
+            const stockByBarcode = new Map(catalog.map((product) => [product.barcode.trim(), product.stock]))
+            setItems((currentItems) => currentItems.map((item) => {
+                const stock = stockByBarcode.get(item.barcode.trim())
+                if (stock === undefined) return item
+                return { ...item, stock, quantity: Math.min(item.quantity, stock) }
+            }).filter((item) => item.quantity > 0))
+            if (showFeedback) setSaleFeedback('Dados atualizados.')
+        } catch (error: unknown) {
+            console.error('Erro ao atualizar os dados do PDV.', error)
+            setErrorMessage(getOperationalErrorMessage(
+                error,
+                'Não foi possível atualizar os dados do PDV. Tente novamente.',
+                'Não foi possível atualizar os dados do PDV. Verifique a conexão e tente novamente.',
+            ))
+        } finally {
+            isRefreshingOperationalDataRef.current = false
+        }
+    }, [bakeryId])
+    // Mantém o PDV sincronizado com as movimentações de outros dispositivos:
+    // ao voltar para a aba e a cada intervalo, o catálogo e o caixa são recarregados.
+    useAutoRefresh(() => {
+        if (isCheckoutOpen || pixOverlayOpen || pixKeyDisplayOpen || unknownBarcode) return
+        if (document.visibilityState !== 'visible') return
+        void reloadOperationalData()
+    })
+    
     useEffect(() => {
         barcodeInputRef.current?.focus()
     }, [])
-
     useEffect(() => {
         if (!isCheckoutOpen) return
         closeCheckoutButtonRef.current?.focus()
     }, [isCheckoutOpen])
-
     useEffect(() => {
         if (!isCheckoutOpen && !pixOverlayOpen && !pixKeyDisplayOpen) return
-
         function handleEscape(event: KeyboardEvent) {
             if (event.key !== 'Escape') return
             if (pixOverlayOpen) {
@@ -198,11 +225,9 @@ export default function PDV() {
                 closeCheckout()
             }
         }
-
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
     }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
-
     // Leitores de código de barras funcionam como teclado (keyboard wedge) e enviam
     // os caracteres rapidamente, terminando com Enter. Quando o foco da página não está
     // no campo de código (por exemplo, após clicar em um botão da venda), a leitura é
@@ -215,13 +240,11 @@ export default function PDV() {
             const tagName = target.tagName
             return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
         }
-
         function handleScanKey(event: KeyboardEvent) {
-            if (isCheckoutOpen || pixOverlayOpen || pixKeyDisplayOpen) return
+            if (isCheckoutOpen || pixOverlayOpen || pixKeyDisplayOpen || unknownBarcode) return
             if (event.ctrlKey || event.altKey || event.metaKey) return
             // Campos de digitação já recebem a leitura diretamente (o Enter dispara o form).
             if (isEditableTarget(event.target)) return
-
             if (event.key === 'Enter') {
                 const scannedBarcode = scanBufferRef.current.trim()
                 scanBufferRef.current = ''
@@ -230,17 +253,13 @@ export default function PDV() {
                     scanTimerRef.current = null
                 }
                 if (!scannedBarcode) return
-
                 event.preventDefault()
                 addProductByBarcodeRef.current(scannedBarcode)
                 barcodeInputRef.current?.focus()
                 return
             }
-
             if (event.key.length !== 1) return
-
             scanBufferRef.current += event.key
-
             // Digitação humana é descartada: o buffer só vale se os caracteres chegarem
             // no ritmo típico de um leitor.
             if (scanTimerRef.current) clearTimeout(scanTimerRef.current)
@@ -249,7 +268,6 @@ export default function PDV() {
                 scanTimerRef.current = null
             }, 150)
         }
-
         document.addEventListener('keydown', handleScanKey)
         return () => {
             document.removeEventListener('keydown', handleScanKey)
@@ -258,26 +276,21 @@ export default function PDV() {
                 scanTimerRef.current = null
             }
         }
-    }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
-
+    }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen, unknownBarcode])
     useEffect(() => {
         function handleFinishShortcut(event: KeyboardEvent) {
             if (event.key !== 'F5') return
-
             event.preventDefault()
             if (!isCheckoutOpen) finishButtonRef.current?.click()
         }
-
         document.addEventListener('keydown', handleFinishShortcut)
         return () => document.removeEventListener('keydown', handleFinishShortcut)
     }, [isCheckoutOpen])
-
     useEffect(() => {
         if (isCheckoutOpen && paymentMethod === 'cash') {
             receivedValueInputRef.current?.focus()
         }
     }, [isCheckoutOpen, paymentMethod])
-
     // Inicia o monitor de conectividade, a sincronização de vendas pendentes
     // e o rastreamento de períodos fora do ar quando o PDV está ativo para uma unidade.
     useEffect(() => {
@@ -291,53 +304,60 @@ export default function PDV() {
             stopOfflineTracking()
         }
     }, [bakeryId])
-
     function handleLogout() {
         void logoutAndRedirect(navigate)
     }
-
     function addProductByBarcode(rawBarcode: string) {
         setErrorMessage('')
         setSaleFeedback('')
         const normalizedBarcode = rawBarcode.trim()
+        if (!normalizedBarcode) {
+            setErrorMessage('Informe o código de barras do produto.')
+            barcodeInputRef.current?.focus()
+            return
+        }
+        if (unknownBarcode === normalizedBarcode) {
+            barcodeInputRef.current?.focus()
+            return
+        }
         const requestedQuantity = Number(productQuantity)
         const product = products.find((item) => item.barcode.trim() === normalizedBarcode)
-
         if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity < 1) {
             setErrorMessage('Informe uma quantidade válida.')
             barcodeInputRef.current?.focus()
             return
         }
-
         if (!product) {
-            setErrorMessage('Produto não encontrado.')
-            barcodeInputRef.current?.focus()
+            setBarcode(normalizedBarcode)
+            if (!window.confirm('Produto com código ' + normalizedBarcode + ' não cadastrado. Deseja cadastrar agora?')) {
+                setUnknownBarcode(normalizedBarcode)
+                setErrorMessage('Produto não cadastrado.')
+                barcodeInputRef.current?.focus()
+                return
+            }
+            setUnknownBarcode(normalizedBarcode)
+            setQuickProductError('')
+            setErrorMessage('')
             return
         }
-
         if (product.stock <= 0) {
             setErrorMessage('Produto sem estoque.')
             barcodeInputRef.current?.focus()
             return
         }
-
         const existingItem = items.find((item) => item.barcode === product.barcode)
-
         if (existingItem && existingItem.quantity + requestedQuantity > product.stock) {
             setErrorMessage('Limite de estoque atingido.')
             barcodeInputRef.current?.focus()
             return
         }
-
         if (!existingItem && requestedQuantity > product.stock) {
             setErrorMessage('Limite de estoque atingido.')
             barcodeInputRef.current?.focus()
             return
         }
-
         setItems((currentItems) => {
             const currentItem = currentItems.find((item) => item.barcode === product.barcode)
-
             if (currentItem) {
                 return currentItems.map((item) =>
                     item.barcode === product.barcode
@@ -345,57 +365,98 @@ export default function PDV() {
                         : item,
                 )
             }
-
             return [...currentItems, { ...product, quantity: requestedQuantity }]
         })
         setBarcode('')
         setProductQuantity('1')
         barcodeInputRef.current?.focus()
     }
-
     function addProduct(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         addProductByBarcode(barcode)
     }
-
+    function cancelQuickProduct() {
+        setUnknownBarcode(null)
+        setQuickProductError('')
+        setIsSavingQuickProduct(false)
+        setBarcode('')
+        setProductQuantity('1')
+        barcodeInputRef.current?.focus()
+    }
+    async function confirmQuickProduct(data: QuickProductData) {
+        if (!unknownBarcode || isSavingQuickProduct) return
+        isSavingQuickProductRef.current = true
+        setIsSavingQuickProduct(true)
+        setQuickProductError('')
+        try {
+            const createdProduct = await createProduct(data)
+            setProducts((currentProducts) => [...currentProducts, createdProduct])
+            setUnknownBarcode(null)
+            setBarcode('')
+            setProductQuantity('1')
+            setErrorMessage('')
+            if (createdProduct.stock <= 0) {
+                setSaleFeedback('Produto cadastrado, mas sem estoque disponível para a venda.')
+                barcodeInputRef.current?.focus()
+                return
+            }
+            const requestedQuantity = Number(productQuantity)
+            const quantity = Number.isSafeInteger(requestedQuantity) && requestedQuantity > 0
+                ? Math.min(requestedQuantity, createdProduct.stock)
+                : 1
+            setItems((currentItems) => {
+                const currentItem = currentItems.find((item) => item.barcode === createdProduct.barcode)
+                if (currentItem) {
+                    return currentItems.map((item) =>
+                        item.barcode === createdProduct.barcode
+                            ? { ...item, quantity: Math.min(item.quantity + quantity, createdProduct.stock) }
+                            : item,
+                    )
+                }
+                return [...currentItems, { ...createdProduct, quantity }]
+            })
+            setSaleFeedback(`Produto "${createdProduct.name}" cadastrado e adicionado à venda.`)
+            barcodeInputRef.current?.focus()
+        } catch (error: unknown) {
+            console.error('Erro inesperado ao cadastrar produto lido.', error)
+            setQuickProductError(error instanceof Error
+                ? error.message
+                : 'Não foi possível cadastrar o produto. Tente novamente.')
+        } finally {
+            isSavingQuickProductRef.current = false
+            setIsSavingQuickProduct(false)
+        }
+    }
     function updateQuantity(id: string, amount: number) {
         const currentItem = items.find((item) => item.id === id)
         const catalogProduct = products.find((product) => product.id === id)
         const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
-
         if (amount > 0 && currentItem && currentItem.quantity >= stock) {
             setErrorMessage('Limite de estoque atingido.')
             barcodeInputRef.current?.focus()
             return
         }
-
         setItems((currentItems) => currentItems.map((item) => {
             if (item.id !== id) return item
-
             const nextQuantity = amount > 0
                 ? Math.min(item.quantity + amount, stock)
                 : Math.max(1, item.quantity + amount)
-
             return { ...item, quantity: nextQuantity }
         }))
         barcodeInputRef.current?.focus()
     }
-
     function removeProduct(id: string) {
         setItems((currentItems) => currentItems.filter((item) => item.id !== id))
     }
-
     function confirmItemRemoval() {
         if (!itemBeingRemoved) return
         removeProduct(itemBeingRemoved.id)
         setItemBeingRemoved(null)
         barcodeInputRef.current?.focus()
     }
-
     function openCheckout() {
         if (items.length === 0) return
         if (!cashRegister) return
-
         setPaymentMethod(null)
         setReceivedValue('')
         setCheckoutMessage('')
@@ -404,7 +465,6 @@ export default function PDV() {
         setModalPrintFeedback(null)
         setIsCheckoutOpen(true)
     }
-
     function closeCheckout() {
         setIsCheckoutOpen(false)
         setPaymentMethod(null)
@@ -416,26 +476,21 @@ export default function PDV() {
         setModalPrintFeedback(null)
         barcodeInputRef.current?.focus()
     }
-
     function closePixOverlay() {
         setPixOverlayOpen(false)
     }
-
     function openPixKeyDisplay() {
         setPixKeyDisplayOpen(true)
     }
-
     function closePixKeyDisplay() {
         setPixKeyDisplayOpen(false)
     }
-
     function selectPaymentMethod(method: PaymentMethod) {
         setPaymentMethod(method)
         setReceivedValue('')
         setCheckoutMessage('')
         if (method === 'pix') setPixOverlayOpen(true)
     }
-
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
     const isCashRegisterOpen = cashRegister !== null
@@ -451,33 +506,26 @@ export default function PDV() {
             : receivedInCents < totalInCents
                 ? `Valor insuficiente. Falta ${currency.format((totalInCents - receivedInCents) / 100)}.`
                 : `Troco: ${currency.format((receivedInCents - totalInCents) / 100)}`
-
     async function continueCheckout() {
         if (isRegisteringSaleRef.current) return
-
         if (items.length === 0) {
             setCheckoutMessage('Adicione pelo menos um produto para concluir a venda.')
             return
         }
-
         if (!paymentMethod) {
             setCheckoutMessage('Selecione uma forma de pagamento para continuar.')
             return
         }
-
         if (paymentMethod === 'cash' && !isCashPaymentValid) return
-
         if (!bakeryId) {
             closeCheckout()
             setCheckoutMessage('Abra o caixa para finalizar a venda.')
             return
         }
-
         if (!authenticatedUser || authenticatedUser.role !== 'cashier' || !authenticatedUser.activeBakeryId?.trim()) {
             setCheckoutMessage('Não foi possível identificar a unidade do operador.')
             return
         }
-
         let currentRegister
         try {
             currentRegister = await getOpenCashRegister(authenticatedUser.activeBakeryId)
@@ -494,7 +542,6 @@ export default function PDV() {
             setCheckoutMessage('Abra o caixa para finalizar a venda.')
             return
         }
-
         const receivedAmount = paymentMethod === 'cash' && receivedInCents !== null
             ? receivedInCents / 100
             : null
@@ -511,10 +558,8 @@ export default function PDV() {
         if (idempotencyRef.current?.fingerprint !== fingerprint) {
             idempotencyRef.current = { fingerprint, key: crypto.randomUUID() }
         }
-
         isRegisteringSaleRef.current = true
         setIsRegisteringSale(true)
-
         try {
             const registeredAt = new Date().toISOString()
             const saleId = await createSaleWithItems({
@@ -549,7 +594,6 @@ export default function PDV() {
             setCheckoutStep('completed')
             setModalPrintFeedback(null)
             setSaleFeedback('Venda concluída com sucesso.')
-
             try {
                 setProducts(await getProductsFromSupabase(authenticatedUser.activeBakeryId))
             } catch (error) {
@@ -622,11 +666,9 @@ export default function PDV() {
             setIsRegisteringSale(false)
         }
     }
-
     async function handlePrintFromModal() {
         if (!completedSale) return
         const bakery = receiptBakeryName ?? bakeryName
-
         try {
             setModalPrintFeedback({ isError: false, message: 'Enviando cupom para a impressora...' })
             if (bluetooth.status !== 'connected') {
@@ -642,8 +684,6 @@ export default function PDV() {
             })
         }
     }
-
-
     return (
         <>
             {showScreenNotice && (
@@ -672,7 +712,6 @@ export default function PDV() {
                     </div>
                 </div>
             )}
-
             <div className="pdv-layout">
             <AppTopbar
                 userName={authenticatedUser?.name}
@@ -681,7 +720,6 @@ export default function PDV() {
                 onLogout={handleLogout}
                 showPrinter
             />
-
             {pendingCount > 0 && connection.status === 'offline' && (
                 <div className="pdv-offline-banner">
                     <span>● Sem conexão</span>
@@ -694,7 +732,6 @@ export default function PDV() {
                     <span>{pendingCount} venda(ões) na fila</span>
                 </div>
             )}
-
             <aside className="pdv-sidebar">
                 <div className="pdv-brand">
                     <div className="pdv-logo-icon">
@@ -705,7 +742,6 @@ export default function PDV() {
                         <span>Sistema de vendas</span>
                     </div>
                 </div>
-
                 <form className="pdv-add-product" onSubmit={addProduct}>
                     <label htmlFor="barcode">Código do produto</label>
                     <input
@@ -722,7 +758,6 @@ export default function PDV() {
                     </button>
                     {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
                 </form>
-
                 <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
                     <span className="pdv-sidebar-label">Operação</span>
                     <Link to="/produtos" className="pdv-shortcut">
@@ -746,7 +781,6 @@ export default function PDV() {
                         <kbd>F4</kbd>
                     </Link>
                 </nav>
-
                 <nav className="pdv-shortcuts" aria-label="Pagamento">
                     <span className="pdv-sidebar-label">Pagamento</span>
                     <button
@@ -756,19 +790,15 @@ export default function PDV() {
                         aria-label="Exibir chave PIX"
                     >
                         <QrCode size={19} />
-                        <span>Chave PIX</span>
+                        <span>Exibir Chave Pix</span>
                     </button>
                 </nav>
-
             </aside>
-
             <main className="pdv-main">
                 <section className="pdv-content">
                     {saleFeedback && (
                         <p className="pdv-success-message" role="status">{saleFeedback}</p>
                     )}
-
-
                     <div className="pdv-sale-grid">
                         <section className="pdv-sale-panel">
                             <div className="pdv-section-heading">
@@ -777,7 +807,6 @@ export default function PDV() {
                                     <p>{totalItems === 1 ? '1 item adicionado' : `${totalItems} itens adicionados`}</p>
                                 </div>
                             </div>
-
                             {items.length === 0 ? (
                                 <div className="pdv-empty-state">
                                     <ShoppingCart size={28} />
@@ -846,7 +875,6 @@ export default function PDV() {
                                 </div>
                             )}
                         </section>
-
                         <aside className="pdv-summary">
                             <div className={`pdv-cash-status${isCashRegisterOpen ? ' is-open' : ' is-closed'}`} role="status">
                                 {isCashRegisterOpen
@@ -869,8 +897,22 @@ export default function PDV() {
                             </div>
                             <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
                             <button
-                                ref={finishButtonRef}
-                                type="button"
+                                    type="button"
+                                    className="pdv-clear-cart-button"
+                                    disabled={items.length === 0}
+                                    onClick={() => {
+                                        if (window.confirm('Limpar todos os produtos da tela?')) {
+                                            setItems([])
+                                            setBarcode('')
+                                            setProductQuantity('1')
+                                            barcodeInputRef.current?.focus()
+                                        }
+                                    }}
+                                >
+                                    Limpar tela
+                                </button>
+                                <button
+                                    type="button"
                                 className="pdv-finish-button"
                                 disabled={isLoadingOperationalData || isRegisteringSale || items.length === 0 || !isCashRegisterOpen}
                                 onClick={openCheckout}
@@ -882,7 +924,6 @@ export default function PDV() {
                     </div>
                 </section>
             </main>
-
             {isCheckoutOpen && (
                 <>
                     <div className="pdv-checkout-overlay" onClick={closeCheckout}>
@@ -913,14 +954,12 @@ export default function PDV() {
                                 <X size={19} />
                             </button>
                         </div>
-
                         {checkoutStep === 'payment' ? (
                             <>
                                 <div className="pdv-checkout-total">
                                     <span>Total da venda</span>
                                     <strong>{currency.format(total)}</strong>
                                 </div>
-
                                 <div className="pdv-payment-section">
                                     <div>
                                         <h3>Forma de pagamento</h3>
@@ -934,7 +973,6 @@ export default function PDV() {
                                             role="radio"
                                             aria-checked={paymentMethod === 'cash'}
                                         >
-                                            <Banknote size={20} />
                                             <span>Dinheiro</span>
                                         </button>
                                         <button
@@ -959,7 +997,6 @@ export default function PDV() {
                                         </button>
                                     </div>
                                 </div>
-
                                 {paymentMethod === 'cash' && (
                                     <div className="pdv-cash-section">
                                         <label htmlFor="received-value">Valor recebido</label>
@@ -973,7 +1010,6 @@ export default function PDV() {
                                                 value={receivedValue}
                                                 onChange={(event) => {
                                                     const nextValue = event.target.value
-
                                                     if (moneyInputPattern.test(nextValue)) {
                                                         setReceivedValue(nextValue)
                                                         setCheckoutMessage('')
@@ -997,7 +1033,6 @@ export default function PDV() {
                                         )}
                                     </div>
                                 )}
-
                                 {paymentMethod === 'pix' && (
                                     <div className="pdv-pix-section" aria-label="Pagamento via PIX">
                                         <div className="pdv-pix-icon" aria-hidden="true">
@@ -1020,7 +1055,6 @@ export default function PDV() {
                                         </div>
                                     </div>
                                 )}
-
                                 {paymentMethod === 'card' && (
                                     <div className="pdv-card-section" aria-label="Pagamento com Cartão">
                                         <div className="pdv-card-icon" aria-hidden="true">
@@ -1033,9 +1067,7 @@ export default function PDV() {
                                         </div>
                                     </div>
                                 )}
-
                                 {checkoutMessage && <p className="pdv-checkout-message" role="alert">{checkoutMessage}</p>}
-
                                 <div className="pdv-checkout-actions">
                                     <button type="button" className="pdv-checkout-cancel" onClick={closeCheckout}>
                                         Cancelar
@@ -1060,7 +1092,6 @@ export default function PDV() {
                                             <p>Deseja imprimir o cupom na impressora térmica?</p>
                                         </div>
                                     </div>
-
                                     <div className="pdv-checkout-completed-summary">
                                         <div className="pdv-checkout-completed-row">
                                             <span>Total pago</span>
@@ -1091,7 +1122,6 @@ export default function PDV() {
                                                 </>
                                             )}
                                     </div>
-
                                     {modalPrintFeedback && (
                                         <p
                                             className={`pdv-checkout-print-feedback ${modalPrintFeedback.isError ? 'is-error' : 'is-success'}`}
@@ -1100,7 +1130,6 @@ export default function PDV() {
                                             {modalPrintFeedback.message}
                                         </p>
                                     )}
-
                                     <div className="pdv-checkout-completed-actions">
                                         <button
                                             type="button"
@@ -1130,7 +1159,6 @@ export default function PDV() {
                 </div>
                 </>
             )}
-
                 {pixOverlayOpen && (
                     <div className="pdv-pix-overlay" onClick={closePixOverlay}>
                         <div className="pdv-pix-overlay-content" onClick={(event) => event.stopPropagation()}>
@@ -1162,7 +1190,6 @@ export default function PDV() {
                         </div>
                     </div>
                 )}
-
                 {pixKeyDisplayOpen && (
                     <div className="pdv-pix-overlay" onClick={closePixKeyDisplay}>
                         <div className="pdv-pix-overlay-content" onClick={(event) => event.stopPropagation()}>
@@ -1202,7 +1229,16 @@ export default function PDV() {
                         </div>
                     </div>
                 )}
-
+            {unknownBarcode !== null && (
+                <QuickProductDialog
+                    isOpen
+                    barcode={unknownBarcode}
+                    isSaving={isSavingQuickProduct}
+                    error={quickProductError}
+                    onConfirm={confirmQuickProduct}
+                    onCancel={cancelQuickProduct}
+                />
+            )}
             <ConfirmDialog
                 isOpen={itemBeingRemoved !== null}
                 title="Remover produto"

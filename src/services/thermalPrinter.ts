@@ -379,6 +379,104 @@ export async function connectBluetoothPrinter(): Promise<PrinterDevice> {
 }
 
 /**
+ * Dados do comprovante de operação de caixa (abertura ou fechamento).
+ *
+ * O sistema não possui entradas/saídas de caixa (saques/depositos)
+ * registradas, portanto o comprovante de fechamento apresenta apenas
+ * valor inicial, vendas em dinheiro, valor esperado, valor contado
+ * e a diferença.
+ */
+export interface CashOperationReceiptData {
+    establishmentName?: string
+    bakeryName: string
+    operation: 'opening' | 'closing'
+    operatorName?: string
+    date: string
+    registerId: string
+    initialAmount: number
+    cashSalesAmount?: number
+    expectedAmount?: number
+    countedAmount?: number
+    differenceAmount?: number
+    closureId?: string
+}
+
+/**
+ * Monta o buffer ESC/POS do comprovante de operação de caixa.
+ */
+export function buildCashOperationReceiptBuffer(data: CashOperationReceiptData): Uint8Array {
+    const shortRegisterId = data.registerId.slice(0, 8).toUpperCase()
+    const dateStr = dateFormatter.format(new Date(data.date))
+    const isClosing = data.operation === 'closing'
+
+    const establishment = data.establishmentName?.trim() || data.bakeryName
+    const showUnit = Boolean(data.establishmentName?.trim() && data.bakeryName && data.bakeryName !== data.establishmentName)
+
+    const parts: Uint8Array[] = [
+        CMD.INIT,
+
+        // Cabeçalho — nome do estabelecimento
+        CMD.ALIGN_CENTER,
+        CMD.BOLD_ON,
+        CMD.DOUBLE_HEIGHT_ON,
+        textLine(center(establishment)),
+        CMD.FONT_NORMAL,
+        CMD.BOLD_OFF,
+        ...(showUnit ? [textLine(center(`Unidade: ${data.bakeryName}`))] : []),
+        CMD.LF,
+
+        // Subtítulo
+        CMD.BOLD_ON,
+        textLine(center(isClosing ? 'COMPROVANTE DE FECHAMENTO' : 'COMPROVANTE DE ABERTURA')),
+        CMD.BOLD_OFF,
+        textLine(center('NAO FISCAL')),
+        CMD.LF,
+
+        CMD.ALIGN_LEFT,
+        textLine(separator()),
+
+        textLine(line(`Caixa:  #${shortRegisterId}`)),
+        textLine(line(`Tipo:   ${isClosing ? 'Fechamento' : 'Abertura'}`)),
+        textLine(line(`Data:   ${dateStr}`)),
+        ...(data.operatorName?.trim() ? [textLine(line(`Operador: ${data.operatorName.trim()}`))] : []),
+        textLine(separator()),
+
+        textLine(justify('Valor inicial', currencyFormatter.format(data.initialAmount))),
+    ]
+
+    if (isClosing) {
+        if (data.cashSalesAmount !== undefined) {
+            parts.push(textLine(justify('Vendas em dinheiro', currencyFormatter.format(data.cashSalesAmount))))
+        }
+        if (data.expectedAmount !== undefined) {
+            parts.push(textLine(justify('Valor esperado', currencyFormatter.format(data.expectedAmount))))
+        }
+        if (data.countedAmount !== undefined) {
+            parts.push(textLine(justify('Valor contado', currencyFormatter.format(data.countedAmount))))
+        }
+        if (data.differenceAmount !== undefined) {
+            parts.push(CMD.BOLD_ON)
+            parts.push(textLine(justify('Diferenca', currencyFormatter.format(data.differenceAmount))))
+            parts.push(CMD.BOLD_OFF)
+        }
+    }
+
+    parts.push(textLine(separator()))
+
+    parts.push(CMD.ALIGN_CENTER)
+    parts.push(textLine(center(isClosing ? 'Caixa encerrado com sucesso' : 'Caixa aberto com sucesso')))
+
+    if (data.closureId) {
+        parts.push(textLine(center(`Fechamento: #${data.closureId.slice(0, 8).toUpperCase()}`)))
+    }
+
+    parts.push(CMD.FEED_LINES(4))
+    parts.push(CMD.CUT)
+
+    return concat(...parts)
+}
+
+/**
  * Envia o cupom para a impressora Bluetooth conectada.
  *
  * @param characteristic - Characteristic GATT obtida via `connectBluetoothPrinter`
@@ -390,6 +488,22 @@ export async function printReceiptViaBluetooth(
 ): Promise<void> {
     try {
         const buffer = buildReceiptBuffer(data)
+        await writeInChunks(characteristic, buffer)
+    } catch (error) {
+        console.error('Falha ao enviar o comprovante à impressora Bluetooth.', error instanceof Error ? error.name : 'UnknownError')
+        throw new Error('Não foi possível enviar o comprovante à impressora. Verifique a conexão e tente imprimir novamente.', { cause: error })
+    }
+}
+
+/**
+ * Envia um buffer ESC/POS já montado para a impressora Bluetooth conectada.
+ * Usado pelos comprovantes de abertura e fechamento de caixa.
+ */
+export async function printBufferViaBluetooth(
+    characteristic: BluetoothRemoteGATTCharacteristic,
+    buffer: Uint8Array,
+): Promise<void> {
+    try {
         await writeInChunks(characteristic, buffer)
     } catch (error) {
         console.error('Falha ao enviar o comprovante à impressora Bluetooth.', error instanceof Error ? error.name : 'UnknownError')
