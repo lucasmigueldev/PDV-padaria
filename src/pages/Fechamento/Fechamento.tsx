@@ -105,6 +105,7 @@ export default function Fechamento() {
     const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
     const [isClosing, setIsClosing] = useState(false)
     const [closeError, setCloseError] = useState('')
+    const [contactValueInput, setContactValueInput] = useState('')
     const [pendingReceipt, setPendingReceipt] = useState<CashOperationReceiptData | null>(null)
     const [receiptData, setReceiptData] = useState<CashOperationReceiptData | null>(null)
     const [receiptContextMessage, setReceiptContextMessage] = useState('')
@@ -288,6 +289,7 @@ export default function Fechamento() {
                 cashSalesAmount,
                 expectedAmount,
                 countedAmount,
+                contactValue: contactValueInput ? parseMoneyInput(contactValueInput) : undefined,
                 differenceAmount: countedAmount - expectedAmount,
                 ...(closureId ? { closureId } : {}),
             })
@@ -395,8 +397,11 @@ export default function Fechamento() {
                     {pendingReceipt && (
                         <section className="fechamento-receipt-offer" role="group" aria-label="Comprovante da operação de caixa">
                             <div>
-                                <strong>{receiptContextMessage}</strong>
-                                <p>Deseja imprimir o comprovante de {pendingReceipt.operation === 'closing' ? 'fechamento' : 'abertura'}?</p>
+                                <strong style={{ marginBottom: '8px' }}>{receiptContextMessage}</strong>
+                                {pendingReceipt.contactValue && (
+                                    <p>Valor contato: {currency.format(pendingReceipt.contactValue)}</p>
+                                )}
+                                {/* Message removed: <p>Deseja imprimir o comprovante de {pendingReceipt.operation === 'closing' ? 'fechamento' : 'abertura'}?</p> */}
                             </div>
                             <div className="fechamento-receipt-offer-actions">
                                 <button
@@ -418,6 +423,12 @@ export default function Fechamento() {
                                 </button>
                             </div>
                         </section>
+                    )}
+                    {receiptData && (
+                        <CashOperationReceiptDialog
+                            data={receiptData}
+                            onClose={() => setReceiptData(null)}
+                        />
                     )}
                     {closeError && !isOpeningModalOpen && !isCloseModalOpen && <p className="fechamento-close-error" role="alert">{closeError}</p>}
                     {isLoadingCashRegister ? (
@@ -474,7 +485,21 @@ export default function Fechamento() {
                                                 aria-describedby="counted-cash-description"
                                             />
                                         </div>
-                                        <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
+                                    <div className="fechamento-counted-contact">
+                                        <label htmlFor="contact-value">Valor contato</label>
+                                        <div className="fechamento-counted-cash-input">
+                                            <span>R$</span>
+                                            <input
+                                                id="contact-value"
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={contactValueInput}
+                                                onChange={(event) => setContactValueInput(event.target.value)}
+                                                onBlur={() => setContactValueInput(formatMoneyInput(contactValueInput))}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
                                     </div>
                                     <div className="fechamento-difference pending">
                                         <span className="fechamento-difference-label">Conferência</span>

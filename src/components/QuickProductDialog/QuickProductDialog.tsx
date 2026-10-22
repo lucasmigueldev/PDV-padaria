@@ -188,6 +188,7 @@ export function QuickProductDialog({
                             setValidationError('')
                         }}
                         autoComplete="off"
+                        readOnly={!!barcode}
                     />
 
                     <div className="quick-product-row">

@@ -307,15 +307,24 @@ export default function Dashboard() {
             type="button"
             onClick={handleLogout}
             className="sidebar-link logout-button"
-          >
-            <LogOut size={19} />
-            <span>Sair</span>
-          </button>
+          />
         </div>
       </aside>
-
-      <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
-
+      {cashRegister ? (
+        <div className="fixed top-0 left-64 right-0 z-10 flex items-center justify-center h-14 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 px-4">
+            <Banknote size={20} className="text-green-600"/>
+            <span className="font-medium text-sm text-gray-800">Caixa aberto</span>
+          </div>
+        </div>
+      ) : (
+        <div className="fixed top-0 left-64 right-0 z-10 flex items-center justify-center h-14 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 px-4">
+            <Banknote size={20} className="text-gray-400"/>
+            <span className="font-medium text-sm text-gray-600">Caixa fechado</span>
+          </div>
+        </div>
+      )}
       <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
         <div className="mobile-drawer-header">
           <div className="sidebar-logo">

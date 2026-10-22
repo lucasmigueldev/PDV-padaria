@@ -399,6 +399,7 @@ export interface CashOperationReceiptData {
     countedAmount?: number
     differenceAmount?: number
     closureId?: string
+    contactValue?: number
 }
 
 /**

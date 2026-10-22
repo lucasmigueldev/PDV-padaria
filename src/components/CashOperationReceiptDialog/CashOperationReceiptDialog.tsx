@@ -165,7 +165,7 @@ export function CashOperationReceiptDialog({
                             {isClosing && data.differenceAmount !== undefined && (
                                 <div className="thermal-receipt-item">
                                     <div className="thermal-receipt-item-details">
-                                        <span>Diferença</span>
+                                        <span>{data.differenceAmount >= 0 ? 'Sobra' : 'Falta'}</span>
                                         <strong>{currency.format(data.differenceAmount)}</strong>
                                     </div>
                                 </div>

@@ -149,6 +149,31 @@ const Login = () => {
       const activeBakeries = await getActiveBakeriesByIds(authenticatedUser.bakeryIds)
       if (activeBakeries.length === 0) throw new UnavailableBakeryError()
 
+      // Verifica se o usuário já está logado em outra unidade
+      // Para caixas, impedimos login em unidade diferente sem derrubar a sessão anterior
+      if (authenticatedUser.role === "cashier" && authenticatedUser.activeBakeryId) {
+        const bakeryAtualId = authenticatedUser.activeBakeryId
+        const novaBakeryId = preLoginOverride || ""
+
+        // Se a unidade tentar fazer login for diferente da atual
+        if (novaBakeryId && novaBakeryId !== bakeryAtualId) {
+          const unidadeDiferente = activeBakeries.some((b) => b.id !== bakeryAtualId)
+
+          if (unidadeDiferente) {
+            const confirmar = window.confirm(
+              `O usuário ${authenticatedUser.name} já está logado na unidade ${bakeryAtualId}. ` +
+              `Deseja derrubar esta sessão e fazer login na nova unidade ${novaBakeryId}?`
+            )
+            if (!confirmar) {
+              await signOutLocalSession()
+              setErrorMessage('Login cancelado.')
+              return
+            }
+            await signOutLocalSession()
+          }
+          }
+      }
+
       const usedPreLoginChoice = Boolean(preLoginOverride)
         && authenticatedUser.activeBakeryId === preLoginOverride
 

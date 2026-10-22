@@ -337,7 +337,7 @@ export default function PDV() {
             return
         }
         if (!product) {
-            setBarcode(normalizedBarcode)
+            setBarcode('')
             setUnknownBarcode(normalizedBarcode)
             setQuickProductError('')
             setErrorMessage('')

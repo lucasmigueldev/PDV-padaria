@@ -5,7 +5,6 @@ import {
     Edit3,
     History,
     LayoutDashboard,
-    Package,
     Plus,
     Receipt,
     Search,
@@ -323,7 +322,7 @@ export default function Produtos() {
                         <>
                             <span className="products-sidebar-label">Operação</span>
                             <Link to="/produtos" className="products-shortcut-link active" aria-current="page">
-                                <Package size={20} /><span>Produtos</span><kbd>F2</kbd>
+                                <span>Produtos</span><kbd>F2</kbd>
                             </Link>
                             <Link to="/fechamento" className="products-shortcut-link">
                                 <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
@@ -346,7 +345,6 @@ export default function Produtos() {
             <main className="products-main">
                 <header className="products-page-heading">
                     <div>
-                        <span>CATÁLOGO OPERACIONAL</span>
                         <h1>Produtos</h1>
                         <p>Gerenciamento do catálogo de produtos</p>
                     </div>
@@ -404,7 +402,6 @@ export default function Produtos() {
                     <section className="products-table-panel">
                         <div className="products-section-heading">
                             <div><h2>Produtos cadastrados</h2><p>{filteredProducts.length} produto(s) encontrado(s)</p></div>
-                            <Package size={21} aria-hidden="true" />
                         </div>
                         <div className="products-table-wrapper">
                             {productsLoadError && <div className="products-empty-state" role="alert">{productsLoadError}</div>}
