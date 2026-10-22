@@ -320,6 +320,9 @@ export default function Produtos() {
                         </>
                     ) : (
                         <>
+                            <Link to="/pdv" className="products-shortcut-link">
+                                <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                            </Link>
                             <span className="products-sidebar-label">Operação</span>
                             <Link to="/produtos" className="products-shortcut-link active" aria-current="page">
                                 <span>Produtos</span><kbd>F2</kbd>
@@ -329,9 +332,6 @@ export default function Produtos() {
                             </Link>
                             <Link to="/historico-vendas" className="products-shortcut-link">
                                 <History size={20} /><span>Histórico de Vendas</span>
-                            </Link>
-                            <Link to="/pdv" className="products-shortcut-link">
-                                <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                             </Link>
                         </>
                     )}

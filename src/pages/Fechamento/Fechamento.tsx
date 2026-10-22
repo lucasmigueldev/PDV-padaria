@@ -357,6 +357,9 @@ export default function Fechamento() {
                 </div>
 
                 {!isOwner && <nav className="fechamento-shortcuts" aria-label="Atalhos operacionais">
+                    <Link to="/pdv" className="fechamento-shortcut">
+                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                    </Link>
                     <span className="fechamento-sidebar-label">Operação</span>
                     <Link to="/produtos" className="fechamento-shortcut">
                         <Package size={19} /><span>Produtos</span><kbd>F2</kbd>
@@ -366,9 +369,6 @@ export default function Fechamento() {
                     </Link>
                     <Link to="/historico-vendas" className="fechamento-shortcut">
                         <History size={19} /><span>Histórico de Vendas</span>
-                    </Link>
-                    <Link to="/pdv" className="fechamento-shortcut">
-                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                     </Link>
                 </nav>}
 

@@ -746,23 +746,12 @@ export default function PDV() {
                         <span>Sistema de vendas</span>
                     </div>
                 </div>
-                <form className="pdv-add-product" onSubmit={addProduct}>
-                    <label htmlFor="barcode">Código do produto</label>
-                    <input
-                        ref={barcodeInputRef}
-                        id="barcode"
-                        value={barcode}
-                        onChange={(event) => setBarcode(event.target.value)}
-                        placeholder="Digite ou bip o código"
-                        autoComplete="off"
-                    />
-                    <button type="submit" className="pdv-primary-button" disabled={isLoadingOperationalData}>
-                        <Plus size={18} />
-                        Adicionar produto
-                    </button>
-                    {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
-                </form>
                 <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
+                    <Link to="/pdv" className="pdv-shortcut active" aria-current="page">
+                        <ShoppingCart size={19} />
+                        <span>Voltar ao PDV</span>
+                        <kbd>F4</kbd>
+                    </Link>
                     <span className="pdv-sidebar-label">Operação</span>
                     <Link to="/produtos" className="pdv-shortcut">
                         <Package size={19} />
@@ -778,11 +767,6 @@ export default function PDV() {
                         <History size={19} />
                         <span>Histórico de Vendas</span>
                         <kbd>F6</kbd>
-                    </Link>
-                    <Link to="/pdv" className="pdv-shortcut active" aria-current="page">
-                        <ShoppingCart size={19} />
-                        <span>Voltar ao PDV</span>
-                        <kbd>F4</kbd>
                     </Link>
                 </nav>
                 <nav className="pdv-shortcuts" aria-label="Pagamento">
@@ -879,12 +863,22 @@ export default function PDV() {
                                     {!isCashRegisterOpen && <span className="pdv-cash-register-message">Abra o caixa para finalizar a venda.</span>}
                                 </div>
                             </div>
-                            <div className="pdv-section-heading pdv-summary-heading">
-                                <div>
-                                    <h2>Resumo da venda</h2>
-                                    <p>Confira os valores antes de finalizar.</p>
-                                </div>
-                            </div>
+                            <form className="pdv-add-product" onSubmit={addProduct}>
+                                <label htmlFor="barcode">Código do produto</label>
+                                <input
+                                    ref={barcodeInputRef}
+                                    id="barcode"
+                                    value={barcode}
+                                    onChange={(event) => setBarcode(event.target.value)}
+                                    placeholder="Digite ou bip o código"
+                                    autoComplete="off"
+                                />
+                                <button type="submit" className="pdv-primary-button" disabled={isLoadingOperationalData}>
+                                    <Plus size={18} />
+                                    Adicionar produto
+                                </button>
+                                {errorMessage && <p className="pdv-error-message" role="alert">{errorMessage}</p>}
+                            </form>
                             <div className="pdv-summary-lines">
                                 <div><span>Quantidade total de itens</span><strong>{totalItems}</strong></div>
                                 <div><span>Subtotal</span><strong>{currency.format(total)}</strong></div>

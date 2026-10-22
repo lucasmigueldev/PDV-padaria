@@ -364,15 +364,15 @@ export default function HistoricoVendas() {
                 </div>
 
                 <nav className="pdv-shortcuts" aria-label="Atalhos operacionais">
+                    <Link to="/pdv" className="pdv-shortcut">
+                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                    </Link>
                     <span className="pdv-sidebar-label">Operação</span>
                     <Link to="/produtos" className="pdv-shortcut">
                         <Package size={19} /><span>Produtos</span><kbd>F2</kbd>
                     </Link>
                     <Link to="/fechamento" className="pdv-shortcut">
                         <Receipt size={19} /><span>Fechamento</span><kbd>F3</kbd>
-                    </Link>
-                    <Link to="/pdv" className="pdv-shortcut">
-                        <ShoppingCart size={19} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                     </Link>
                     <Link to="/historico-vendas" className="pdv-shortcut active" aria-current="page">
                         <History size={19} /><span>Histórico de Vendas</span><kbd>F6</kbd>
