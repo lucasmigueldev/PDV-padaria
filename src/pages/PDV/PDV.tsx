@@ -131,6 +131,12 @@ export default function PDV() {
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
     const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
+    const scanBufferRef = useRef('')
+    const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const addProductByBarcodeRef = useRef(addProductByBarcode)
+    useEffect(() => {
+        addProductByBarcodeRef.current = addProductByBarcode
+    })
 
     useEffect(() => {
         let active = true
@@ -197,6 +203,63 @@ export default function PDV() {
         return () => document.removeEventListener('keydown', handleEscape)
     }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
 
+    // Leitores de código de barras funcionam como teclado (keyboard wedge) e enviam
+    // os caracteres rapidamente, terminando com Enter. Quando o foco da página não está
+    // no campo de código (por exemplo, após clicar em um botão da venda), a leitura é
+    // perdida. Este listener global captura essas teclas, monta o código e adiciona o
+    // produto assim que o Enter chega, sem exigir clique no campo.
+    useEffect(() => {
+        function isEditableTarget(target: EventTarget | null): boolean {
+            if (!(target instanceof HTMLElement)) return false
+            if (target.isContentEditable) return true
+            const tagName = target.tagName
+            return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
+        }
+
+        function handleScanKey(event: KeyboardEvent) {
+            if (isCheckoutOpen || pixOverlayOpen || pixKeyDisplayOpen) return
+            if (event.ctrlKey || event.altKey || event.metaKey) return
+            // Campos de digitação já recebem a leitura diretamente (o Enter dispara o form).
+            if (isEditableTarget(event.target)) return
+
+            if (event.key === 'Enter') {
+                const scannedBarcode = scanBufferRef.current.trim()
+                scanBufferRef.current = ''
+                if (scanTimerRef.current) {
+                    clearTimeout(scanTimerRef.current)
+                    scanTimerRef.current = null
+                }
+                if (!scannedBarcode) return
+
+                event.preventDefault()
+                addProductByBarcodeRef.current(scannedBarcode)
+                barcodeInputRef.current?.focus()
+                return
+            }
+
+            if (event.key.length !== 1) return
+
+            scanBufferRef.current += event.key
+
+            // Digitação humana é descartada: o buffer só vale se os caracteres chegarem
+            // no ritmo típico de um leitor.
+            if (scanTimerRef.current) clearTimeout(scanTimerRef.current)
+            scanTimerRef.current = setTimeout(() => {
+                scanBufferRef.current = ''
+                scanTimerRef.current = null
+            }, 150)
+        }
+
+        document.addEventListener('keydown', handleScanKey)
+        return () => {
+            document.removeEventListener('keydown', handleScanKey)
+            if (scanTimerRef.current) {
+                clearTimeout(scanTimerRef.current)
+                scanTimerRef.current = null
+            }
+        }
+    }, [isCheckoutOpen, pixOverlayOpen, pixKeyDisplayOpen])
+
     useEffect(() => {
         function handleFinishShortcut(event: KeyboardEvent) {
             if (event.key !== 'F5') return
@@ -233,11 +296,10 @@ export default function PDV() {
         void logoutAndRedirect(navigate)
     }
 
-    function addProduct(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault()
+    function addProductByBarcode(rawBarcode: string) {
         setErrorMessage('')
         setSaleFeedback('')
-        const normalizedBarcode = barcode.trim()
+        const normalizedBarcode = rawBarcode.trim()
         const requestedQuantity = Number(productQuantity)
         const product = products.find((item) => item.barcode.trim() === normalizedBarcode)
 
@@ -289,6 +351,11 @@ export default function PDV() {
         setBarcode('')
         setProductQuantity('1')
         barcodeInputRef.current?.focus()
+    }
+
+    function addProduct(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        addProductByBarcode(barcode)
     }
 
     function updateQuantity(id: string, amount: number) {
