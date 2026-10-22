@@ -628,6 +628,39 @@
 	margin-top: 28px;
 }
 
+.pdv-clear-cart-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	border: 0;
+	border-radius: 8px;
+	background: #dc2626;
+	color: #ffffff;
+	font: inherit;
+	font-size: 17px;
+	font-weight: 600;
+	cursor: pointer;
+	padding: 7px 16px;
+	min-width: 160px;
+	margin-top: 16px;
+	transition: background 0.2s ease;
+}
+
+.pdv-clear-cart-button:hover:not(:disabled) {
+	background: #b91c1c;
+}
+
+.pdv-clear-cart-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: #9ca3af;
+}
+
+.pdv-clear-cart-button:active:not(:disabled) {
+	background: #991b1b;
+	transform: scale(0.98);
+}
 .pdv-checkout-cancel,
 .pdv-checkout-continue {
 	border: 0;

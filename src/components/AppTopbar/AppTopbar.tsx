@@ -13,6 +13,7 @@ interface AppTopbarProps {
     onRefresh?: () => void
     isRefreshing?: boolean
     onPixKeyDisplay?: () => void
+    onSidebarToggle?: () => void
 }
 
 export default function AppTopbar({

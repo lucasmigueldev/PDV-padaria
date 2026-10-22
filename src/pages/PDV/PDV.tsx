@@ -881,9 +881,7 @@ export default function PDV() {
                             </form>
                             <div className="pdv-summary-lines">
                                 <div><span>Quantidade total de itens</span><strong>{totalItems}</strong></div>
-                                <div><span>Subtotal</span><strong>{currency.format(total)}</strong></div>
                             </div>
-                            <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
                             <button
                                     type="button"
                                     className="pdv-clear-cart-button"
@@ -899,6 +897,7 @@ export default function PDV() {
                                 >
                                     Limpar tela
                                 </button>
+                            <div className="pdv-total"><span>Total da venda</span><strong>{currency.format(total)}</strong></div>
                                 <button
                                     type="button"
                                 className="pdv-finish-button"
