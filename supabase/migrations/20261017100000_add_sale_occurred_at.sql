@@ -24,7 +24,7 @@ DROP FUNCTION IF EXISTS public.create_sale_with_items(
     uuid, text, numeric, numeric, jsonb, uuid
 );
 
-CREATE FUNCTION public.create_sale_with_items(
+CREATE OR REPLACE FUNCTION public.create_sale_with_items(
     p_cash_register_id uuid,
     p_payment_method text,
     p_received_amount numeric,
@@ -395,7 +395,7 @@ BEGIN
         GET DIAGNOSTICS v_affected_rows = ROW_COUNT;
 
         IF v_affected_rows = 0 THEN
-            RAISE EXCEPTION 'Failed to decrement stock for product %'
+            RAISE EXCEPTION 'Failed to decrement stock for product %', v_product_id
                 USING ERRCODE = '23514';
         END IF;
     END LOOP;
@@ -411,7 +411,7 @@ ALTER FUNCTION public.create_sale_with_items(
     p_change_amount numeric,
     p_items jsonb,
     p_idempotency_key uuid,
-    p_occurred_at timestamptz DEFAULT NULL
+    p_occurred_at timestamptz
 )
     OWNER TO postgres;
 
@@ -422,7 +422,7 @@ REVOKE ALL ON FUNCTION public.create_sale_with_items(
     p_change_amount numeric,
     p_items jsonb,
     p_idempotency_key uuid,
-    p_occurred_at timestamptz DEFAULT NULL
+    p_occurred_at timestamptz
 )
     FROM PUBLIC, anon, authenticated;
 
@@ -433,6 +433,6 @@ GRANT EXECUTE ON FUNCTION public.create_sale_with_items(
     p_change_amount numeric,
     p_items jsonb,
     p_idempotency_key uuid,
-    p_occurred_at timestamptz DEFAULT NULL
+    p_occurred_at timestamptz
 )
     TO authenticated;

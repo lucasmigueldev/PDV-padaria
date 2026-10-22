@@ -143,6 +143,25 @@ export async function getUserProfile(
     }
 }
 
+// Confirma se a sessão atual do operador continua válida: usuário ativo e
+// sessão não revogada. Retorna false quando o operador foi desativado ou
+// teve as credenciais/unidade alteradas pelo proprietário (o logout ocorre
+// em todos os dispositivos).
+export async function isOperatorSessionValid(): Promise<boolean> {
+    const { data, error } = await getSupabaseClient().rpc('operator_session_status')
+
+    if (error) {
+        const isMissingFunction = error.code === '42883'
+            || (typeof error.message === 'string' && error.message.includes('operator_session_status'))
+
+        // Função ainda não disponível: mantém a sessão (falha tolerável).
+        if (isMissingFunction) return true
+        throw error
+    }
+
+    return data === true
+}
+
 export async function signInWithEmailPassword(
     email: string,
     password: string,

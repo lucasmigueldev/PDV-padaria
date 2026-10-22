@@ -64,12 +64,9 @@ function getOperatorOperationError(error: { code?: string; message: string }): s
         return 'Apenas o proprietário pode gerenciar operadores.'
     }
     if (error.code === '23514') {
-        if (/cash register/i.test(error.message)) {
-            return 'Feche o caixa aberto da unidade antes de alterar ou desativar o operador.'
-        }
-        if (/stock|inventory/i.test(error.message)) {
-            return 'Zere o estoque de todos os produtos da unidade antes de alterar ou desativar o operador.'
-        }
+        // A gestão de operadores pelo proprietário não é bloqueada por caixa
+        // aberto nem por estoque; esta mensagem cobre apenas estados inválidos
+        // de unidade.
         return 'A operação não pode ser concluída no estado atual. Confira as condições da unidade e tente novamente.'
     }
     if (error.code === '23503') return 'A unidade selecionada não existe.'

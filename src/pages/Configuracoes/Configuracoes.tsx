@@ -341,7 +341,7 @@ export default function Configuracoes() {
         setEditingOperator(null)
         setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
         setUserFormError('')
-        setUserSuccessMessage('Operador atualizado com sucesso.')
+        setUserSuccessMessage('Operador atualizado com sucesso. As sessões abertas do operador foram encerradas e ele precisará entrar novamente.')
         setUserManagementError('')
       } catch (error) {
         setUserFormError(error instanceof Error ? error.message : 'Não foi possível atualizar o operador.')
@@ -423,7 +423,7 @@ export default function Configuracoes() {
     if (operator.role !== 'cashier' || isManagingOperator) return
 
     const confirmed = window.confirm(
-      `Desativar o operador ${operator.name}? O histórico de vendas e caixas será preservado.`,
+      `Desativar o operador ${operator.name}? O histórico de vendas e caixas será preservado e as sessões abertas do operador serão encerradas.`,
     )
     if (!confirmed) return
 
@@ -433,7 +433,7 @@ export default function Configuracoes() {
     try {
       await deactivateAdminUser(operator.id)
       setUsers((currentUsers) => currentUsers.filter((user) => user.id !== operator.id))
-      setUserSuccessMessage('Operador desativado. O histórico foi preservado.')
+      setUserSuccessMessage('Operador desativado. O histórico foi preservado e as sessões do operador foram encerradas.')
     } catch (error) {
       setUserManagementError(error instanceof Error ? error.message : 'Não foi possível desativar o operador.')
     } finally {

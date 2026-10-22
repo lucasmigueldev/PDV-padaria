@@ -23,6 +23,7 @@ import { MobileBottomNav } from './components/MobileBottomNav/MobileBottomNav'
 import {
   getCurrentSession,
   isCashierBakeryActive,
+  isOperatorSessionValid,
   getUserProfile,
   onAuthStateChange,
   signOutLocalSession,
@@ -125,6 +126,15 @@ function CashierSessionMonitor({ user, onUnavailable }: {
         consecutiveFailureCount = 0
         if (isActive && !isBakeryActive) {
           await endSession('A unidade vinculada ao seu usuário está indisponível.')
+          return
+        }
+
+        // O proprietário pode desativar o operador ou alterar as credenciais
+        // dele a qualquer momento; a sessão é encerrada em todos os
+        // dispositivos e o operador precisa entrar novamente.
+        const isSessionValid = await isOperatorSessionValid()
+        if (isActive && !isSessionValid) {
+          await endSession('Seu acesso foi alterado ou desativado pelo proprietário. Entre novamente com suas credenciais atuais.')
         }
       } catch (error) {
         console.error('Não foi possível verificar a disponibilidade da unidade do operador.', error)
