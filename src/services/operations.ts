@@ -95,7 +95,7 @@ export async function getOpenCashRegister(bakeryId: string): Promise<CashRegiste
     try {
         result = await client
             .from('cash_registers')
-            .select('id, bakery_id, opened_at, initial_amount')
+            .select('id, bakery_id, opened_at, initial_amount, opened_by, users!cash_registers_opened_by_fkey(name)')
             .eq('bakery_id', bakeryId)
             .eq('status', 'open')
             .maybeSingle()
@@ -107,11 +107,16 @@ export async function getOpenCashRegister(bakeryId: string): Promise<CashRegiste
     if (error) throwOperationError(error, 'carregar o caixa aberto')
     if (!data) return null
 
+    const operatorName = data.users && !Array.isArray(data.users)
+        ? (data.users as { name: string }).name
+        : null
+
     return {
         id: data.id,
         bakeryId: data.bakery_id,
         openedAt: data.opened_at,
         initialAmount: Number(data.initial_amount),
+        operatorName,
     }
 }
 
@@ -157,6 +162,7 @@ export async function openCashRegister(initialAmount: number): Promise<CashRegis
         bakeryId: register.bakery_id,
         openedAt: register.opened_at,
         initialAmount: Number(register.initial_amount),
+        operatorName: null,
     }
 }
 

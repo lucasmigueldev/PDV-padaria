@@ -105,7 +105,6 @@ export default function Fechamento() {
     const [isCloseModalOpen, setIsCloseModalOpen] = useState(false)
     const [isClosing, setIsClosing] = useState(false)
     const [closeError, setCloseError] = useState('')
-    const [contactValueInput, setContactValueInput] = useState('')
     const [pendingReceipt, setPendingReceipt] = useState<CashOperationReceiptData | null>(null)
     const [receiptData, setReceiptData] = useState<CashOperationReceiptData | null>(null)
     const [receiptContextMessage, setReceiptContextMessage] = useState('')
@@ -246,11 +245,12 @@ export default function Fechamento() {
         }
         if (isClosingRef.current || !cashRegister) return
 
-        const countedAmount = parseMoneyInput(countedCashInput)
-        if (countedAmount === null) {
+        const countedAmountRaw = parseMoneyInput(countedCashInput)
+        if (countedAmountRaw === null) {
             setCloseError('Informe um valor contado válido antes de fechar o caixa.')
             return
         }
+        const countedAmount: number = countedAmountRaw
 
         if (!bakeryId) {
             setCloseError('O caixa aberto não está mais disponível para fechamento.')
@@ -289,7 +289,6 @@ export default function Fechamento() {
                 cashSalesAmount,
                 expectedAmount,
                 countedAmount,
-                contactValue: contactValueInput ? parseMoneyInput(contactValueInput) : undefined,
                 differenceAmount: countedAmount - expectedAmount,
                 ...(closureId ? { closureId } : {}),
             })
@@ -485,21 +484,7 @@ export default function Fechamento() {
                                                 aria-describedby="counted-cash-description"
                                             />
                                         </div>
-                                    <div className="fechamento-counted-contact">
-                                        <label htmlFor="contact-value">Valor contato</label>
-                                        <div className="fechamento-counted-cash-input">
-                                            <span>R$</span>
-                                            <input
-                                                id="contact-value"
-                                                type="text"
-                                                inputMode="decimal"
-                                                value={contactValueInput}
-                                                onChange={(event) => setContactValueInput(event.target.value)}
-                                                onBlur={() => setContactValueInput(formatMoneyInput(contactValueInput))}
-                                            />
-                                        </div>
-                                    </div>
-                                    <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
+                                        <p id="counted-cash-description">Informe o valor em dinheiro contado fisicamente no caixa.</p>
                                     </div>
                                     <div className="fechamento-difference pending">
                                         <span className="fechamento-difference-label">Conferência</span>
