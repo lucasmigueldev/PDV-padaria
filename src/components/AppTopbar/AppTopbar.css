@@ -133,6 +133,12 @@
     color: #ffffff;
 }
 
+.app-topbar-pixkey {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* Override printer button colors inside AppTopbar */
 .app-topbar .printer-status-btn {
     border-color: rgb(255 255 255 / 35%);

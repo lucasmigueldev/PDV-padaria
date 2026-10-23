@@ -148,7 +148,6 @@ export default function Dashboard() {
           month: '2-digit',
           year: 'numeric',
         })
-  const isCashRegisterOpen = cashRegister !== null
   const openingTime = cashRegister
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
     : '-'
@@ -309,21 +308,6 @@ export default function Dashboard() {
           />
         </div>
       </aside>
-      {cashRegister ? (
-        <div className="fixed top-0 left-64 right-0 z-10 flex items-center justify-center h-14 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 px-4">
-            <Banknote size={20} className="text-green-600"/>
-            <span className="font-medium text-sm text-gray-800">Caixa aberto</span>
-          </div>
-        </div>
-      ) : (
-        <div className="fixed top-0 left-64 right-0 z-10 flex items-center justify-center h-14 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 px-4">
-            <Banknote size={20} className="text-gray-400"/>
-            <span className="font-medium text-sm text-gray-600">Caixa fechado</span>
-          </div>
-        </div>
-      )}
       <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
         <div className="mobile-drawer-header">
           <div className="sidebar-logo">
@@ -628,18 +612,6 @@ export default function Dashboard() {
               ) : (
                 <div className="divide-y divide-slate-100">
                   <div className="flex items-center justify-between py-2.5 first:pt-0">
-                    <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        <span className={`h-2 w-2 rounded-full ${isCashRegisterOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                      </span>
-                      Status do caixa
-                    </span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                      {isCashRegisterOpen ? 'Caixa aberto' : 'Caixa fechado'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between py-2.5">
                     <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                         <UserRound size={15} />

@@ -201,8 +201,64 @@
 	text-transform: uppercase;
 }
 
+.pdv-table-wrapper table {
+	table-layout: fixed;
+	width: 100%;
+}
+
+.pdv-table-wrapper th:nth-child(1),
+.pdv-table-wrapper td:nth-child(1) {
+	max-width: 90px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.pdv-table-wrapper th:nth-child(2),
+.pdv-table-wrapper td:nth-child(2) {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.pdv-table-wrapper th:nth-child(3),
+.pdv-table-wrapper td:nth-child(3) {
+	max-width: 70px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: center;
+}
+
+.pdv-table-wrapper th:nth-child(4),
+.pdv-table-wrapper td:nth-child(4) {
+	max-width: 65px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: right;
+}
+
+.pdv-table-wrapper th:nth-child(5),
+.pdv-table-wrapper td:nth-child(5) {
+	max-width: 65px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: right;
+}
+
+.pdv-table-wrapper th:nth-child(6),
+.pdv-table-wrapper td:nth-child(6) {
+	max-width: 45px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	text-align: right;
+}
+
 .pdv-table-wrapper td {
-	padding: 22px 14px;
+	padding: 22px 8px;
 	border-bottom: 1px solid #f3f4f6;
 }
 
@@ -220,6 +276,9 @@
 .pdv-product-name {
 	color: #111827;
 	font-weight: 600;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .pdv-quantity-controls {
@@ -239,8 +298,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 44px;
-	height: 44px;
+	width: 32px;
+	height: 32px;
 	border: 1px solid #d1d5db;
 	border-radius: 7px;
 	background: #ffffff;
@@ -779,6 +838,70 @@
 	grid-template-rows: 52px minmax(0, 1fr);
 	overflow: hidden;
 	background: #e8edf3;
+	position: relative;
+}
+
+.pdv-layout.sidebar-collapsed {
+	grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.pdv-layout.sidebar-collapsed .pdv-sidebar {
+	width: 0;
+	min-width: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+.pdv-layout.sidebar-collapsed .pdv-main {
+	grid-column: 1 / -1;
+}
+
+.pdv-sidebar-toggle {
+	position: absolute;
+	top: 50%;
+	left: 300px;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border: 0;
+	border-radius: 0 8px 8px 0;
+	background: #ffffff;
+	color: #1f2937;
+	cursor: pointer;
+	box-shadow: 2px 1px 3px rgb(0 0 0 / 0.1);
+	transition: all 0.2s ease;
+	border-left: 1px solid #e5e7eb;
+	transform: translateY(-50%);
+}
+
+.pdv-sidebar-toggle:hover {
+	background: #f3f4f6;
+	color: #2563eb;
+	border-left-color: #2563eb;
+}
+
+.pdv-sidebar-toggle.collapsed {
+	transform: translateY(-50%) rotate(180deg);
+}
+
+.pdv-layout.sidebar-collapsed .pdv-sidebar-toggle {
+	left: 0;
+	border-radius: 0 8px 8px 0;
+	border-left: 0;
+	border-right: 1px solid #e5e7eb;
+	z-index: 100;
+	background: #ffffff;
+	box-shadow: 2px 1px 8px rgb(0 0 0 / 0.15);
+	transform: translateY(-50%) rotate(180deg);
+}
+
+.pdv-layout.sidebar-collapsed .pdv-sidebar-toggle:hover {
+	background: #f3f4f6;
+	color: #2563eb;
+	border-right-color: #2563eb;
 }
 
 .pdv-topbar {
@@ -1771,4 +1894,57 @@
 	.pdv-screen-notice-button:hover {
 		background: #1d4ed8;
 	}
+}
+.pdv-undo-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 14px 18px;
+    border: 1px solid #fbbf24;
+    border-radius: 9px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 15px;
+    font-weight: 600;
+    flex-wrap: wrap;
+}
+
+.pdv-undo-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #d97706;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #d9770e;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 14px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.pdv-undo-button:hover {
+    background: #fddeba;
+    border-color: #b45309;
+}
+
+.pdv-undo-button:active {
+    transform: scale(0.98);
+}
+
+@media (max-width: 768px), (max-height: 500px) {
+    .pdv-undo-notice {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .pdv-undo-button {
+        justify-content: center;
+    }
 }

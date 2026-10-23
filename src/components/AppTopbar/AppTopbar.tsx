@@ -38,7 +38,7 @@ export default function AppTopbar({
                     onClick={() => window.location.href='/pix-key'}
                     aria-label="Exibir chave PIX"
                 >
-                    <QrCode size={19} />
+                    <QrCode size={15} aria-hidden="true" />
                     <span>Chave PIX</span>
                 </button>
                 <div className="app-topbar-session">

@@ -3,6 +3,7 @@ import {
     CircleAlert,
     CircleCheck,
     CreditCard,
+    ChevronLeft,
     History,
     Minus,
     MonitorSmartphone,
@@ -10,6 +11,7 @@ import {
     Plus,
     Printer,
     QrCode,
+    RefreshCw,
     Receipt,
     ShoppingCart,
     Trash2,
@@ -94,7 +96,11 @@ export default function PDV() {
     const bakeryName = receiptBakeryName ?? 'Unidade indisponível'
     const barcodeInputRef = useRef<HTMLInputElement>(null)
     const finishButtonRef = useRef<HTMLButtonElement>(null)
+    const sidebarManualCollapseRef = useRef(false)
     const [showScreenNotice, setShowScreenNotice] = useState(true)
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+    const [previousItems, setPreviousItems] = useState<SaleItem[] | null>(null)
+    const [showUndoClear, setShowUndoClear] = useState(false)
     const [barcode, setBarcode] = useState('')
     const [productQuantity, setProductQuantity] = useState('1')
     const [items, setItems] = useState<SaleItem[]>([])
@@ -115,6 +121,7 @@ export default function PDV() {
     const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null)
+    const [pendingUnregisteredBarcode, setPendingUnregisteredBarcode] = useState<string | null>(null)
     const [isSavingQuickProduct, setIsSavingQuickProduct] = useState(false)
     const [quickProductError, setQuickProductError] = useState('')
 
@@ -316,6 +323,13 @@ export default function PDV() {
     function handleLogout() {
         void logoutAndRedirect(navigate)
     }
+    function handleUndoClear() {
+        if (previousItems) {
+            setItems(previousItems)
+            setPreviousItems(null)
+            setShowUndoClear(false)
+        }
+    }
     function addProductByBarcode(rawBarcode: string) {
         setErrorMessage('')
         setSaleFeedback('')
@@ -338,7 +352,7 @@ export default function PDV() {
         }
         if (!product) {
             setBarcode('')
-            setUnknownBarcode(normalizedBarcode)
+            setPendingUnregisteredBarcode(normalizedBarcode)
             setQuickProductError('')
             setErrorMessage('')
             return
@@ -386,6 +400,23 @@ export default function PDV() {
         setProductQuantity('1')
         barcodeInputRef.current?.focus()
     }
+    function handleConfirmRegisterProduct() {
+        setUnknownBarcode(pendingUnregisteredBarcode ?? null)
+        setPendingUnregisteredBarcode(null)
+    }
+    function handleCancelRegisterProduct() {
+        setPendingUnregisteredBarcode(null)
+        setBarcode('')
+        setProductQuantity('1')
+        barcodeInputRef.current?.focus()
+    }
+    useEffect(() => {
+        if (items.length > 0 && !sidebarManualCollapseRef.current) {
+            setIsSidebarCollapsed(true)
+        } else if (items.length === 0) {
+            sidebarManualCollapseRef.current = false
+        }
+    }, [items.length])
     async function confirmQuickProduct(data: QuickProductData) {
         if (!unknownBarcode || isSavingQuickProduct) return
         isSavingQuickProductRef.current = true
@@ -715,7 +746,7 @@ export default function PDV() {
                     </div>
                 </div>
             )}
-            <div className="pdv-layout">
+            <div className={`pdv-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
             <AppTopbar
                 userName={authenticatedUser?.name}
                 bakeryName={bakeryName}
@@ -772,10 +803,35 @@ export default function PDV() {
                 <nav className="pdv-shortcuts" aria-label="Pagamento">
                 </nav>
             </aside>
+            <button
+                type="button"
+                className={`pdv-sidebar-toggle ${isSidebarCollapsed ? 'collapsed' : ''}`}
+                onClick={() => {
+                    sidebarManualCollapseRef.current = !isSidebarCollapsed
+                    setIsSidebarCollapsed(!isSidebarCollapsed)
+                }}
+                aria-label={isSidebarCollapsed ? 'Mostrar menu lateral' : 'Esconder menu lateral'}
+            >
+                <ChevronLeft size={18} />
+            </button>
             <main className="pdv-main">
                 <section className="pdv-content">
                     {saleFeedback && (
                         <p className="pdv-success-message" role="status">{saleFeedback}</p>
+                    )}
+                    {showUndoClear && (
+                        <div className="pdv-undo-notice" role="status" aria-live="polite">
+                            <span>Todos os produtos foram removidos da tela.</span>
+                            <button
+                                type="button"
+                                className="pdv-undo-button"
+                                onClick={handleUndoClear}
+                                aria-label="Desfazer limpeza da tela"
+                            >
+                                <RefreshCw size={16} aria-hidden="true" />
+                                Desfazer
+                            </button>
+                        </div>
                     )}
                     <div className="pdv-sale-grid">
                         <section className="pdv-sale-panel">
@@ -887,12 +943,13 @@ export default function PDV() {
                                     className="pdv-clear-cart-button"
                                     disabled={items.length === 0}
                                     onClick={() => {
-                                        if (window.confirm('Limpar todos os produtos da tela?')) {
-                                            setItems([])
-                                            setBarcode('')
-                                            setProductQuantity('1')
-                                            barcodeInputRef.current?.focus()
-                                        }
+                                        setPreviousItems([...items])
+                                        setShowUndoClear(true)
+                                        setItems([])
+                                        setBarcode('')
+                                        setProductQuantity('1')
+                                        barcodeInputRef.current?.focus()
+                                        setTimeout(() => setShowUndoClear(false), 5000)
                                     }}
                                 >
                                     Limpar tela
@@ -1224,6 +1281,17 @@ export default function PDV() {
                     error={quickProductError}
                     onConfirm={confirmQuickProduct}
                     onCancel={cancelQuickProduct}
+                />
+            )}
+            {pendingUnregisteredBarcode !== null && (
+                <ConfirmDialog
+                    isOpen
+                    title="Produto não cadastrado"
+                    message={`O código de barras "${pendingUnregisteredBarcode}" não foi encontrado no sistema. Deseja cadastrar um novo produto com esse código?`}
+                    onConfirm={handleConfirmRegisterProduct}
+                    onCancel={handleCancelRegisterProduct}
+                    confirmText="Cadastrar produto"
+                    cancelText="Cancelar"
                 />
             )}
             <ConfirmDialog
