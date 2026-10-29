@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, BarChart3, Settings, Calculator, LogOut } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Clock, Settings, Calculator, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
@@ -45,6 +45,11 @@ export function MobileBottomNav() {
       icon: BarChart3,
     },
     {
+      label: 'Fora do ar',
+      path: '/relatorios-offline',
+      icon: Clock,
+    },
+    {
       label: 'Ajustes',
       path: '/configuracoes',
       icon: Settings,
@@ -64,6 +69,7 @@ export function MobileBottomNav() {
                 key={item.path}
                 to={item.path}
                 className={`mobile-bottom-nav-item${isActive ? ' is-active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <div className="mobile-bottom-nav-icon-wrap">
                   <Icon size={20} />
