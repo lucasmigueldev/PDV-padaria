@@ -425,6 +425,12 @@ export default function Relatorios() {
         <section className="dashboard-content reports-content p-10">
           {reportLoadError && <p role="alert" className="mb-4 text-red-700">{reportLoadError}</p>}
           {isLoadingReportData && <p role="status" className="mb-4">Carregando dados do relatório...</p>}
+          {isOwner && (
+            <Link to="/relatorios-offline" className="reports-secondary-button reports-offline-link">
+              <Clock size={18} aria-hidden="true" />
+              Fora do ar
+            </Link>
+          )}
           <section className="reports-section reports-summary" aria-labelledby="sales-indicators-title">
             <div className="reports-section-heading reports-section-heading-compact">
               <div>
