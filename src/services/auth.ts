@@ -7,6 +7,7 @@ import {
     getPersistedActiveBakeryId,
     persistActiveBakeryId,
 } from './userBakeries'
+import { endPdvCashRegisterSession } from './pdvCashRegisterSession'
 
 export type AuthenticatedUser = Omit<User, 'password'> & {
     createdAt?: string
@@ -175,7 +176,36 @@ export async function signInWithEmailPassword(
 }
 
 export async function signOut(): Promise<void> {
-    const { error } = await getSupabaseClient().auth.signOut()
+    const client = getSupabaseClient()
+    const { data: sessionData, error: sessionError } = await client.auth.getSession()
+    if (sessionError) {
+        console.warn('Não foi possível consultar a sessão antes de sair.', sessionError)
+    }
+
+    const userId = sessionData.session?.user.id
+    if (userId) {
+        const { data: registers, error: registersError } = await client
+            .from('cash_registers')
+            .select('id')
+            .eq('opened_by', userId)
+            .eq('status', 'open')
+
+        if (registersError) {
+            console.warn('Não foi possível consultar os caixas antes de encerrar a sessão.', registersError)
+        } else {
+            for (const register of registers ?? []) {
+                const registerId = register.id
+                if (typeof registerId !== 'string') continue
+                try {
+                    await endPdvCashRegisterSession(registerId, 'logout')
+                } catch (error) {
+                    console.warn('Não foi possível sinalizar o encerramento normal da sessão do PDV.', error)
+                }
+            }
+        }
+    }
+
+    const { error } = await client.auth.signOut()
     if (error) throw error
 }
 

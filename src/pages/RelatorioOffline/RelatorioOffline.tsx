@@ -1,71 +1,111 @@
-    import {
-        BarChart3,
-        Clock,
-        Filter,
-        History,
-        LayoutDashboard,
-        LogOut,
-        Minus,
-        Settings,
-        ShoppingCart,
-        X,
-    } from 'lucide-react'
-    import { useEffect, useState, useMemo } from 'react'
-    import { useNavigate, Link } from 'react-router-dom'
+import {
+    BarChart3,
+    Clock,
+    Filter,
+    History,
+    LayoutDashboard,
+    LogOut,
+    RefreshCw,
+    Settings,
+    ShoppingCart,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
-    import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
-    import { useAuth } from '../../contexts/AuthContext'
-    import { useOfflinePeriods } from '../../hooks/useOfflinePeriods'
-    import { clearOfflinePeriods } from '../../services/offlinePeriods'
-    import { logoutAndRedirect } from '../../utils/auth'
-    import '../Dashboard/Dashborad.css'
-    import './RelatorioOffline.css'
+import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { useAuth } from '../../contexts/AuthContext'
+import { useBakeries } from '../../hooks/useBakeries'
+import { PDV_OFFLINE_THRESHOLD_MS, usePdvHeartbeats } from '../../hooks/usePdvHeartbeats'
+import { getAdminUsers } from '../../services/adminUsers'
+import {
+    getOpenRegisterMonitoringDecision,
+    getOpenRegistersWithoutHeartbeat,
+    getPossibleOfflineRegisters,
+} from '../../services/offlineRegisterMonitoring'
+import {
+    getPdvOfflineEpisodeDurationSeconds,
+} from '../../services/pdvOfflineEpisodePresentation'
+import {
+    getPdvOfflineEpisodes,
+    syncPdvOfflineEpisodes,
+    type PdvOfflineEpisode,
+} from '../../services/pdvOfflineEpisodes'
+import { logoutAndRedirect } from '../../utils/auth'
+import type { User } from '../../types/User'
+import '../Dashboard/Dashborad.css'
+import './RelatorioOffline.css'
 
-function formatDateBR(timestamp: number): string {
-    return new Date(timestamp).toLocaleDateString('pt-BR', {
+const HISTORY_PAGE_SIZE = 10
+
+function formatLastContact(value: string): string {
+    const timestamp = Date.parse(value)
+    if (!Number.isFinite(timestamp)) return 'Horário não disponível'
+
+    return new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'medium',
         timeZone: 'America/Sao_Paulo',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    })
+    }).format(timestamp)
 }
 
-function formatTimeBR(timestamp: number): string {
-    return new Date(timestamp).toLocaleTimeString('pt-BR', {
+function formatOccurrenceDate(value: string): string {
+    const timestamp = Date.parse(value)
+    if (!Number.isFinite(timestamp)) return 'Data não disponível'
+
+    return new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'medium',
         timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+    }).format(timestamp)
 }
 
-function formatDuration(ms: number | null): string {
-    if (ms === null) return '—'
-    const totalSeconds = Math.floor(ms / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
+function formatElapsed(ms: number): string {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+    const days = Math.floor(totalSeconds / 86_400)
+    const hours = Math.floor((totalSeconds % 86_400) / 3_600)
+    const minutes = Math.floor((totalSeconds % 3_600) / 60)
     const seconds = totalSeconds % 60
-    const parts: string[] = []
-    if (hours > 0) parts.push(`${hours}h`)
-    if (minutes > 0 || hours > 0) parts.push(`${minutes}min`)
-    parts.push(`${seconds}s`)
-    return parts.join(' ')
+
+    if (days > 0) return `${days}d ${hours}h`
+    if (hours > 0) return `${hours}h ${minutes}min`
+    if (minutes > 0) return `${minutes}min ${seconds}s`
+    return `${seconds}s`
+}
+
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message
+    return 'Não foi possível carregar os operadores. Tente novamente mais tarde.'
 }
 
 export default function RelatorioOffline() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
-    const [dateFilter, setDateFilter] = useState<string>('')
-    const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-
-    const { periods, totalOfflineTimeMs, offlineCount } = useOfflinePeriods()
-
-    const filteredPeriods = useMemo(() => {
-        if (!dateFilter) return periods
-        return periods.filter((p) => formatDateBR(p.startedAt) === dateFilter)
-    }, [periods, dateFilter])
-
-    const today = new Date().toISOString().slice(0, 10)
+    const {
+        heartbeats,
+        openCashRegisters,
+        endedCashRegisterSessions,
+        isLoading,
+        error: monitoringError,
+        lastUpdatedAt,
+    } = usePdvHeartbeats(isOwner, true)
+    const { bakeries, bakeriesLoadError } = useBakeries()
+    const [operators, setOperators] = useState<User[]>([])
+    const [operatorsLoadError, setOperatorsLoadError] = useState('')
+    const [isLoadingOperators, setIsLoadingOperators] = useState(true)
+    const [historyDateFilter, setHistoryDateFilter] = useState('')
+    const [historyBakeryFilter, setHistoryBakeryFilter] = useState('all')
+    const [historyPage, setHistoryPage] = useState(1)
+    const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0)
+    const [episodeSyncError, setEpisodeSyncError] = useState('')
+    const [historyResult, setHistoryResult] = useState<{
+        key: string
+        episodes: PdvOfflineEpisode[]
+        error: string
+        loadedAt: number
+    } | null>(null)
+    const [clockNow, setClockNow] = useState<number | null>(null)
+    const lastDiagnosticUpdateRef = useRef<number | null>(null)
+    const lastDiagnosticClassificationRef = useRef('')
 
     useEffect(() => {
         if (!isOwner) {
@@ -73,13 +113,211 @@ export default function RelatorioOffline() {
         }
     }, [isOwner, navigate])
 
-    function handleClear() {
-        setConfirmClearOpen(true)
-    }
+    useEffect(() => {
+        if (!isOwner) return
 
-    function confirmClear() {
-        setConfirmClearOpen(false)
-    }
+        let isActive = true
+        void getAdminUsers().then((users) => {
+            if (!isActive) return
+            setOperators(users.filter((user) => user.role === 'cashier'))
+            setOperatorsLoadError('')
+        }).catch((error: unknown) => {
+            if (!isActive) return
+            console.error('Não foi possível carregar os nomes dos operadores do relatório offline.', error)
+            setOperatorsLoadError(getErrorMessage(error))
+        }).finally(() => {
+            if (isActive) setIsLoadingOperators(false)
+        })
+
+        return () => {
+            isActive = false
+        }
+    }, [isOwner])
+
+    const historyQueryKey =
+        `${historyDateFilter}|${historyBakeryFilter}|${lastUpdatedAt ?? 'initial'}|${historyRefreshRevision}`
+    const visibleHistoryResult = historyResult?.key === historyQueryKey ? historyResult : null
+    const historyEpisodes = visibleHistoryResult?.episodes ?? []
+    const historyError = visibleHistoryResult?.error ?? ''
+    const isLoadingHistory = isOwner && visibleHistoryResult === null
+    const historyTotalPages = Math.max(1, Math.ceil(historyEpisodes.length / HISTORY_PAGE_SIZE))
+    const currentHistoryPage = Math.min(historyPage, historyTotalPages)
+    const paginatedHistoryEpisodes = historyEpisodes.slice(
+        (currentHistoryPage - 1) * HISTORY_PAGE_SIZE,
+        currentHistoryPage * HISTORY_PAGE_SIZE,
+    )
+
+    useEffect(() => {
+        if (!isOwner) return
+
+        let isActive = true
+        const queryKey = historyQueryKey
+        void getPdvOfflineEpisodes({
+            date: historyDateFilter,
+            bakeryId: historyBakeryFilter === 'all' ? undefined : historyBakeryFilter,
+        }).then((episodes) => {
+            if (isActive) {
+                setHistoryResult({
+                    key: queryKey,
+                    episodes,
+                    error: '',
+                    loadedAt: Date.now(),
+                })
+            }
+        }).catch((error: unknown) => {
+            if (!isActive) return
+            console.error('Não foi possível carregar o histórico de caixas fora do ar.', error)
+            setHistoryResult({
+                key: queryKey,
+                episodes: [],
+                error: getErrorMessage(error),
+                loadedAt: Date.now(),
+            })
+        })
+
+        return () => {
+            isActive = false
+        }
+    }, [historyBakeryFilter, historyDateFilter, historyQueryKey, isOwner])
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => {
+            setClockNow(Date.now())
+        }, 10_000)
+        return () => window.clearInterval(intervalId)
+    }, [])
+
+    const bakeryNames = useMemo(
+        () => new Map(bakeries.map((bakery) => [bakery.id, bakery.name])),
+        [bakeries],
+    )
+    const operatorNames = useMemo(
+        () => new Map(operators.map((operator) => [operator.id, operator.name])),
+        [operators],
+    )
+    const now = clockNow ?? visibleHistoryResult?.loadedAt ?? lastUpdatedAt ?? 0
+    const possibleOfflineRegisters = useMemo(
+        () => getPossibleOfflineRegisters(
+            openCashRegisters,
+            heartbeats,
+            now,
+            PDV_OFFLINE_THRESHOLD_MS,
+            endedCashRegisterSessions,
+        ),
+        [endedCashRegisterSessions, heartbeats, now, openCashRegisters],
+    )
+    const openRegistersWithoutHeartbeat = useMemo(
+        () => getOpenRegistersWithoutHeartbeat(
+            openCashRegisters,
+            heartbeats,
+            endedCashRegisterSessions,
+        ),
+        [endedCashRegisterSessions, heartbeats, openCashRegisters],
+    )
+
+    useEffect(() => {
+        if (!isOwner || lastUpdatedAt === null || monitoringError) return
+
+        let isActive = true
+        const offlineAtPoll = getPossibleOfflineRegisters(
+            openCashRegisters,
+            heartbeats,
+            lastUpdatedAt,
+            PDV_OFFLINE_THRESHOLD_MS,
+            endedCashRegisterSessions,
+        )
+        const reconnectedCashRegisterIds = openCashRegisters.flatMap((register) => {
+            const decision = getOpenRegisterMonitoringDecision(
+                register,
+                heartbeats,
+                lastUpdatedAt,
+                PDV_OFFLINE_THRESHOLD_MS,
+            )
+            const sessionEnded = endedCashRegisterSessions.some((session) =>
+                session.cashRegisterId === register.id
+                && session.bakeryId === register.bakeryId
+                && session.operatorUserId === register.operatorUserId,
+            )
+            return decision.reason === 'recent_heartbeat' && !sessionEnded ? [register.id] : []
+        })
+
+        void syncPdvOfflineEpisodes(
+            offlineAtPoll,
+            openCashRegisters.map((register) => register.id),
+            reconnectedCashRegisterIds,
+            endedCashRegisterSessions.map((session) => session.cashRegisterId),
+        ).then((changed) => {
+            if (!isActive) return
+            setEpisodeSyncError('')
+            if (changed) setHistoryRefreshRevision((revision) => revision + 1)
+        }).catch((error: unknown) => {
+            if (!isActive) return
+            console.error('Não foi possível registrar o histórico de caixas fora do ar.', error)
+            setEpisodeSyncError(getErrorMessage(error))
+        })
+
+        return () => {
+            isActive = false
+        }
+    }, [
+        endedCashRegisterSessions,
+        heartbeats,
+        isOwner,
+        lastUpdatedAt,
+        monitoringError,
+        openCashRegisters,
+    ])
+
+    useEffect(() => {
+        if (!import.meta.env.DEV || lastUpdatedAt === null) {
+            return
+        }
+        const isNewPoll = lastDiagnosticUpdateRef.current !== lastUpdatedAt
+        const observedAt = Date.now()
+        const decisions = openCashRegisters.map((register) => ({
+            register,
+            decision: getOpenRegisterMonitoringDecision(
+                register,
+                heartbeats,
+                observedAt,
+                PDV_OFFLINE_THRESHOLD_MS,
+            ),
+            sessionEnded: endedCashRegisterSessions.some((session) =>
+                session.cashRegisterId === register.id
+                && session.bakeryId === register.bakeryId
+                && session.operatorUserId === register.operatorUserId,
+            ),
+        }))
+        const signature = decisions
+            .map(({ register, decision, sessionEnded }) =>
+                `${register.bakeryId}:${register.operatorUserId}:${decision.reason}:${sessionEnded}`,
+            )
+            .join('|')
+        if (!isNewPoll && signature === lastDiagnosticClassificationRef.current) {
+            return
+        }
+        lastDiagnosticUpdateRef.current = lastUpdatedAt
+        lastDiagnosticClassificationRef.current = signature
+        for (const { register, decision, sessionEnded } of decisions) {
+            console.debug('[PDV offline monitor] register_classification', {
+                observedAt: new Date(observedAt).toISOString(),
+                bakery: register.bakeryId.slice(0, 8),
+                operator: register.operatorUserId.slice(0, 8),
+                openedAt: register.openedAt,
+                lastSeenAt: decision.heartbeat?.lastSeenAt ?? null,
+                elapsedMs: decision.elapsedMs,
+                thresholdMs: PDV_OFFLINE_THRESHOLD_MS,
+                included: decision.reason === 'stale_heartbeat' && !sessionEnded,
+                sessionEnded,
+                reason: decision.reason,
+            })
+        }
+        if (openCashRegisters.length === 0) {
+            console.debug('[PDV offline monitor] no_open_registers', {
+                observedAt: new Date(observedAt).toISOString(),
+            })
+        }
+    }, [clockNow, endedCashRegisterSessions, heartbeats, lastUpdatedAt, openCashRegisters])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -142,12 +380,9 @@ export default function RelatorioOffline() {
                     </div>
                     <div className="dashboard-header-row">
                         <div className="mobile-page-heading">
-                            <span className="header-overline">ANÁLISE OPERACIONAL</span>
-                            <h1>Fora do ar — Relatório de conexão</h1>
-                            <p>
-                                Interrupções de conexão registradas no PDV. Útil para
-                                entender quando a unidade ficou sem internet.
-                            </p>
+                            <span className="header-overline">ACOMPANHAMENTO OPERACIONAL</span>
+                            <h1>Fora do ar</h1>
+                            <p>Acompanhe caixas que estão sem comunicação.</p>
                         </div>
                         <div className="desktop-user-profile">
                             <UserProfileMenu user={authenticatedUser} />
@@ -156,174 +391,272 @@ export default function RelatorioOffline() {
                 </header>
 
                 <div className="dashboard-content relatorio-offline-content">
-                    <section className="relatorio-offline-indicators">
-                        <article className="relatorio-offline-card">
-                            <div className="relatorio-offline-card-icon">
-                                <Minus size={19} aria-hidden="true" />
-                            </div>
-                            <span>Interrupções</span>
-                            <strong>{offlineCount}</strong>
-                        </article>
-                        <article className="relatorio-offline-card relatorio-offline-card--highlight">
-                            <div className="relatorio-offline-card-icon">
-                                <Clock size={19} aria-hidden="true" />
-                            </div>
-                            <span>Tempo total fora do ar</span>
-                            <strong>{formatDuration(totalOfflineTimeMs)}</strong>
-                        </article>
-                    </section>
-
-                    <section className="relatorio-offline-filter">
-                        <label htmlFor="offline-date-filter">
-                            <Filter size={18} aria-hidden="true" />
-                            Filtrar por data
-                        </label>
-                        <input
-                            id="offline-date-filter"
-                            type="date"
-                            value={dateFilter}
-                            onChange={(e) => setDateFilter(e.target.value)}
-                            min={today}
-                            max={today}
-                        />
-                    </section>
-
-                    <section className="relatorio-offline-table-section">
-                        {filteredPeriods.length === 0 ? (
-                            <div className="relatorio-offline-empty" role="status">
-                                <History size={32} aria-hidden="true" />
+                    <section className="offline-monitor-section" aria-labelledby="offline-now-title">
+                        <div className="offline-monitor-heading">
+                            <div>
+                                <span className="header-overline">ACOMPANHAMENTO ATUAL</span>
+                                <h2 id="offline-now-title">Caixas sem comunicação recente</h2>
                                 <p>
-                                    {dateFilter
-                                        ? 'Nenhuma interrupção registrada nesta data.'
-                                        : 'Nenhuma interrupção de conexão registrada ainda.'}
+                                    Estes caixas estão abertos, mas não enviam atualizações recentes. Isso não
+                                    permite confirmar se o navegador foi fechado ou se a conexão foi interrompida.
                                 </p>
                             </div>
-                        ) : (
-                            <>
-                                <div className="relatorio-offline-table-wrapper">
-                                    <table className="relatorio-offline-table" aria-label="Períodos offline">
-                                        <thead>
-                                            <tr>
-                                                <th>Dia</th>
-                                                <th>Início</th>
-                                                <th>Término</th>
-                                                <th>Duração</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredPeriods.map((period) => (
-                                                <tr key={period.id}>
-                                                    <td>{formatDateBR(period.startedAt)}</td>
-                                                    <td>{formatTimeBR(period.startedAt)}</td>
-                                                    <td>
-                                                        {period.endedAt
-                                                            ? formatTimeBR(period.endedAt)
-                                                            : '—'}
-                                                    </td>
-                                                    <td>{formatDuration(period.durationMs)}</td>
-                                                    <td>
-                                                        {period.endedAt ? (
-                                                            <span className="relatorio-offline-badge relatorio-offline-badge--ended">
-                                                                Concluído
-                                                            </span>
-                                                        ) : (
-                                                            <span className="relatorio-offline-badge relatorio-offline-badge--ongoing">
-                                                                Em andamento
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <span className="offline-monitor-updated">
+                                <RefreshCw size={14} aria-hidden="true" />
+                                {lastUpdatedAt
+                                    ? `Atualizado às ${new Intl.DateTimeFormat('pt-BR', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                    }).format(lastUpdatedAt)}`
+                                    : 'Aguardando atualização'}
+                            </span>
+                        </div>
 
-                                <div className="relatorio-offline-records--mobile">
-                                    {filteredPeriods.map((period) => (
-                                        <article className="relatorio-offline-record-card" key={period.id}>
-                                            <div className="relatorio-offline-record-card-header">
-                                                <strong>{formatDateBR(period.startedAt)}</strong>
-                                                {period.endedAt ? (
-                                                    <span className="relatorio-offline-badge relatorio-offline-badge--ended">
-                                                        Concluído
-                                                    </span>
-                                                ) : (
-                                                    <span className="relatorio-offline-badge relatorio-offline-badge--ongoing">
-                                                        Em andamento
-                                                    </span>
-                                                )}
+                        <div className="offline-monitor-context">
+                            O monitor identifica a falta de comunicação, mas não confirma a causa. As ocorrências
+                            só podem ser identificadas enquanto esta página administrativa estiver aberta.
+                        </div>
+
+                        {monitoringError && (
+                            <div className="offline-monitor-alert" role="alert">
+                                <strong>Não foi possível atualizar a situação dos caixas.</strong>
+                                <span>Tente novamente em instantes. No momento, não é possível confirmar quais caixas estão sem comunicação.</span>
+                            </div>
+                        )}
+                        {operatorsLoadError && (
+                            <div className="offline-monitor-alert offline-monitor-alert--notice" role="status">
+                                Os nomes dos operadores não estão disponíveis no momento; a identificação nos cartões pode ficar incompleta.
+                            </div>
+                        )}
+                        {bakeriesLoadError && (
+                            <div className="offline-monitor-alert offline-monitor-alert--notice" role="status">
+                                Os nomes das padarias não estão disponíveis no momento; a identificação nos cartões pode ficar incompleta.
+                            </div>
+                        )}
+                        {!monitoringError && openRegistersWithoutHeartbeat.length > 0 && (
+                            <div className="offline-monitor-alert offline-monitor-alert--notice" role="status">
+                                Há caixas abertos sem registro recente de comunicação. Não é possível estimar quando
+                                ocorreu o último contato; por isso, eles não aparecem como possivelmente fora do ar.
+                            </div>
+                        )}
+                        {isLoadingOperators && (
+                            <p className="offline-monitor-refreshing" role="status">Carregando nomes dos operadores...</p>
+                        )}
+
+                        {monitoringError ? null : lastUpdatedAt === null ? (
+                            <div className="relatorio-offline-empty" role="status">
+                                <RefreshCw size={24} aria-hidden="true" />
+                                <p>Verificando a comunicação dos caixas...</p>
+                            </div>
+                        ) : possibleOfflineRegisters.length === 0 ? (
+                            <div className="relatorio-offline-empty" role="status">
+                                <Clock size={30} aria-hidden="true" />
+                                <p>Nenhum caixa aberto está sem comunicação recente.</p>
+                            </div>
+                        ) : (
+                            <div className="offline-register-cards">
+                                {possibleOfflineRegisters.map((register) => (
+                                    <article
+                                        className="offline-register-card"
+                                        key={`${register.bakeryId}:${register.operatorUserId}`}
+                                    >
+                                        <div className="offline-register-card-heading">
+                                            <div>
+                                                <span className="offline-register-label">Padaria</span>
+                                                <strong>
+                                                    {bakeryNames.get(register.bakeryId)
+                                                        ?? `Padaria (${register.bakeryId.slice(0, 8)})`}
+                                                </strong>
                                             </div>
-                                            <dl className="relatorio-offline-record-fields">
+                                            <span className="offline-monitor-status offline-monitor-status--stale">
+                                                Sem comunicação recente
+                                            </span>
+                                        </div>
+                                        <dl className="offline-register-details">
+                                            <div>
+                                                <dt>Operador</dt>
+                                                <dd>
+                                                    {operatorNames.get(register.operatorUserId)
+                                                        ?? `Operador (${register.operatorUserId.slice(0, 8)})`}
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt>Último contato</dt>
+                                                <dd>{formatLastContact(register.lastSeenAt)}</dd>
+                                            </div>
+                                            <div>
+                                                <dt>Tempo decorrido</dt>
+                                                <dd>{formatElapsed(register.elapsedMs)}</dd>
+                                            </div>
+                                        </dl>
+                                        <p className="offline-register-explanation">
+                                            O caixa está aberto, mas não recebemos atualizações recentes.
+                                            Vendas realizadas podem ainda não ter sido enviadas.
+                                        </p>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+
+                        {isLoading && lastUpdatedAt !== null && (
+                            <p className="offline-monitor-refreshing" role="status">Atualizando a situação dos caixas...</p>
+                        )}
+                    </section>
+
+                    <section className="offline-monitor-section offline-history-section" aria-labelledby="offline-history-title">
+                        <div className="offline-monitor-heading">
+                            <div>
+                                <span className="header-overline">ACOMPANHAMENTO DE OCORRÊNCIAS</span>
+                                <h2 id="offline-history-title">Histórico de caixas fora do ar</h2>
+                                <p>
+                                    Uma ocorrência é registrada após mais de 75 segundos sem comunicação. O registro
+                                    aparece no dia em que começou; o filtro por data também considera períodos que
+                                    atravessaram o dia selecionado.
+                                </p>
+                                <p className="offline-history-notice">
+                                    As ocorrências só são identificadas enquanto esta página administrativa está aberta.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="offline-history-filters">
+                            <label className="offline-monitor-filter" htmlFor="offline-history-date">
+                                <span><Filter size={16} aria-hidden="true" /> Data da ocorrência</span>
+                                <input
+                                    id="offline-history-date"
+                                    type="date"
+                                    value={historyDateFilter}
+                                    onChange={(event) => {
+                                        setHistoryDateFilter(event.target.value)
+                                        setHistoryPage(1)
+                                    }}
+                                />
+                            </label>
+                            <label className="offline-monitor-filter" htmlFor="offline-history-bakery">
+                                <span><Filter size={16} aria-hidden="true" /> Padaria</span>
+                                <select
+                                    id="offline-history-bakery"
+                                    value={historyBakeryFilter}
+                                    onChange={(event) => {
+                                        setHistoryBakeryFilter(event.target.value)
+                                        setHistoryPage(1)
+                                    }}
+                                >
+                                    <option value="all">Todas as padarias</option>
+                                    {bakeries.map((bakery) => (
+                                        <option key={bakery.id} value={bakery.id}>
+                                            {bakery.name}{bakery.active ? '' : ' (inativa)'}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+
+                        {historyError && (
+                            <div className="offline-monitor-alert" role="alert">
+                                <strong>Não foi possível carregar o histórico agora.</strong>
+                                <span>Tente atualizar a página. Se o problema continuar, procure o suporte.</span>
+                            </div>
+                        )}
+                        {episodeSyncError && (
+                            <div className="offline-monitor-alert" role="alert">
+                                <strong>Não foi possível atualizar as ocorrências agora.</strong>
+                                <span>Elas podem demorar a aparecer. Tente novamente em instantes.</span>
+                            </div>
+                        )}
+                        {isLoadingHistory && (
+                            <p className="offline-monitor-refreshing" role="status">Carregando ocorrências...</p>
+                        )}
+                        {!isLoadingHistory && !historyError && historyEpisodes.length === 0 && (
+                            <div className="offline-history-placeholder" role="status">
+                                <History size={24} aria-hidden="true" />
+                                <p>Nenhuma ocorrência encerrada encontrada para estes filtros.</p>
+                                <span>
+                                    O histórico começa a ser formado quando o monitor está ativo. Períodos anteriores
+                                    não podem ser recuperados.
+                                </span>
+                            </div>
+                        )}
+                        {historyEpisodes.length > 0 && (
+                            <>
+                                <div className="offline-register-cards">
+                                {paginatedHistoryEpisodes.map((episode) => {
+                                    const durationSeconds = getPdvOfflineEpisodeDurationSeconds(
+                                        episode,
+                                        now,
+                                    )
+                                    const completedDurationSeconds = episode.endedAt === null
+                                        ? null
+                                        : durationSeconds
+
+                                    return (
+                                        <article
+                                            className="offline-history-card"
+                                            key={episode.id}
+                                        >
+                                            <div className="offline-register-card-heading">
                                                 <div>
-                                                    <dt>Início</dt>
-                                                    <dd>{formatTimeBR(period.startedAt)}</dd>
+                                                    <span className="offline-register-label">Padaria</span>
+                                                    <strong>{episode.bakeryName}</strong>
+                                                </div>
+                                            </div>
+                                            <dl className="offline-history-details">
+                                                <div>
+                                                    <dt>Operador</dt>
+                                                    <dd>{episode.operatorName}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt>Término</dt>
-                                                    <dd>{period.endedAt ? formatTimeBR(period.endedAt) : '—'}</dd>
+                                                    <dt>Data da ocorrência</dt>
+                                                    <dd>{formatOccurrenceDate(episode.estimatedStartedAt)}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt>Duração</dt>
-                                                    <dd>{formatDuration(period.durationMs)}</dd>
+                                                    <dt>Início estimado</dt>
+                                                    <dd>{formatLastContact(episode.estimatedStartedAt)}</dd>
                                                 </div>
                                                 <div>
-                                                    <dt>Status</dt>
-                                                    <dd>{period.endedAt ? 'Concluído' : 'Em andamento'}</dd>
+                                                    <dt>Término registrado</dt>
+                                                    <dd>
+                                                        {episode.endedAt
+                                                            ? formatLastContact(episode.endedAt)
+                                                            : 'Término não disponível'}
+                                                    </dd>
+                                                </div>
+                                                <div className="offline-history-duration">
+                                                    <dt>Tempo sem comunicação</dt>
+                                                    <dd>
+                                                        {completedDurationSeconds === null
+                                                            ? 'Duração não disponível'
+                                                            : formatElapsed(completedDurationSeconds * 1000)}
+                                                    </dd>
                                                 </div>
                                             </dl>
                                         </article>
-                                    ))}
+                                    )
+                                })}
                                 </div>
+                                <nav className="offline-history-pagination" aria-label="Paginação do histórico">
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryPage(Math.max(1, currentHistoryPage - 1))}
+                                        disabled={currentHistoryPage === 1}
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span>Página {currentHistoryPage} de {historyTotalPages}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryPage(Math.min(historyTotalPages, currentHistoryPage + 1))}
+                                        disabled={currentHistoryPage === historyTotalPages}
+                                    >
+                                        Próxima
+                                    </button>
+                                </nav>
                             </>
-                        )}
-
-                        {filteredPeriods.length > 0 && (
-                            <div className="relatorio-offline-actions">
-                                <button
-                                    type="button"
-                                    className="relatorio-offline-button relatorio-offline-button--danger"
-                                    onClick={handleClear}
-                                >
-                                    <X size={18} aria-hidden="true" />
-                                    Limpar histórico
-                                </button>
-                            </div>
                         )}
                     </section>
                 </div>
             </main>
-
-            {confirmClearOpen && (
-                <div className="relatorio-offline-modal-overlay" onClick={confirmClear}>
-                    <div className="relatorio-offline-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Limpar histórico de interrupções?</h3>
-                        <p>
-                            Isso apagará todos os registros de períodos fora do ar.
-                            Não pode ser desfeito.
-                        </p>
-                        <div className="relatorio-offline-modal-actions">
-                            <button
-                                type="button"
-                                className="relatorio-offline-button"
-                                onClick={() => setConfirmClearOpen(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="relatorio-offline-button relatorio-offline-button--danger"
-                                onClick={() => {
-                                    setConfirmClearOpen(false)
-                                    clearOfflinePeriods()
-                                }}
-                            >
-                                Limpar tudo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
