@@ -89,6 +89,27 @@ npm run build      # Executa o TypeScript e gera o build de produção
 npm run preview    # Publica localmente o build gerado
 ```
 
+### Teste do PDV offline
+
+No desenvolvimento, `npm run dev` registra um Service Worker separado, que mantém em cache apenas os módulos e recursos da própria origem. Ele consulta a rede primeiro para manter o HMR e a versão atual do servidor; se a rede falhar, pode servir os recursos já carregados online e o shell da aplicação para recargas com `F5`. Nenhuma API, chamada ao Supabase ou dado de negócio é armazenado por esse worker. A primeira abertura deve ser online; módulos de rotas e recursos carregados sob demanda precisam ser visitados online antes de ficarem disponíveis offline.
+
+Para validar o comportamento do build de produção (arquivos finais com hash e pré-cache integral), gere e sirva o build:
+
+```bash
+npm run build
+npm run preview
+```
+
+No Firefox, abra o endereço do dev ou preview, faça login e aguarde o Service Worker ficar ativo. Com a conexão disponível, abra o caixa e carregue o catálogo; em seguida, coloque o navegador em modo offline e teste uma venda e o `F5`. A recuperação exige a mesma aba do navegador, uma sessão Supabase ainda válida, catálogo local e confirmação de caixa aberto dentro da janela de segurança de 12 horas. Operadores recuperados offline ficam restritos ao PDV. Ao reconectar, as vendas pendentes são sincronizadas; os dados locais não são apagados pelo reload.
+
+### Histórico de caixas fora do ar
+
+A migration `20261020110000_create_pdv_offline_episodes.sql` adiciona a tabela de ocorrências e RPCs administrativas; não altera `pdv_heartbeats` nem configura `pg_cron`. O histórico usa o ID real do caixa, impede ocorrências abertas duplicadas e só permite gravação/encerramento por administradores autorizados.
+
+Antes de publicar a versão que usa o ciclo de sessão, aplique também a migration incremental `20261031202500_add_pdv_cash_register_session_lifecycle.sql`. Ela persiste, por caixa, encerramentos autenticados por logout ou sinalização `pagehide`, permite restaurar a mesma sessão após reload/F5 e exclui sessões encerradas do monitor atual. O servidor valida operador, padaria, caixa aberto e autenticação; episódios encerrados normalmente são mantidos como `session_ended` e não entram no histórico.
+
+O monitor administrativo registra uma ocorrência após detectar mais de 75 segundos sem heartbeat de uma sessão sem sinalização de encerramento. A lista atual descreve precisamente esse estado como "sem heartbeat recente"; não prova que o operador perdeu a internet. O encerramento normal pelo botão Sair envia a RPC enquanto a página está ativa. O sinal no fechamento do navegador usa `pagehide` e `fetch` com `keepalive`, mas é best-effort: o Firefox pode encerrar o processo ou a rede antes da conclusão, sem garantir que o evento ou a requisição chegue ao servidor. Não é possível distinguir perfeitamente o fechamento abrupto de uma perda de conexão. F5 é revertido na restauração da sessão. Uma ocorrência só aparece no histórico quando uma consulta confirma heartbeat recente do mesmo operador, padaria e caixa, ou quando confirma que o caixa foi fechado; episódios em andamento e sessões encerradas normalmente não são exibidos como histórico concluído. Falhas de consulta e desaparecimentos temporários não encerram ocorrências. O registro depende do polling desta página: ocorrências podem não ser capturadas enquanto o monitor administrativo estiver fechado. O histórico não é criado retroativamente e a contagem de vendas offline permanece indisponível.
+
 ## Demonstração
 
 Espaço reservado para futura inclusão de:
