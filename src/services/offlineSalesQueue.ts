@@ -16,6 +16,8 @@ export interface QueuedSale {
     localRef: string
     cashRegisterId: string
     bakeryId: string
+    operatorUserId?: string
+    remoteSaleId?: string
     occurredAt: string
     paymentMethod: PaymentMethod
     receivedAmount: number | null
@@ -31,34 +33,117 @@ const STORAGE_KEY = 'pdv_offline_sales_v1'
 
 let cache: QueuedSale[] = []
 let snapshot: QueuedSale[] = []
+let isLoaded = false
+let loadError: Error | null = null
 const listeners = new Set<() => void>()
 
-function load(): QueuedSale[] {
-    if (cache.length > 0) {
-        return cache
+export class OfflineSalesQueueStorageError extends Error {
+    constructor(message: string, cause: unknown) {
+        super(message, { cause })
+        this.name = 'OfflineSalesQueueStorageError'
     }
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY)
-        cache = raw ? (JSON.parse(raw) as QueuedSale[]) : []
-    } catch (error) {
-        console.error('Falha ao ler a fila de vendas offline.', error)
-        cache = []
-    }
-    snapshot = cache.slice()
-    return cache
 }
 
-function persist(): void {
+function isQueuedSale(value: unknown): value is QueuedSale {
+    if (typeof value !== 'object' || value === null) {
+        return false
+    }
+
+    const sale = value as Record<string, unknown>
+    return typeof sale.id === 'string'
+        && typeof sale.idempotencyKey === 'string'
+        && typeof sale.localRef === 'string'
+        && typeof sale.cashRegisterId === 'string'
+        && typeof sale.bakeryId === 'string'
+        && (sale.operatorUserId === undefined || typeof sale.operatorUserId === 'string')
+        && (sale.remoteSaleId === undefined || typeof sale.remoteSaleId === 'string')
+        && typeof sale.occurredAt === 'string'
+        && Number.isFinite(Date.parse(sale.occurredAt))
+        && (sale.paymentMethod === 'cash' || sale.paymentMethod === 'pix' || sale.paymentMethod === 'card')
+        && (sale.receivedAmount === null || (typeof sale.receivedAmount === 'number' && Number.isFinite(sale.receivedAmount)))
+        && (sale.changeAmount === null || (typeof sale.changeAmount === 'number' && Number.isFinite(sale.changeAmount)))
+        && typeof sale.total === 'number'
+        && Number.isFinite(sale.total)
+        && Array.isArray(sale.items)
+        && sale.items.every((item: unknown) => {
+            if (typeof item !== 'object' || item === null) {
+                return false
+            }
+            const queuedItem = item as Record<string, unknown>
+            return typeof queuedItem.productId === 'string'
+                && typeof queuedItem.name === 'string'
+                && typeof queuedItem.barcode === 'string'
+                && typeof queuedItem.price === 'number'
+                && Number.isFinite(queuedItem.price)
+                && typeof queuedItem.quantity === 'number'
+                && Number.isSafeInteger(queuedItem.quantity)
+                && queuedItem.quantity > 0
+        })
+        && (sale.status === 'pending' || sale.status === 'failed')
+        && (sale.errorMessage === undefined || typeof sale.errorMessage === 'string')
+        && typeof sale.createdAt === 'string'
+        && Number.isFinite(Date.parse(sale.createdAt))
+}
+
+function parseStoredQueue(raw: string | null): QueuedSale[] {
+    if (raw === null) {
+        return []
+    }
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed) || !parsed.every(isQueuedSale)) {
+        throw new Error('Os dados armazenados não correspondem ao formato esperado.')
+    }
+    return parsed
+}
+
+function initialize(): QueuedSale[] {
+    if (loadError) {
+        throw loadError
+    }
+    if (isLoaded) {
+        return cache
+    }
+
     try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cache))
+        cache = parseStoredQueue(window.localStorage.getItem(STORAGE_KEY))
+        snapshot = cache.slice()
+        isLoaded = true
+        return cache
+    } catch (error) {
+        loadError = new OfflineSalesQueueStorageError(
+            'Não foi possível recuperar a fila de vendas offline. Os dados armazenados foram preservados para diagnóstico.',
+            error,
+        )
+        console.error(loadError.message, error)
+        throw loadError
+    }
+}
+
+function notifyListeners(): void {
+    for (const listener of listeners) {
+        try {
+            listener()
+        } catch (error) {
+            console.error('Falha ao notificar uma atualização da fila de vendas offline.', error)
+        }
+    }
+}
+
+function persist(next: QueuedSale[]): void {
+    try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch (error) {
         console.error('Falha ao gravar a fila de vendas offline.', error)
+        throw new OfflineSalesQueueStorageError(
+            'Não foi possível salvar a venda neste dispositivo. Verifique o armazenamento e tente novamente.',
+            error,
+        )
     }
-    // Keep the stable snapshot in sync so subscribers always see the latest data.
+
+    cache = next
     snapshot = cache.slice()
-    for (const listener of listeners) {
-        listener()
-    }
+    notifyListeners()
 }
 
 /** Cross-tab sync: other tabs/instancias write to the same key and this module stays consistent. */
@@ -67,10 +152,19 @@ if (typeof window !== 'undefined') {
         if (event.key !== STORAGE_KEY) {
             return
         }
-        cache = load()
-        snapshot = cache.slice()
-        for (const listener of listeners) {
-            listener()
+        try {
+            cache = parseStoredQueue(event.newValue)
+            snapshot = cache.slice()
+            isLoaded = true
+            loadError = null
+            notifyListeners()
+        } catch (error) {
+            loadError = new OfflineSalesQueueStorageError(
+                'Não foi possível recuperar a fila de vendas offline atualizada por outra aba. Os dados armazenados foram preservados para diagnóstico.',
+                error,
+            )
+            console.error(loadError.message, error)
+            notifyListeners()
         }
     })
 }
@@ -84,64 +178,113 @@ export function subscribeQueue(listener: () => void): () => void {
 
 /** Stable snapshot for React subscriptions (useSyncExternalStore guarantee). */
 export function getQueueSnapshot(): QueuedSale[] {
+    initialize()
     return snapshot
 }
 
 export function listQueuedSales(): QueuedSale[] {
-    return snapshot.slice()
+    return getQueueSnapshot().slice()
+}
+
+export function getQueueLoadError(): Error | null {
+    return loadError
 }
 
 export function getPendingSales(): QueuedSale[] {
-    return cache.filter((sale) => sale.status === 'pending')
+    return initialize().filter((sale) => sale.status === 'pending')
 }
 
 export function getFailedSales(): QueuedSale[] {
-    return cache.filter((sale) => sale.status === 'failed')
+    return initialize().filter((sale) => sale.status === 'failed')
 }
 
 export function getPendingSyncCount(): number {
     return getPendingSales().length
 }
 
-export function enqueueSale(sale: QueuedSale): void {
-    cache.push(sale)
-    persist()
+function hasSameSalePayload(first: QueuedSale, second: QueuedSale): boolean {
+    return first.id === second.id
+        && first.idempotencyKey === second.idempotencyKey
+        && first.localRef === second.localRef
+        && first.cashRegisterId === second.cashRegisterId
+        && first.bakeryId === second.bakeryId
+        && first.operatorUserId === second.operatorUserId
+        && first.occurredAt === second.occurredAt
+        && first.paymentMethod === second.paymentMethod
+        && first.receivedAmount === second.receivedAmount
+        && first.changeAmount === second.changeAmount
+        && first.total === second.total
+        && JSON.stringify(first.items) === JSON.stringify(second.items)
+}
+
+export function enqueueSale(sale: QueuedSale): boolean {
+    if (!isQueuedSale(sale)) {
+        throw new Error('Não foi possível enfileirar a venda porque seus dados são inválidos.')
+    }
+
+    const current = initialize()
+    const existing = current.find((item) => item.id === sale.id || item.idempotencyKey === sale.idempotencyKey)
+    if (existing) {
+        if (existing.status === 'pending' && hasSameSalePayload(existing, sale)) {
+            return true
+        }
+        throw new Error('A venda não pode ser enfileirada porque seu identificador já pertence a outro registro.')
+    }
+
+    persist([...current, sale])
+    return true
 }
 
 export function markSaleSynced(id: string): void {
-    const index = cache.findIndex((sale) => sale.id === id)
+    const current = initialize()
+    const index = current.findIndex((sale) => sale.id === id)
     if (index === -1) {
         return
     }
-    cache.splice(index, 1)
-    persist()
+    const next = current.slice()
+    next.splice(index, 1)
+    persist(next)
 }
 
-export function markSaleFailed(id: string, errorMessage: string): void {
-    const sale = cache.find((item) => item.id === id)
-    if (!sale) {
+export function markSaleFailed(id: string, errorMessage: string, remoteSaleId?: string): void {
+    const current = initialize()
+    if (!current.some((sale) => sale.id === id)) {
         return
     }
-    sale.status = 'failed'
-    sale.errorMessage = errorMessage
-    persist()
+    persist(current.map((sale) => {
+        if (sale.id !== id) {
+            return sale
+        }
+        const failedSale: QueuedSale = { ...sale, status: 'failed', errorMessage }
+        if (remoteSaleId) {
+            failedSale.remoteSaleId = remoteSaleId
+        }
+        return failedSale
+    }))
 }
 
 export function retryFailedSale(id: string): void {
-    const sale = cache.find((item) => item.id === id)
-    if (!sale) {
+    const current = initialize()
+    if (!current.some((sale) => sale.id === id)) {
         return
     }
-    sale.status = 'pending'
-    sale.errorMessage = undefined
-    persist()
+    persist(current.map((sale): QueuedSale => {
+        if (sale.id !== id) {
+            return sale
+        }
+        const retryingSale: QueuedSale = { ...sale, status: 'pending' }
+        delete retryingSale.errorMessage
+        return retryingSale
+    }))
 }
 
 export function removeQueuedSale(id: string): void {
-    const index = cache.findIndex((sale) => sale.id === id)
+    const current = initialize()
+    const index = current.findIndex((sale) => sale.id === id)
     if (index === -1) {
         return
     }
-    cache.splice(index, 1)
-    persist()
+    const next = current.slice()
+    next.splice(index, 1)
+    persist(next)
 }
