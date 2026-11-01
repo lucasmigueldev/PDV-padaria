@@ -1346,6 +1346,10 @@
 	color: #a24b20;
 }
 
+.pdv-cash-status.is-unknown {
+	color: #6b7280;
+}
+
 .pdv-cash-status.is-open > svg {
 	color: #2563eb;
 }

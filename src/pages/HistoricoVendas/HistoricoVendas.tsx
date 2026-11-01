@@ -571,7 +571,7 @@ export default function HistoricoVendas() {
                                                 tabIndex={0}
                                                 aria-label={`Visualizar detalhes da venda ${sale.id}`}
                                             >
-                                                <td data-label="Data e hora" className="whitespace-nowrap px-4 py-4">{dateTime.format(new Date(sale.date))}</td>
+                                                <td data-label="Data e hora da venda" className="whitespace-nowrap px-4 py-4">{dateTime.format(new Date(sale.date))}</td>
                                                 <td data-label="Forma de pagamento" className="px-4 py-4">{paymentMethodLabels[sale.paymentMethod]}</td>
                                                 <td data-label="Valor total" className="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">{currency.format(sale.total)}</td>
                                             </tr>
@@ -648,9 +648,15 @@ export default function HistoricoVendas() {
 
                         <dl className="sales-details-summary">
                             <div className="sales-details-summary-card">
-                                <dt>Data e hora</dt>
+                                <dt>Venda realizada em</dt>
                                 <dd>{dateTime.format(new Date(selectedSale.date))}</dd>
                             </div>
+                            {selectedSale.syncedAt && (
+                                <div className="sales-details-summary-card">
+                                    <dt>Registrada no servidor em</dt>
+                                    <dd>{dateTime.format(new Date(selectedSale.syncedAt))}</dd>
+                                </div>
+                            )}
                             <div className="sales-details-summary-card">
                                 <dt>Forma de pagamento</dt>
                                 <dd>{paymentMethodLabels[selectedSale.paymentMethod]}</dd>

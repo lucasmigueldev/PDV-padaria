@@ -1,6 +1,7 @@
 import { createProductWithInitialStock, updateProductWithStock } from '../services/operations'
 import { getSupabaseClient } from '../lib/supabaseClient'
-import { isNetworkError, reportNetworkFailure } from '../services/connection'
+import { isNetworkError, reportNetworkFailure, reportNetworkSuccess } from '../services/connection'
+import { cacheProducts } from '../services/offlinePdvCache'
 import type { ProductWithStock } from '../types/Product'
 
 type ProductRow = {
@@ -20,6 +21,10 @@ function getProductDataError(error: ProductDataError, action: string): Error {
     console.error(`Erro ao ${action} produtos ou estoque.`, error)
     const operationTarget = action === 'excluir' ? 'o produto' : 'os produtos e seus estoques'
 
+    if (isNetworkError(error)) {
+        reportNetworkFailure()
+        return new Error('Não foi possível conectar ao sistema para carregar os produtos.', { cause: error })
+    }
     if (error.code === '42501') {
         if (action === 'excluir') {
             return new Error('Seu acesso não permite excluir produtos nesta unidade. Solicite ajuda ao proprietário.')
@@ -70,6 +75,7 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
         throw getProductDataError(stockError, 'carregar')
     }
 
+    reportNetworkSuccess()
     const stockByProduct = new Map<string, number>()
     for (const stock of stockRows ?? []) {
         if (!bakeryId || stock.bakery_id === bakeryId) {
@@ -77,7 +83,7 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
         }
     }
 
-    return ((productRows ?? []) as ProductRow[]).map((product) => ({
+    const products = ((productRows ?? []) as ProductRow[]).map((product) => ({
         id: product.id,
         bakeryId: product.bakery_id,
         name: product.name,
@@ -85,6 +91,10 @@ export async function getProductsFromSupabase(bakeryId: string | null): Promise<
         price: Number(product.price),
         stock: stockByProduct.get(product.id) ?? 0,
     }))
+    if (bakeryId) {
+        cacheProducts(bakeryId, products)
+    }
+    return products
 }
 
 export async function addProduct(input: {

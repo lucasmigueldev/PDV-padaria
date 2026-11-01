@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
 
 import { getBakeries } from '../services/bakeries'
+import { useConnectionStatus } from './useConnectionStatus'
 import type { Bakery } from '../types/Bakery'
 
-export function useBakeries() {
+export function useBakeries(skipRemoteWhenOffline = false) {
+    const connection = useConnectionStatus()
+    const shouldFetchBakeries = !skipRemoteWhenOffline || connection.status !== 'offline'
     const [bakeries, setBakeries] = useState<Bakery[]>([])
     const [isLoadingBakeries, setIsLoadingBakeries] = useState(true)
     const [bakeriesLoadError, setBakeriesLoadError] = useState('')
 
     useEffect(() => {
+        if (!shouldFetchBakeries) return
+
         let isActive = true
 
         void getBakeries().then((loadedBakeries) => {
@@ -28,7 +33,14 @@ export function useBakeries() {
         return () => {
             isActive = false
         }
-    }, [])
+    }, [shouldFetchBakeries])
 
-    return { bakeries, setBakeries, isLoadingBakeries, bakeriesLoadError }
+    return {
+        bakeries,
+        setBakeries,
+        isLoadingBakeries: !shouldFetchBakeries
+            ? false
+            : isLoadingBakeries,
+        bakeriesLoadError,
+    }
 }

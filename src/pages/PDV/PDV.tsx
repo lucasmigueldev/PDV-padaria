@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
     CircleAlert,
     CircleCheck,
@@ -20,15 +20,26 @@ import {
 import { useNavigate, Link } from 'react-router-dom'
 import { addProduct as createProduct, getProductsFromSupabase } from '../../data/products'
 import { createSaleWithItems, getOpenCashRegister } from '../../services/operations'
+import {
+    getCachedProducts,
+    getOfflineAvailableProducts,
+    getRememberedOpenCashRegister,
+    queueSaleForOfflineSession,
+} from '../../services/offlinePdvCache'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePixKey } from '../../services/pixConfig'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useBluetoothPrinter } from '../../hooks/useBluetoothPrinter'
 import { useConnectionStatus } from '../../hooks/useConnectionStatus'
-import { enqueueSale, getPendingSyncCount } from '../../services/offlineSalesQueue'
-import { startSalesSync } from '../../services/syncOfflineSales'
-import { isNetworkError, startConnectionMonitor } from '../../services/connection'
+import { OfflineSalesQueueStorageError } from '../../services/offlineSalesQueue'
+import { useOfflineQueue } from '../../hooks/useOfflineQueue'
+import { isNetworkError, reportNetworkFailure, startConnectionMonitor } from '../../services/connection'
+import {
+    getConfirmedCashRegisterState,
+    getUnavailableCashRegisterState,
+    type CashRegisterState,
+} from '../../services/cashRegisterState'
 import { startOfflinePeriodTracking } from '../../services/offlinePeriods'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import type { ProductWithStock, SaleItem } from '../../types/Product'
@@ -83,13 +94,23 @@ function saleToReceiptData(sale: Sale, bakeryName: string, establishmentName?: s
 export default function PDV() {
     const navigate = useNavigate()
     const { authenticatedUser } = useAuth()
-    const { bakeries } = useBakeries()
+    const { bakeries } = useBakeries(true)
     const establishmentName = useEstablishmentName()
     const bakeryId = authenticatedUser?.role === 'cashier' ? authenticatedUser.activeBakeryId : null
     const pixKey = usePixKey(bakeryId)
     const bluetooth = useBluetoothPrinter()
     const connection = useConnectionStatus()
-    const pendingCount = getPendingSyncCount()
+    const queue = useOfflineQueue()
+    const pendingCount = queue.filter((sale) =>
+        sale.operatorUserId === authenticatedUser?.id
+        && sale.bakeryId === bakeryId
+        && sale.status === 'pending',
+    ).length
+    const failedCount = queue.filter((sale) =>
+        sale.operatorUserId === authenticatedUser?.id
+        && sale.bakeryId === bakeryId
+        && sale.status === 'failed',
+    ).length
     const receiptBakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
         : null
@@ -118,7 +139,12 @@ export default function PDV() {
     const [pixOverlayOpen, setPixOverlayOpen] = useState(false)
     const [pixKeyDisplayOpen, setPixKeyDisplayOpen] = useState(false)
     const [products, setProducts] = useState<ProductWithStock[]>([])
-    const [cashRegister, setCashRegister] = useState<Awaited<ReturnType<typeof getOpenCashRegister>>>(null)
+    const availableProducts = useMemo(
+        () => bakeryId ? getOfflineAvailableProducts(bakeryId, products, queue) : products,
+        [bakeryId, products, queue],
+    )
+    const [cashRegisterState, setCashRegisterState] = useState<CashRegisterState>({ status: 'unknown', register: null })
+    const cashRegister = cashRegisterState.register
     const [isLoadingOperationalData, setIsLoadingOperationalData] = useState(true)
     const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null)
     const [pendingUnregisteredBarcode, setPendingUnregisteredBarcode] = useState<string | null>(null)
@@ -130,6 +156,7 @@ export default function PDV() {
     const receivedValueInputRef = useRef<HTMLInputElement>(null)
     const isRegisteringSaleRef = useRef(false)
     const idempotencyRef = useRef<{ fingerprint: string; key: string } | null>(null)
+    const uncertainSaleRef = useRef(false)
     const isSavingQuickProductRef = useRef(false)
     const scanBufferRef = useRef('')
     const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -138,6 +165,51 @@ export default function PDV() {
     useEffect(() => {
         addProductByBarcodeRef.current = addProductByBarcode
     })
+    const loadOperationalData = useCallback(async () => {
+        if (!bakeryId || !authenticatedUser?.id) {
+            return {
+                catalog: [] as ProductWithStock[],
+                registerState: { status: 'unknown', register: null } as CashRegisterState,
+            }
+        }
+
+        if (connection.status === 'offline') {
+            const register = getRememberedOpenCashRegister(bakeryId, authenticatedUser.id)
+            return {
+                catalog: getCachedProducts(bakeryId),
+                registerState: getUnavailableCashRegisterState(register),
+            }
+        }
+
+        const [catalogResult, registerResult] = await Promise.allSettled([
+            getProductsFromSupabase(bakeryId),
+            getOpenCashRegister(bakeryId, authenticatedUser.id),
+        ])
+
+        let catalog: ProductWithStock[] | null
+        if (catalogResult.status === 'fulfilled') {
+            catalog = catalogResult.value
+        } else if (isNetworkError(catalogResult.reason)) {
+            reportNetworkFailure()
+            catalog = getCachedProducts(bakeryId)
+        } else {
+            throw catalogResult.reason
+        }
+
+        let registerState: CashRegisterState
+        if (registerResult.status === 'fulfilled') {
+            registerState = getConfirmedCashRegisterState(registerResult.value)
+        } else if (isNetworkError(registerResult.reason)) {
+            reportNetworkFailure()
+            const register = getRememberedOpenCashRegister(bakeryId, authenticatedUser.id)
+            registerState = getUnavailableCashRegisterState(register)
+        } else {
+            throw registerResult.reason
+        }
+
+        return { catalog, registerState }
+    }, [authenticatedUser?.id, bakeryId, connection.status])
+
     useEffect(() => {
         let active = true
         void (async () => {
@@ -145,22 +217,23 @@ export default function PDV() {
             if (!active) return
             if (!bakeryId) {
                 setProducts([])
-                setCashRegister(null)
+                setCashRegisterState({ status: 'unknown', register: null })
                 setIsLoadingOperationalData(false)
                 return
             }
             setIsLoadingOperationalData(true)
             try {
-                const [catalog, register] = await Promise.all([
-                    getProductsFromSupabase(bakeryId),
-                    getOpenCashRegister(bakeryId),
-                ])
+                const { catalog, registerState } = await loadOperationalData()
                 if (!active) return
-                setProducts(catalog)
-                setCashRegister(register)
+                setProducts(catalog ?? [])
+                setCashRegisterState(registerState)
+                if (!catalog) {
+                    setErrorMessage('Catálogo indisponível neste dispositivo. Conecte-se à internet para carregar os produtos antes de vender.')
+                }
             } catch (error: unknown) {
                 if (!active) return
                 console.error('Erro ao carregar os dados operacionais do PDV.', error)
+                setCashRegisterState({ status: 'unknown', register: null })
                 setErrorMessage(getOperationalErrorMessage(
                     error,
                     'Não foi possível carregar os dados do PDV. Atualize a tela e tente novamente.',
@@ -173,19 +246,20 @@ export default function PDV() {
         return () => {
             active = false
         }
-    }, [bakeryId])
+    }, [bakeryId, loadOperationalData])
     // Recarrega o catálogo e o caixa sob demanda (botão "Atualizar dados") sem
     // desfazer a venda em andamento: os itens da venda mantêm seus próprios valores.
     const reloadOperationalData = useCallback(async (showFeedback = false) => {
         if (!bakeryId || isRefreshingOperationalDataRef.current) return
         isRefreshingOperationalDataRef.current = true
         try {
-            const [catalog, register] = await Promise.all([
-                getProductsFromSupabase(bakeryId),
-                getOpenCashRegister(bakeryId),
-            ])
-            setProducts(catalog)
-            setCashRegister(register)
+            const { catalog, registerState } = await loadOperationalData()
+            setProducts(catalog ?? [])
+            setCashRegisterState(registerState)
+            if (!catalog) {
+                setErrorMessage('Catálogo indisponível neste dispositivo. Conecte-se à internet para carregar os produtos antes de vender.')
+                return
+            }
             // Reflete o novo estoque nos itens já presentes na venda, sem alterar
             // as quantidades escolhidas pelo operador (apenas limita ao estoque).
             const stockByBarcode = new Map(catalog.map((product) => [product.barcode.trim(), product.stock]))
@@ -197,6 +271,7 @@ export default function PDV() {
             if (showFeedback) setSaleFeedback('Dados atualizados.')
         } catch (error: unknown) {
             console.error('Erro ao atualizar os dados do PDV.', error)
+            setCashRegisterState({ status: 'unknown', register: null })
             setErrorMessage(getOperationalErrorMessage(
                 error,
                 'Não foi possível atualizar os dados do PDV. Tente novamente.',
@@ -205,7 +280,7 @@ export default function PDV() {
         } finally {
             isRefreshingOperationalDataRef.current = false
         }
-    }, [bakeryId])
+    }, [bakeryId, loadOperationalData])
     // Mantém o PDV sincronizado com as movimentações de outros dispositivos:
     // ao voltar para a aba e a cada intervalo, o catálogo e o caixa são recarregados.
     useAutoRefresh(() => {
@@ -312,11 +387,9 @@ export default function PDV() {
     useEffect(() => {
         if (!bakeryId) return
         const stopConnection = startConnectionMonitor()
-        const stopSync = startSalesSync()
         const stopOfflineTracking = startOfflinePeriodTracking()
         return () => {
             stopConnection()
-            stopSync()
             stopOfflineTracking()
         }
     }, [bakeryId])
@@ -344,7 +417,7 @@ export default function PDV() {
             return
         }
         const requestedQuantity = Number(productQuantity)
-        const product = products.find((item) => item.barcode.trim() === normalizedBarcode)
+        const product = availableProducts.find((item) => item.barcode.trim() === normalizedBarcode)
         if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity < 1) {
             setErrorMessage('Informe uma quantidade válida.')
             barcodeInputRef.current?.focus()
@@ -463,7 +536,7 @@ export default function PDV() {
     }
     function updateQuantity(id: string, amount: number) {
         const currentItem = items.find((item) => item.id === id)
-        const catalogProduct = products.find((product) => product.id === id)
+        const catalogProduct = availableProducts.find((product) => product.id === id)
         const stock = catalogProduct?.stock ?? currentItem?.stock ?? 0
         if (amount > 0 && currentItem && currentItem.quantity >= stock) {
             setErrorMessage('Limite de estoque atingido.')
@@ -527,7 +600,7 @@ export default function PDV() {
     }
     const totalItems = items.reduce((total, item) => total + item.quantity, 0)
     const total = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-    const isCashRegisterOpen = cashRegister !== null
+    const isCashRegisterOpen = cashRegisterState.status === 'open'
     const totalInCents = Math.round(total * 100)
     const receivedInCents = parseMoneyToCents(receivedValue)
     const isCashPaymentValid = paymentMethod === 'cash'
@@ -560,28 +633,70 @@ export default function PDV() {
             setCheckoutMessage('Não foi possível identificar a unidade do operador.')
             return
         }
-        let currentRegister
-        try {
-            currentRegister = await getOpenCashRegister(authenticatedUser.activeBakeryId)
-        } catch (error) {
-            setCheckoutMessage(getOperationalErrorMessage(
-                error,
-                'Não foi possível verificar se há um caixa aberto. Atualize a tela e tente novamente.',
-                'Não foi possível verificar o caixa aberto. Verifique a conexão e tente novamente.',
+
+        const activeBakeryId = authenticatedUser.activeBakeryId
+        let shouldQueueOffline = connection.status === 'offline'
+        let currentRegister = shouldQueueOffline
+            ? getRememberedOpenCashRegister(activeBakeryId, authenticatedUser.id)
+            : null
+
+        if (shouldQueueOffline) {
+            const saleProductsAvailable = items.every((item) => products.some((product) =>
+                product.id === item.id
+                && product.bakeryId === activeBakeryId
+                && Number.isFinite(product.price)
+                && product.price > 0,
             ))
-            return
+            if (!saleProductsAvailable) {
+                setCheckoutMessage('Os produtos desta venda não estão disponíveis no catálogo local. Conecte-se à internet para atualizar os produtos.')
+                return
+            }
+        } else {
+            try {
+                currentRegister = await getOpenCashRegister(activeBakeryId, authenticatedUser.id)
+            } catch (error) {
+                if (!isNetworkError(error)) {
+                    setCheckoutMessage(getOperationalErrorMessage(
+                        error,
+                        'Não foi possível verificar se há um caixa aberto. Atualize a tela e tente novamente.',
+                        'Não foi possível verificar o caixa aberto. Verifique a conexão e tente novamente.',
+                    ))
+                    return
+                }
+                reportNetworkFailure()
+                shouldQueueOffline = true
+                currentRegister = getRememberedOpenCashRegister(activeBakeryId, authenticatedUser.id)
+                const saleProductsAvailable = items.every((item) => products.some((product) =>
+                    product.id === item.id
+                    && product.bakeryId === activeBakeryId
+                    && Number.isFinite(product.price)
+                    && product.price > 0,
+                ))
+                if (!saleProductsAvailable) {
+                    setCheckoutMessage('Os produtos desta venda não estão disponíveis no catálogo local. Conecte-se à internet para atualizar os produtos.')
+                    return
+                }
+            }
         }
+
         if (!currentRegister) {
-            setCashRegister(null)
-            setCheckoutMessage('Abra o caixa para finalizar a venda.')
+            if (shouldQueueOffline) {
+                setCheckoutMessage('Não foi possível confirmar um caixa aberto para vendas offline. Conecte-se à internet para atualizar o estado do caixa.')
+            } else {
+                setCashRegisterState(getConfirmedCashRegisterState(null))
+                setCheckoutMessage('Abra o caixa para finalizar a venda.')
+            }
             return
         }
+        setCashRegisterState({ status: 'open', register: currentRegister })
+
         const receivedAmount = paymentMethod === 'cash' && receivedInCents !== null
             ? receivedInCents / 100
             : null
         const changeAmount = paymentMethod === 'cash' && receivedInCents !== null
             ? (receivedInCents - totalInCents) / 100
             : null
+        const occurredAt = new Date().toISOString()
         const fingerprint = JSON.stringify({
             cashRegisterId: currentRegister.id,
             paymentMethod,
@@ -589,25 +704,22 @@ export default function PDV() {
             changeAmount,
             items: items.map(({ id, quantity }) => ({ product_id: id, quantity })),
         })
+        if (uncertainSaleRef.current
+            && idempotencyRef.current
+            && idempotencyRef.current.fingerprint !== fingerprint) {
+            setCheckoutMessage('Há uma venda anterior cujo resultado não foi confirmado. Restaure o mesmo carrinho e tente novamente para reconciliar sem duplicar a venda.')
+            return
+        }
         if (idempotencyRef.current?.fingerprint !== fingerprint) {
             idempotencyRef.current = { fingerprint, key: crypto.randomUUID() }
         }
         isRegisteringSaleRef.current = true
         setIsRegisteringSale(true)
-        try {
-            const registeredAt = new Date().toISOString()
-            const saleId = await createSaleWithItems({
-                cashRegisterId: currentRegister.id,
-                paymentMethod,
-                receivedAmount,
-                changeAmount,
-                items: items.map((item) => ({ productId: item.id, quantity: item.quantity })),
-                idempotencyKey: idempotencyRef.current.key,
-            })
-            idempotencyRef.current = null
-            const confirmedSale: Sale = {
+
+        const completeSavedSale = (saleId: string, message: string, date: string) => {
+            const savedSale: Sale = {
                 id: saleId,
-                date: registeredAt,
+                date,
                 items: items.map((item) => ({
                     productId: item.id,
                     name: item.name,
@@ -618,83 +730,106 @@ export default function PDV() {
                 })),
                 total,
                 paymentMethod,
-                bakeryId: authenticatedUser.activeBakeryId,
+                bakeryId: activeBakeryId,
                 ...(receivedAmount !== null ? { receivedAmount } : {}),
                 ...(changeAmount !== null ? { change: changeAmount } : {}),
             }
             setItems([])
-            setCompletedSale(confirmedSale)
+            setCompletedSale(savedSale)
             setPixOverlayOpen(false)
             setCheckoutStep('completed')
             setModalPrintFeedback(null)
-            setSaleFeedback('Venda concluída com sucesso.')
+            setSaleFeedback(message)
+        }
+
+        const enqueueCurrentSale = (): boolean => {
+            const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
+            const result = queueSaleForOfflineSession({
+                id: saleId,
+                idempotencyKey: saleId,
+                localRef: saleId,
+                cashRegisterId: currentRegister.id,
+                bakeryId: activeBakeryId,
+                operatorUserId: authenticatedUser.id,
+                occurredAt,
+                paymentMethod,
+                receivedAmount,
+                changeAmount,
+                total,
+                items: items.map((item) => ({
+                    productId: item.id,
+                    name: item.name,
+                    barcode: item.barcode,
+                    price: item.price,
+                    quantity: item.quantity,
+                })),
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+            }, authenticatedUser.id, products, items.map((item) => item.id))
+            if (!result.saved) {
+                const message = result.reason === 'cash-register'
+                    ? 'Não foi possível confirmar um caixa aberto para vendas offline. Conecte-se à internet para atualizar o estado do caixa.'
+                    : result.reason === 'catalog'
+                        ? 'Os produtos desta venda não estão disponíveis no catálogo local. Conecte-se à internet para atualizar os produtos.'
+                        : result.reason === 'stock'
+                            ? 'Estoque local estimado insuficiente para salvar esta venda offline. Conecte-se para atualizar o estoque.'
+                            : 'Não foi possível vincular a venda à sessão atual do operador. Atualize sua sessão e tente novamente.'
+                setCheckoutMessage(message)
+                return false
+            }
+            idempotencyRef.current = null
+            uncertainSaleRef.current = false
+            completeSavedSale(saleId, 'Venda salva neste dispositivo. Aguardando sincronização.', occurredAt)
+            return true
+        }
+
+        try {
+            if (shouldQueueOffline) {
+                enqueueCurrentSale()
+                return
+            }
+
+            let saleId: string
             try {
-                setProducts(await getProductsFromSupabase(authenticatedUser.activeBakeryId))
+                uncertainSaleRef.current = true
+                saleId = await createSaleWithItems({
+                    cashRegisterId: currentRegister.id,
+                    paymentMethod,
+                    receivedAmount,
+                    changeAmount,
+                    items: items.map((item) => ({ productId: item.id, quantity: item.quantity })),
+                    idempotencyKey: idempotencyRef.current.key,
+                    occurredAt,
+                })
+            } catch (error) {
+                if (!isNetworkError(error)) {
+                    uncertainSaleRef.current = false
+                    idempotencyRef.current = null
+                    throw error
+                }
+                reportNetworkFailure()
+                enqueueCurrentSale()
+                return
+            }
+
+            uncertainSaleRef.current = false
+            idempotencyRef.current = null
+            completeSavedSale(saleId, 'Venda concluída com sucesso.', occurredAt)
+            try {
+                setProducts(await getProductsFromSupabase(activeBakeryId))
             } catch (error) {
                 console.error('Venda registrada, mas a atualização do estoque exibido falhou.', error)
                 setErrorMessage('Venda concluída. O estoque mostrado na tela pode estar desatualizado. Atualize o PDV antes da próxima venda.')
             }
         } catch (error) {
-            const isOffline = !navigator.onLine || isNetworkError(error)
-            if (isOffline) {
-                // Sem conexão: enfileira a venda para sincronizar depois
-                const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
-                try {
-                    enqueueSale({
-                        id: saleId,
-                        idempotencyKey: saleId,
-                        localRef: saleId,
-                        cashRegisterId: currentRegister.id,
-                        bakeryId: authenticatedUser.activeBakeryId,
-                        occurredAt: new Date().toISOString(),
-                        paymentMethod,
-                        receivedAmount,
-                        changeAmount,
-                        total,
-                        items: items.map((item) => ({
-                            productId: item.id,
-                            name: item.name,
-                            barcode: item.barcode,
-                            price: item.price,
-                            quantity: item.quantity,
-                        })),
-                        status: 'pending',
-                        createdAt: new Date().toISOString(),
-                    })
-                    idempotencyRef.current = null
-                    const confirmedSale: Sale = {
-                        id: saleId,
-                        date: new Date().toISOString(),
-                        items: items.map((item) => ({
-                            productId: item.id,
-                            name: item.name,
-                            barcode: item.barcode,
-                            price: item.price,
-                            quantity: item.quantity,
-                            subtotal: item.quantity * item.price,
-                        })),
-                        total,
-                        paymentMethod,
-                        bakeryId: authenticatedUser.activeBakeryId,
-                        ...(receivedAmount !== null ? { receivedAmount } : {}),
-                        ...(changeAmount !== null ? { change: changeAmount } : {}),
-                    }
-                    setItems([])
-                    setCompletedSale(confirmedSale)
-                    setPixOverlayOpen(false)
-                    setCheckoutStep('completed')
-                    setModalPrintFeedback(null)
-                    setSaleFeedback('Venda registrada offline. Será sincronizada quando a conexão voltar.')
-                } catch {
-                    setCheckoutMessage('Não foi possível registrar a venda. Verifique a conexão e tente novamente.')
-                }
-            } else {
-                setCheckoutMessage(getOperationalErrorMessage(
+            console.error('Não foi possível concluir o checkout.', error)
+            setCheckoutMessage(error instanceof OfflineSalesQueueStorageError
+                ? error.message
+                : getOperationalErrorMessage(
                     error,
                     'Não foi possível confirmar se a venda foi registrada. Consulte o histórico de vendas antes de tentar novamente, para evitar duplicidade.',
                     'Não foi possível confirmar se a venda foi registrada. Verifique a conexão e consulte o histórico antes de tentar novamente, para evitar duplicidade.',
                 ))
-            }
         } finally {
             isRegisteringSaleRef.current = false
             setIsRegisteringSale(false)
@@ -765,6 +900,12 @@ export default function PDV() {
                 <div className="pdv-offline-banner pdv-offline-banner--syncing">
                     <span>● Sincronizando vendas pendentes...</span>
                     <span>{pendingCount} venda(ões) na fila</span>
+                </div>
+            )}
+            {failedCount > 0 && (
+                <div className="pdv-offline-banner" role="alert">
+                    <span>● Vendas com falha que precisam de revisão</span>
+                    <span>{failedCount} venda(s) preservada(s) na fila</span>
                 </div>
             )}
             <aside className="pdv-sidebar">
@@ -910,13 +1051,24 @@ export default function PDV() {
                             )}
                         </section>
                         <aside className="pdv-summary">
-                            <div className={`pdv-cash-status${isCashRegisterOpen ? ' is-open' : ' is-closed'}`} role="status">
-                                {isCashRegisterOpen
+                            <div className={`pdv-cash-status is-${cashRegisterState.status}`} role="status">
+                                {cashRegisterState.status === 'open'
                                     ? <CircleCheck size={20} aria-hidden="true" />
                                     : <CircleAlert size={20} aria-hidden="true" />}
                                 <div>
-                                    <strong>Caixa {isCashRegisterOpen ? 'aberto' : 'fechado'}</strong>
-                                    {!isCashRegisterOpen && <span className="pdv-cash-register-message">Abra o caixa para finalizar a venda.</span>}
+                                    <strong>
+                                        {cashRegisterState.status === 'open'
+                                            ? 'Caixa aberto'
+                                            : cashRegisterState.status === 'closed'
+                                                ? 'Caixa fechado'
+                                                : 'Estado do caixa indisponível'}
+                                    </strong>
+                                    {cashRegisterState.status === 'closed' && (
+                                        <span className="pdv-cash-register-message">Abra o caixa para finalizar a venda.</span>
+                                    )}
+                                    {cashRegisterState.status === 'unknown' && (
+                                        <span className="pdv-cash-register-message">Não foi possível confirmar o estado do caixa. Vendas bloqueadas até recuperar uma confirmação válida.</span>
+                                    )}
                                 </div>
                             </div>
                             <form className="pdv-add-product" onSubmit={addProduct}>
