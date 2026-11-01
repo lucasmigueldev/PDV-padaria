@@ -1,9 +1,16 @@
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isNetworkError, reportNetworkFailure, startConnectionMonitor } from './services/connection'
+import { getConnectionState, isNetworkError, reportNetworkFailure, startConnectionMonitor } from './services/connection'
+import { useConnectionStatus } from './hooks/useConnectionStatus'
 import { startSalesSync } from './services/syncOfflineSales'
 import { startPdvHeartbeat } from './services/pdvHeartbeat'
+import { resetOfflineCashRegisterSession } from './services/offlinePdvCache'
+import {
+  cacheOfflineAuthenticatedUser,
+  restoreOfflineAuthenticatedUser,
+  shouldResetOfflineCashRegisterSession,
+} from './services/offlineAuthSession'
 import './App.css'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -40,6 +47,19 @@ function ProtectedRoute({ children, authenticatedUser, isLoading }: {
   if (isLoading) return null
 
   return authenticatedUser ? children : <Navigate to="/login" replace />
+}
+
+function OfflineCashierRedirect({ authenticatedUser }: { authenticatedUser: AuthenticatedUser | null }) {
+  const { pathname } = useLocation()
+  const connection = useConnectionStatus()
+
+  if (authenticatedUser?.role === 'cashier'
+    && connection.status === 'offline'
+    && pathname !== '/pdv') {
+    return <Navigate to="/pdv" replace />
+  }
+
+  return null
 }
 
 function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
@@ -119,6 +139,7 @@ function CashierSessionMonitor({ user, onUnavailable }: {
 
     async function verifyBakeryStatus() {
       if (isChecking || hasEndedSession) return
+      if (getConnectionState().status === 'offline') return
       isChecking = true
 
       try {
@@ -218,11 +239,20 @@ function App() {
 
         void getUserProfile(session.user.id, session.user.created_at).then((user) => {
           if (!isActive || eventVersion !== authEventVersion) return
+          cacheOfflineAuthenticatedUser(user, session)
           setAuthenticatedUser(user)
           setIsAuthLoading(false)
           setAuthMessage(null)
         }).catch(async (error: unknown) => {
           if (!isActive || eventVersion !== authEventVersion) return
+
+          const offlineUser = restoreOfflineAuthenticatedUser(session, error)
+          if (offlineUser) {
+            setAuthenticatedUser(offlineUser)
+            setIsAuthLoading(false)
+            setAuthMessage(null)
+            return
+          }
 
           const isDefinitiveError = error instanceof UnavailableBakeryError
             || error instanceof UserProfileNotFoundError
@@ -256,7 +286,10 @@ function App() {
       }, 0)
     }
 
-    const subscription = onAuthStateChange((_event, session) => {
+    const subscription = onAuthStateChange((event, session) => {
+      if (shouldResetOfflineCashRegisterSession(event, session)) {
+        resetOfflineCashRegisterSession()
+      }
       const eventVersion = ++authEventVersion
       loadProfileForSession(session, eventVersion)
     })
@@ -285,14 +318,19 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (authenticatedUser?.role !== 'cashier' || !authenticatedUser.activeBakeryId) return
+    if (authenticatedUser?.role !== 'cashier'
+      || !authenticatedUser.activeBakeryId
+      || !authenticatedUser.id) return
     const stopHeartbeat = startPdvHeartbeat(authenticatedUser.activeBakeryId)
-    const stopSalesSync = startSalesSync()
+    const stopSalesSync = startSalesSync({
+      operatorUserId: authenticatedUser.id,
+      bakeryId: authenticatedUser.activeBakeryId,
+    })
     return () => {
       stopHeartbeat()
       stopSalesSync()
     }
-  }, [authenticatedUser?.role, authenticatedUser?.activeBakeryId])
+  }, [authenticatedUser?.role, authenticatedUser?.id, authenticatedUser?.activeBakeryId])
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage, setAuthenticatedUser }}>
@@ -304,7 +342,8 @@ function App() {
             onUnavailable={handleCashierUnavailable}
           />
         )}
-        <PWAInstallPrompt />
+          <OfflineCashierRedirect authenticatedUser={authenticatedUser} />
+          <PWAInstallPrompt />
         <Routes>
        
         {/* Rota principal */}
