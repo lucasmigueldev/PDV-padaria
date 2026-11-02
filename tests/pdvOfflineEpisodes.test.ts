@@ -294,6 +294,19 @@ test('episode synchronization runs only after a successful existing monitor poll
     assert.match(offlinePage, /As ocorrências só são identificadas enquanto esta página administrativa está aberta/)
 })
 
+test('periodic monitor polls keep history visible while refreshing only changed episodes', () => {
+    assert.match(offlinePage, /const historyQueryKey = `\$\{historyDateFilter\}\|\$\{historyBakeryFilter\}`/)
+    assert.doesNotMatch(offlinePage, /const historyQueryKey[\s\S]{0,150}lastUpdatedAt/)
+    assert.match(
+        offlinePage,
+        /\}, \[historyBakeryFilter, historyDateFilter, historyQueryKey, historyRefreshRevision, isOwner\]\)/,
+    )
+    assert.match(offlinePage, /const isLoadingHistory = isOwner && visibleHistoryResult === null/)
+    assert.match(offlinePage, /if \(changed\) setHistoryRefreshRevision/)
+    assert.match(offlinePage, /\}, \[isOwner\]\)/)
+    assert.match(offlinePage, /expandedOfflineSales/)
+})
+
 test('history queries and renders completed episodes only while preserving date filters', () => {
     assert.match(episodeService, /\.in\('status', \['open', 'reconnected', 'cash_register_closed', 'session_ended'\]\)/)
     assert.match(episodeService, /Date\.parse\(episode\.endedAt\) >= Date\.parse\(dateBounds\.start\)/)

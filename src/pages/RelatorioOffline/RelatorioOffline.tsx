@@ -143,8 +143,7 @@ export default function RelatorioOffline() {
         }
     }, [isOwner])
 
-    const historyQueryKey =
-        `${historyDateFilter}|${historyBakeryFilter}|${lastUpdatedAt ?? 'initial'}|${historyRefreshRevision}`
+    const historyQueryKey = `${historyDateFilter}|${historyBakeryFilter}`
     const visibleHistoryResult = historyResult?.key === historyQueryKey ? historyResult : null
     const historyEpisodes = visibleHistoryResult?.episodes ?? []
     const historyError = visibleHistoryResult?.error ?? ''
@@ -187,7 +186,7 @@ export default function RelatorioOffline() {
         return () => {
             isActive = false
         }
-    }, [historyBakeryFilter, historyDateFilter, historyQueryKey, isOwner])
+    }, [historyBakeryFilter, historyDateFilter, historyQueryKey, historyRefreshRevision, isOwner])
 
     useEffect(() => {
         const intervalId = window.setInterval(() => {
