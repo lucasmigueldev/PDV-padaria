@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import {
+    associateOfflineEpisodeSales,
     getPdvOfflineEpisodeDurationSeconds,
     getPdvOfflineEpisodeSaoPauloDateBounds,
     getPdvOfflineEpisodeStatusLabel,
     isCompletedPdvOfflineEpisode,
+    type OfflineEpisodeSale,
+    type OfflineEpisodeSaleEpisode,
 } from '../src/services/pdvOfflineEpisodePresentation.ts'
 
 const migration = readFileSync(
@@ -15,6 +18,22 @@ const migration = readFileSync(
 )
 const lifecycleMigration = readFileSync(
     new URL('../supabase/migrations/20261031202500_add_pdv_cash_register_session_lifecycle.sql', import.meta.url),
+    'utf8',
+)
+const offlineSalesMigration = readFileSync(
+    new URL('../supabase/migrations/20261102174500_add_offline_sale_session_id.sql', import.meta.url),
+    'utf8',
+)
+const salesReadPolicies = readFileSync(
+    new URL('../supabase/migrations/20261015130000_allow_cashiers_read_own_bakery_sales.sql', import.meta.url),
+    'utf8',
+)
+const operationalReadPolicies = readFileSync(
+    new URL('../supabase/migrations/20261010110000_authorize_operational_reads.sql', import.meta.url),
+    'utf8',
+)
+const operations = readFileSync(
+    new URL('../src/services/operations.ts', import.meta.url),
     'utf8',
 )
 const heartbeatHook = readFileSync(
@@ -98,6 +117,105 @@ test('builds America/Sao_Paulo day bounds independently of browser timezone', ()
     assert.equal(getPdvOfflineEpisodeSaoPauloDateBounds('2026-02-31'), null)
 })
 
+test('associates offline sales only to one matching closed occurrence', () => {
+    const episode: OfflineEpisodeSaleEpisode = {
+        id: 'episode-1',
+        bakeryId: 'bakery-1',
+        operatorUserId: 'operator-1',
+        cashRegisterId: 'register-1',
+        estimatedStartedAt: '2026-10-31T12:00:00.000Z',
+        endedAt: '2026-10-31T12:10:00.000Z',
+        durationSeconds: 600,
+    }
+    const sale: OfflineEpisodeSale = {
+        id: 'sale-1',
+        bakeryId: episode.bakeryId,
+        operatorUserId: episode.operatorUserId,
+        cashRegisterId: episode.cashRegisterId,
+        offlineSessionId: '0d152d90-26dc-4ad0-a99a-397fbcdff5cd',
+        occurredAt: '2026-10-31T12:05:00.000Z',
+        total: 14.5,
+        items: [{ name: 'Pão francês', quantity: 2 }],
+    }
+
+    const pending = associateOfflineEpisodeSales([episode], [sale], new Set())
+    assert.equal(pending.get(episode.id), null)
+
+    const closed = associateOfflineEpisodeSales([episode], [sale], new Set([episode.cashRegisterId]))
+    assert.deepEqual(closed.get(episode.id), [sale])
+
+    const noSales = associateOfflineEpisodeSales(
+        [episode],
+        [],
+        new Set([episode.cashRegisterId]),
+    )
+    assert.equal(noSales.get(episode.id), null)
+})
+
+test('leaves session sales unconfirmed when timestamps or occurrence candidates are ambiguous', () => {
+    const episode: OfflineEpisodeSaleEpisode = {
+        id: 'episode-1',
+        bakeryId: 'bakery-1',
+        operatorUserId: 'operator-1',
+        cashRegisterId: 'register-1',
+        estimatedStartedAt: '2026-10-31T12:00:00.000Z',
+        endedAt: '2026-10-31T12:10:00.000Z',
+        durationSeconds: 600,
+    }
+    const sale: OfflineEpisodeSale = {
+        id: 'sale-1',
+        bakeryId: episode.bakeryId,
+        operatorUserId: episode.operatorUserId,
+        cashRegisterId: episode.cashRegisterId,
+        offlineSessionId: '0d152d90-26dc-4ad0-a99a-397fbcdff5cd',
+        occurredAt: '2026-10-31T12:05:00.000Z',
+        total: 14.5,
+        items: [{ name: 'Pão francês', quantity: 2 }],
+    }
+    const overlappingEpisode = {
+        ...episode,
+        id: 'episode-2',
+        estimatedStartedAt: '2026-10-31T12:04:00.000Z',
+        endedAt: '2026-10-31T12:12:00.000Z',
+    }
+    const closedRegisters = new Set([episode.cashRegisterId])
+
+    const ambiguous = associateOfflineEpisodeSales(
+        [episode, overlappingEpisode],
+        [sale],
+        closedRegisters,
+    )
+    assert.equal(ambiguous.get(episode.id), null)
+    assert.equal(ambiguous.get(overlappingEpisode.id), null)
+
+    const outsideWindow = associateOfflineEpisodeSales(
+        [episode],
+        [{ ...sale, occurredAt: '2026-10-31T11:59:59.000Z' }],
+        closedRegisters,
+    )
+    assert.equal(outsideWindow.get(episode.id), null)
+
+    const splitSession = associateOfflineEpisodeSales(
+        [episode],
+        [
+            sale,
+            { ...sale, id: 'sale-2', occurredAt: '2026-10-31T12:11:00.000Z' },
+        ],
+        closedRegisters,
+    )
+    assert.equal(splitSession.get(episode.id), null)
+
+    const unidentifiedSale = associateOfflineEpisodeSales(
+        [episode],
+        [
+            sale,
+            { ...sale, id: 'unidentified-sale', offlineSessionId: null },
+        ],
+        closedRegisters,
+    )
+    assert.equal(unidentifiedSale.get(episode.id), null)
+})
+
 test('polling fetches the real register ID without changing the existing heartbeat flow', () => {
     assert.match(heartbeatHook, /select\('id, bakery_id, opened_by, opened_at'\)/)
     assert.match(heartbeatHook, /\.eq\('status', 'open'\)/)
@@ -177,8 +295,8 @@ test('episode synchronization runs only after a successful existing monitor poll
 })
 
 test('history queries and renders completed episodes only while preserving date filters', () => {
-    assert.match(episodeService, /\.in\('status', \['reconnected', 'cash_register_closed'\]\)/)
-    assert.match(episodeService, /\.gte\('ended_at', dateBounds\.start\)/)
+    assert.match(episodeService, /\.in\('status', \['open', 'reconnected', 'cash_register_closed', 'session_ended'\]\)/)
+    assert.match(episodeService, /Date\.parse\(episode\.endedAt\) >= Date\.parse\(dateBounds\.start\)/)
     assert.doesNotMatch(episodeService, /ended_at\.is\.null/)
     assert.match(episodeService, /isCompletedPdvOfflineEpisode\(episode\.status\)/)
     assert.doesNotMatch(offlinePage, /Em andamento; sem evidência/)
@@ -188,23 +306,42 @@ test('history queries and renders completed episodes only while preserving date 
 })
 
 test('history cards show occurrence details and emphasize communication duration', () => {
-    assert.match(offlinePage, /<dt>Data da ocorrência<\/dt>/)
-    assert.match(offlinePage, /<dt>Início estimado<\/dt>/)
-    assert.match(offlinePage, /<dt>Término registrado<\/dt>/)
-    assert.match(offlinePage, /<dt>Tempo sem comunicação<\/dt>/)
+    assert.match(offlinePage, /offline-history-identity/)
+    assert.match(offlinePage, /offline-history-operator/)
+    assert.match(offlinePage, /formatOccurrenceDate\(episode\.estimatedStartedAt\)/)
+    assert.match(offlinePage, /Comunicação interrompida/)
+    assert.match(offlinePage, /Início estimado ·/)
+    assert.match(offlinePage, /Comunicação restabelecida/)
+    assert.match(offlinePage, /Duração da ocorrência/)
     assert.doesNotMatch(
         offlinePage,
-        /Último heartbeat registrado|Vendas offline sincronizadas|Comunicação retomada/,
+        /Último heartbeat registrado|Vendas offline sincronizadas/,
     )
     assert.doesNotMatch(offlinePage, /<span>\{historyError\}<\/span>|<span>\{episodeSyncError\}<\/span>/)
     assert.match(offlinePage, /As ocorrências só são identificadas enquanto esta página administrativa está aberta/)
-    assert.match(offlinePageStyles, /\.offline-history-duration[\s\S]+?font-size: 20px/)
+    assert.match(offlinePageStyles, /\.offline-history-timeline-events/)
+    assert.match(offlinePageStyles, /\.offline-history-event:not\(:last-child\)::after/)
+    assert.match(offlinePageStyles, /\.offline-history-duration strong[\s\S]+?font-size: 20px/)
+    assert.match(offlinePageStyles, /@media \(max-width: 767px\)[\s\S]+?\.offline-history-timeline/)
+    assert.match(offlinePage, /Vendas realizadas offline/)
+    assert.match(offlinePage, /Quantidade de vendas/)
+    assert.match(offlinePage, /Valor total/)
+    assert.match(offlinePage, /Ver vendas/)
+    assert.match(offlinePage, /Ocultar vendas/)
+    assert.match(offlinePage, /Dados de vendas ainda não confirmados/)
+    assert.match(episodeService, /sale_items\(name, quantity\)/)
+    assert.match(offlinePage, /offlineSales\.map\(\(sale, index\)/)
+    assert.match(offlinePage, /<strong>Venda \{index \+ 1\}<\/strong>/)
+    assert.match(offlinePage, /sale\.items\.map/)
+    assert.match(offlinePage, /offlineSalesCurrency\.format\(sale\.total\)/)
+    assert.doesNotMatch(offlinePage, /<span>Venda \{sale\.id\}<\/span>/)
+    assert.match(offlinePageStyles, /\.offline-history-sale-items/)
 })
 
 test('history paginates all filtered records locally in groups of ten and resets on filter changes', () => {
     assert.match(episodeService, /const PAGE_SIZE = 500/)
     assert.match(episodeService, /for \(let offset = 0; ; offset \+= PAGE_SIZE\)/)
-    assert.match(episodeService, /if \(records\.length < PAGE_SIZE\) return results/)
+    assert.match(episodeService, /if \(records\.length < PAGE_SIZE\) break/)
     assert.match(episodeService, /\.order\('estimated_started_at', \{ ascending: false \}\)/)
     assert.match(offlinePage, /const HISTORY_PAGE_SIZE = 10/)
     assert.match(offlinePage, /useState\(1\)/)
@@ -234,12 +371,40 @@ test('sync service reconciles only matching register IDs and surfaces RPC failur
     assert.match(episodeService, /if \(error\)[\s\S]+?throw new Error/)
 })
 
-test('the history keeps bakery and date filters without unrelated sales counts', () => {
+test('the history keeps bakery and date filters and scopes sales to episode registers', () => {
     assert.match(episodeService, /\.eq\('bakery_id', filters\.bakeryId\)/)
     assert.match(episodeService, /getPdvOfflineEpisodeSaoPauloDateBounds/)
+    assert.match(episodeService, /\.eq\('bakery_id', bakeryId\)/)
+    assert.match(episodeService, /\.in\('cash_register_id', registerChunk\)/)
+    assert.match(episodeService, /\.not\('offline_session_id', 'is', null\)/)
+    assert.match(episodeService, /\.is\('offline_session_id', null\)/)
+    assert.match(episodeService, /\.or\(timeRanges\.join\(','\)\)/)
     assert.match(offlinePage, /offline-history-date/)
     assert.match(offlinePage, /offline-history-bakery/)
-    assert.doesNotMatch(offlinePage, /Vendas offline sincronizadas|Contagem ainda não disponível/)
+    assert.match(offlinePage, /HISTORY_PAGE_SIZE = 10/)
+})
+
+test('offline sale migration preserves the existing secure idempotent RPC and sales read policies', () => {
+    assert.match(offlineSalesMigration, /ALTER TABLE public\.sales[\s\S]+ADD COLUMN IF NOT EXISTS offline_session_id uuid/)
+    assert.match(offlineSalesMigration, /DROP FUNCTION public\.create_sale_with_items\([\s\S]+?timestamptz\s+\);/)
+    assert.match(offlineSalesMigration, /CREATE OR REPLACE FUNCTION public\.create_sale_with_items\([\s\S]+?p_offline_session_id uuid DEFAULT NULL/)
+    assert.match(offlineSalesMigration, /SECURITY DEFINER\s+SET search_path TO ''/)
+    assert.match(offlineSalesMigration, /IF p_offline_session_id IS NOT NULL THEN[\s\S]+?jsonb_build_object\('offline_session_id', p_offline_session_id\)/)
+    assert.match(offlineSalesMigration, /offline_session_id,[\s\S]+?p_offline_session_id,[\s\S]+?v_occurred_at/)
+    assert.match(offlineSalesMigration, /REVOKE ALL ON FUNCTION public\.create_sale_with_items\([\s\S]+?FROM PUBLIC, anon, authenticated/)
+    assert.match(offlineSalesMigration, /GRANT EXECUTE ON FUNCTION public\.create_sale_with_items\([\s\S]+?TO authenticated/)
+    assert.match(offlineSalesMigration, /IF v_user_id IS NULL OR NOT \(SELECT private\.is_cashier\(\)\)/)
+    assert.match(offlineSalesMigration, /cash_register\.status = 'open'/)
+    assert.match(offlineSalesMigration, /UPDATE public\.product_stock/)
+    assert.doesNotMatch(offlineSalesMigration, /CREATE TABLE|CREATE FUNCTION public\./)
+    assert.match(operations, /p_offline_session_id: input\.offlineSessionId \?\? null/)
+    assert.match(operations, /offlineSessionId: sale\.offlineSessionId \?\? null/)
+    assert.match(salesReadPolicies, /CREATE POLICY sales_select_owner_or_cashier_own_bakery/)
+    assert.match(salesReadPolicies, /bakery_id = \(SELECT private\.current_user_bakery_id\(\)\)/)
+    assert.match(operationalReadPolicies, /GRANT SELECT ON TABLE public\.cash_registers,[\s\S]+?public\.sales/)
+    assert.match(operationalReadPolicies, /CREATE POLICY cash_registers_select_by_role_and_bakery/)
+    assert.match(episodeService, /client[\s\S]+?\.from\('sales'\)[\s\S]+?\.eq\('bakery_id', bakeryId\)/)
+    assert.match(episodeService, /\.from\('cash_registers'\)[\s\S]+?\.select\('id, status'\)/)
 })
 
 test('normal logout is sent through the authenticated session RPC before auth sign-out', () => {

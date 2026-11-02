@@ -10,6 +10,117 @@ export interface PdvOfflineEpisodeTiming {
     durationSeconds: number | null
 }
 
+export interface OfflineEpisodeSale {
+    id: string
+    bakeryId: string
+    operatorUserId: string
+    cashRegisterId: string
+    offlineSessionId: string | null
+    occurredAt: string
+    total: number
+    items: OfflineEpisodeSaleItem[]
+}
+
+export interface OfflineEpisodeSaleItem {
+    name: string
+    quantity: number
+}
+
+export interface OfflineEpisodeSaleEpisode extends PdvOfflineEpisodeTiming {
+    id: string
+    bakeryId: string
+    operatorUserId: string
+    cashRegisterId: string
+}
+
+type OfflineSessionKey = string
+
+function getOfflineSessionKey(sale: OfflineEpisodeSale): OfflineSessionKey {
+    return JSON.stringify([
+        sale.bakeryId,
+        sale.operatorUserId,
+        sale.cashRegisterId,
+        sale.offlineSessionId,
+    ])
+}
+
+function isWithinEpisode(sale: OfflineEpisodeSale, episode: OfflineEpisodeSaleEpisode): boolean {
+    const occurredAt = Date.parse(sale.occurredAt)
+    const startedAt = Date.parse(episode.estimatedStartedAt)
+    const endedAt = episode.endedAt === null ? Number.NaN : Date.parse(episode.endedAt)
+    return Number.isFinite(occurredAt)
+        && Number.isFinite(startedAt)
+        && Number.isFinite(endedAt)
+        && occurredAt >= startedAt
+        && occurredAt <= endedAt
+}
+
+export function associateOfflineEpisodeSales(
+    episodes: readonly OfflineEpisodeSaleEpisode[],
+    sales: readonly OfflineEpisodeSale[],
+    closedCashRegisterIds: ReadonlySet<string>,
+): Map<string, OfflineEpisodeSale[] | null> {
+    const result = new Map<string, OfflineEpisodeSale[] | null>(
+        episodes.map((episode) => [episode.id, null]),
+    )
+    const sessionSales = new Map<OfflineSessionKey, OfflineEpisodeSale[]>()
+
+    for (const sale of sales) {
+        if (!sale.offlineSessionId) continue
+        const key = getOfflineSessionKey(sale)
+        const group = sessionSales.get(key) ?? []
+        if (!group.some((existing) => existing.id === sale.id)) {
+            group.push(sale)
+        }
+        sessionSales.set(key, group)
+    }
+
+    for (const episode of episodes) {
+        if (episode.endedAt === null || !closedCashRegisterIds.has(episode.cashRegisterId)) {
+            continue
+        }
+        const unidentifiedSales = sales.some((sale) =>
+            sale.offlineSessionId === null
+            && sale.bakeryId === episode.bakeryId
+            && sale.operatorUserId === episode.operatorUserId
+            && sale.cashRegisterId === episode.cashRegisterId
+            && isWithinEpisode(sale, episode),
+        )
+        if (unidentifiedSales) continue
+
+        const relevantGroups = [...sessionSales.values()].filter((group) =>
+            group[0].bakeryId === episode.bakeryId
+            && group[0].operatorUserId === episode.operatorUserId
+            && group[0].cashRegisterId === episode.cashRegisterId
+            && group.some((sale) => isWithinEpisode(sale, episode)),
+        )
+        if (relevantGroups.length === 0) continue
+
+        const associatedGroups = relevantGroups.filter((group) => {
+            if (!group.every((sale) => isWithinEpisode(sale, episode))) {
+                return false
+            }
+            const matchingEpisodes = episodes.filter((candidate) =>
+                candidate.bakeryId === episode.bakeryId
+                && candidate.operatorUserId === episode.operatorUserId
+                && candidate.cashRegisterId === episode.cashRegisterId
+                && group.every((sale) => isWithinEpisode(sale, candidate)),
+            )
+            return matchingEpisodes.length === 1 && matchingEpisodes[0].id === episode.id
+        })
+
+        if (associatedGroups.length !== relevantGroups.length) continue
+        const associatedSales = associatedGroups
+            .flat()
+            .sort((first, second) => Date.parse(first.occurredAt) - Date.parse(second.occurredAt))
+        if (associatedSales.length > 0) {
+            result.set(episode.id, associatedSales)
+        }
+    }
+
+    return result
+}
+
 export function getPdvOfflineEpisodeDurationSeconds(
     episode: PdvOfflineEpisodeTiming,
     nowMs: number,
