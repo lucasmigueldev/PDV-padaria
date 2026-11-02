@@ -30,6 +30,7 @@ import { AuthContext } from './contexts/AuthContext'
 import { BluetoothPrinterProvider } from './contexts/BluetoothPrinterContext'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt/PWAInstallPrompt'
 import { MobileBottomNav } from './components/MobileBottomNav/MobileBottomNav'
+import CashShortfallAlertManager from './components/CashShortfallAlertManager/CashShortfallAlertManager'
 import {
   getCurrentSession,
   isCashierBakeryActive,
@@ -465,6 +466,7 @@ function App() {
           }
         />
         </Routes>
+        <CashShortfallAlertManager key={`${authenticatedUser?.id ?? 'anonymous'}:${authenticatedUser?.role ?? 'none'}`} />
         <MobileBottomNav />
         </BrowserRouter>
       </BluetoothPrinterProvider>

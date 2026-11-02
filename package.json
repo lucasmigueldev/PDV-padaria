@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "npm run test:offline",
-    "test:offline": "node --test tests/offlineSalesQueue.test.ts tests/offlinePdvCache.test.ts tests/offlineSaleReconciliation.test.ts tests/syncOfflineSales.test.ts tests/cashRegisterSafety.test.ts tests/offlineOperationalFlow.test.ts tests/offlineSalesReport.test.ts tests/offlineAuthSession.test.ts tests/serviceWorkerOffline.test.ts tests/serviceWorkerRegistration.test.ts tests/serviceWorkerDev.test.ts tests/cashRegisterState.test.ts tests/offlineRegisterMonitoring.test.ts tests/pdvHeartbeatPolling.test.ts tests/connection.test.ts tests/pdvOfflineEpisodes.test.ts",
+    "test:offline": "node --test tests/offlineSalesQueue.test.ts tests/offlinePdvCache.test.ts tests/offlineSaleReconciliation.test.ts tests/syncOfflineSales.test.ts tests/cashRegisterSafety.test.ts tests/offlineOperationalFlow.test.ts tests/offlineSalesReport.test.ts tests/offlineAuthSession.test.ts tests/serviceWorkerOffline.test.ts tests/serviceWorkerRegistration.test.ts tests/serviceWorkerDev.test.ts tests/cashRegisterState.test.ts tests/offlineRegisterMonitoring.test.ts tests/pdvHeartbeatPolling.test.ts tests/connection.test.ts tests/pdvOfflineEpisodes.test.ts tests/cashShortfallAlerts.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

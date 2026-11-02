@@ -10,8 +10,8 @@ import {
     ShoppingCart,
     X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 
 import { getCashClosuresFromSupabase } from '../../data/cashClosures'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
@@ -95,6 +95,7 @@ function validateDateInput(value: string, today: Date): string | null {
 
 export default function HistoricoFechamentos() {
     const navigate = useNavigate()
+    const location = useLocation()
     const { authenticatedUser } = useAuth()
     const isOwner = authenticatedUser?.role === 'owner'
     const [closures, setClosures] = useState<CashClosure[]>([])
@@ -136,6 +137,7 @@ export default function HistoricoFechamentos() {
         return matchesBakery && !hasInvalidDateRange && matchesStartDate && matchesEndDate
     })
     const [currentPage, setCurrentPage] = useState(1)
+    const focusedClosureIdRef = useRef<string | null>(null)
     const totalPages = Math.ceil(filteredClosures.length / CLOSURES_PER_PAGE)
     const paginatedClosures = filteredClosures.slice(
         (currentPage - 1) * CLOSURES_PER_PAGE,
@@ -169,6 +171,27 @@ export default function HistoricoFechamentos() {
             active = false
         }
     }, [])
+
+    useEffect(() => {
+        const state = location.state as { focusClosureId?: unknown } | null
+        const focusClosureId = state?.focusClosureId
+        if (typeof focusClosureId !== 'string'
+            || focusedClosureIdRef.current === focusClosureId) {
+            return
+        }
+
+        const closureIndex = closures.findIndex((closure) => closure.id === focusClosureId)
+        if (closureIndex < 0) return
+
+        focusedClosureIdRef.current = focusClosureId
+        const frameId = window.requestAnimationFrame(() => {
+            setCurrentPage(Math.floor(closureIndex / CLOSURES_PER_PAGE) + 1)
+            setExpandedClosureId(focusClosureId)
+            document.getElementById(`fechamento-toggle-${focusClosureId}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        })
+        return () => window.cancelAnimationFrame(frameId)
+    }, [closures, location.state])
 
     function handleLogout() {
         void logoutAndRedirect(navigate)
@@ -413,6 +436,7 @@ export default function HistoricoFechamentos() {
                                 return (
                                     <article
                                         className={`fechamento-history-card${isExpanded ? ' is-expanded' : ''}`}
+                                        id={`fechamento-${closure.id}`}
                                         key={closure.id}
                                     >
                                         <button
