@@ -95,6 +95,8 @@ test('completes mocked open, offline sale, reload, reconnect, stock reconciliati
     assert.equal(cache.cacheProducts(bakeryId, [product]), true)
 
     reportNetworkFailure()
+    const stopOfflineSaleSessions = cache.startOfflineSaleSessionTracking()
+    assert.ok(sessionValues.get('pdv_offline_sale_session_v1_active'))
     const queue = await import('../src/services/offlineSalesQueue.ts')
     const sale: QueuedSale = {
         id: 'flow-sale',
@@ -122,6 +124,8 @@ test('completes mocked open, offline sale, reload, reconnect, stock reconciliati
         cache.queueSaleForOfflineSession(sale, operatorUserId, [product], [product.id]),
         { saved: true },
     )
+    const offlineSessionId = queue.getQueueSnapshot().find((queued) => queued.id === sale.id)?.offlineSessionId
+    assert.match(offlineSessionId ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     assert.equal(
         JSON.parse(storedValues.get('pdv_offline_sales_v1') ?? '[]')
             .some((queued: QueuedSale) => queued.idempotencyKey === sale.idempotencyKey),
@@ -131,6 +135,14 @@ test('completes mocked open, offline sale, reload, reconnect, stock reconciliati
     const reloadedCache = await import('../src/services/offlinePdvCache.ts?flow=reload')
     assert.deepEqual(reloadedCache.getCachedProducts(bakeryId), [product])
     assert.equal(queue.getQueueSnapshot().find((queued) => queued.id === sale.id)?.occurredAt, sale.occurredAt)
+    assert.deepEqual(
+        reloadedCache.queueSaleForOfflineSession(sale, operatorUserId, [product], [product.id]),
+        { saved: true },
+    )
+    assert.equal(
+        queue.getQueueSnapshot().find((queued) => queued.id === sale.id)?.offlineSessionId,
+        offlineSessionId,
+    )
 
     const { startSalesSync } = await import('../src/services/syncOfflineSales.ts')
     let syncCalls = 0
@@ -138,6 +150,7 @@ test('completes mocked open, offline sale, reload, reconnect, stock reconciliati
         syncCalls++
         assert.equal(queuedSale.idempotencyKey, sale.idempotencyKey)
         assert.equal(queuedSale.occurredAt, sale.occurredAt)
+        assert.equal(queuedSale.offlineSessionId, offlineSessionId)
         assert.equal(reloadedCache.applyConfirmedSaleToCachedStock(queuedSale), true)
         return 'flow-remote-sale'
     })
@@ -160,6 +173,57 @@ test('completes mocked open, offline sale, reload, reconnect, stock reconciliati
         )[0].stock,
         3,
     )
+
+    reportNetworkFailure()
+    const uncertainOnlineSale: QueuedSale = {
+        ...sale,
+        id: 'flow-uncertain-online-sale',
+        idempotencyKey: 'flow-uncertain-online-sale-key',
+        localRef: 'flow-uncertain-online-sale',
+    }
+    assert.deepEqual(
+        reloadedCache.queueSaleForOfflineSession(
+            uncertainOnlineSale,
+            operatorUserId,
+            [{ ...product, stock: 3 }],
+            [product.id],
+            false,
+        ),
+        { saved: true },
+    )
+    assert.equal(
+        queue.getQueueSnapshot().find((queued) => queued.id === uncertainOnlineSale.id)?.offlineSessionId,
+        null,
+    )
+    queue.removeQueuedSale(uncertainOnlineSale.id)
+
+    const laterSale: QueuedSale = {
+        ...sale,
+        id: 'flow-sale-after-reconnect',
+        idempotencyKey: 'flow-sale-after-reconnect-key',
+        localRef: 'flow-sale-after-reconnect',
+        occurredAt: '2026-10-30T10:06:00.000Z',
+        total: 2,
+        items: [{ ...sale.items[0], quantity: 1 }],
+    }
+    assert.deepEqual(
+        reloadedCache.queueSaleForOfflineSession(
+            laterSale,
+            operatorUserId,
+            [{ ...product, stock: 3 }],
+            [product.id],
+        ),
+        { saved: true },
+    )
+    const laterOfflineSessionId = queue.getQueueSnapshot()
+        .find((queued) => queued.id === laterSale.id)?.offlineSessionId
+    assert.ok(laterOfflineSessionId)
+    assert.notEqual(laterOfflineSessionId, offlineSessionId)
+    queue.removeQueuedSale(laterSale.id)
+    reportNetworkSuccess()
+    assert.equal(sessionValues.has('pdv_offline_sale_session_v1_active'), false)
+    stopOfflineSaleSessions()
+
     assert.equal(getCashRegisterCloseBlockMessage(queue.getQueueSnapshot(), register.id, null), null)
 
     const closureId = await executeCashRegisterRpc(

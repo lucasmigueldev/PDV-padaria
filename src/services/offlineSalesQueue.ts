@@ -14,6 +14,7 @@ export interface QueuedSale {
     id: string
     idempotencyKey: string
     localRef: string
+    offlineSessionId?: string | null
     cashRegisterId: string
     bakeryId: string
     operatorUserId?: string
@@ -50,9 +51,14 @@ function isQueuedSale(value: unknown): value is QueuedSale {
     }
 
     const sale = value as Record<string, unknown>
+    const hasValidOfflineSessionId = sale.offlineSessionId === undefined
+        || sale.offlineSessionId === null
+        || (typeof sale.offlineSessionId === 'string'
+            && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sale.offlineSessionId))
     return typeof sale.id === 'string'
         && typeof sale.idempotencyKey === 'string'
         && typeof sale.localRef === 'string'
+        && hasValidOfflineSessionId
         && typeof sale.cashRegisterId === 'string'
         && typeof sale.bakeryId === 'string'
         && (sale.operatorUserId === undefined || typeof sale.operatorUserId === 'string')
@@ -206,6 +212,7 @@ function hasSameSalePayload(first: QueuedSale, second: QueuedSale): boolean {
     return first.id === second.id
         && first.idempotencyKey === second.idempotencyKey
         && first.localRef === second.localRef
+        && (first.offlineSessionId ?? null) === (second.offlineSessionId ?? null)
         && first.cashRegisterId === second.cashRegisterId
         && first.bakeryId === second.bakeryId
         && first.operatorUserId === second.operatorUserId

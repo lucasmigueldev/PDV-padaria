@@ -742,7 +742,7 @@ export default function PDV() {
             setSaleFeedback(message)
         }
 
-        const enqueueCurrentSale = (): boolean => {
+        const enqueueCurrentSale = (offlineOriginConfirmed: boolean): boolean => {
             const saleId = idempotencyRef.current?.key ?? crypto.randomUUID()
             const result = queueSaleForOfflineSession({
                 id: saleId,
@@ -765,7 +765,7 @@ export default function PDV() {
                 })),
                 status: 'pending',
                 createdAt: new Date().toISOString(),
-            }, authenticatedUser.id, products, items.map((item) => item.id))
+            }, authenticatedUser.id, products, items.map((item) => item.id), offlineOriginConfirmed)
             if (!result.saved) {
                 const message = result.reason === 'cash-register'
                     ? 'Não foi possível confirmar um caixa aberto para vendas offline. Conecte-se à internet para atualizar o estado do caixa.'
@@ -785,7 +785,7 @@ export default function PDV() {
 
         try {
             if (shouldQueueOffline) {
-                enqueueCurrentSale()
+                enqueueCurrentSale(true)
                 return
             }
 
@@ -808,7 +808,7 @@ export default function PDV() {
                     throw error
                 }
                 reportNetworkFailure()
-                enqueueCurrentSale()
+                enqueueCurrentSale(false)
                 return
             }
 

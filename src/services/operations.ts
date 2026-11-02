@@ -225,6 +225,7 @@ export async function createSaleWithItems(input: {
     items: Pick<SaleItemSnapshot, 'productId' | 'quantity'>[]
     idempotencyKey: string
     occurredAt?: string | null
+    offlineSessionId?: string | null
 }): Promise<string> {
     let client: ReturnType<typeof getSupabaseClient>
     try {
@@ -248,6 +249,7 @@ export async function createSaleWithItems(input: {
             })),
             p_idempotency_key: input.idempotencyKey,
             p_occurred_at: input.occurredAt ?? null,
+            p_offline_session_id: input.offlineSessionId ?? null,
         }))
     } catch (requestError) {
         if (isNetworkError(requestError)) {
@@ -274,6 +276,7 @@ export async function syncQueuedOfflineSale(sale: QueuedSale): Promise<string> {
         items: sale.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
         idempotencyKey: sale.idempotencyKey,
         occurredAt: sale.occurredAt,
+        offlineSessionId: sale.offlineSessionId ?? null,
     })
 
     let result

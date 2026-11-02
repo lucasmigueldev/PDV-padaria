@@ -1,5 +1,6 @@
 import type { CashRegister } from '../types/CashRegister'
 import type { ProductWithStock } from '../types/Product'
+import { getConnectionState, subscribeConnection } from './connection.ts'
 import {
     enqueueSale,
     getQueueSnapshot,
@@ -9,6 +10,7 @@ import {
 const PRODUCT_CACHE_PREFIX = 'pdv_offline_products_v1_'
 const CASH_REGISTER_CACHE_PREFIX = 'pdv_offline_confirmed_cash_register_v1_'
 const SESSION_ID_KEY = 'pdv_offline_auth_session_v1'
+const OFFLINE_SALE_SESSION_KEY = 'pdv_offline_sale_session_v1_active'
 const CASH_REGISTER_MAX_AGE_MS = 12 * 60 * 60 * 1000
 
 type CachedCashRegister = {
@@ -34,6 +36,62 @@ let volatileSessionId: string | null = null
 
 function getCashRegisterKey(bakeryId: string, userId: string): string {
     return `${CASH_REGISTER_CACHE_PREFIX}${bakeryId}_${userId}`
+}
+
+function clearOfflineSaleSessions(): void {
+    try {
+        window.sessionStorage.removeItem(OFFLINE_SALE_SESSION_KEY)
+    } catch (error) {
+        console.warn('Não foi possível encerrar a sessão local de vendas offline.', error)
+    }
+}
+
+function getOrCreateOfflineSaleSessionId(): string | null {
+    try {
+        const existing = window.sessionStorage.getItem(OFFLINE_SALE_SESSION_KEY)
+        if (existing && isUuid(existing)) {
+            return existing
+        }
+        if (existing) {
+            window.sessionStorage.removeItem(OFFLINE_SALE_SESSION_KEY)
+        }
+
+        const sessionId = crypto.randomUUID()
+        window.sessionStorage.setItem(OFFLINE_SALE_SESSION_KEY, sessionId)
+        return sessionId
+    } catch (error) {
+        console.warn('Não foi possível preservar a identificação desta sessão offline.', error)
+        return null
+    }
+}
+
+export function startOfflineSaleSessionTracking(): () => void {
+    if (typeof window === 'undefined') {
+        return () => undefined
+    }
+
+    let wasOnline = getConnectionState().status === 'online'
+    if (wasOnline) {
+        clearOfflineSaleSessions()
+    } else {
+        getOrCreateOfflineSaleSessionId()
+    }
+
+    const unsubscribe = subscribeConnection(() => {
+        const isOnline = getConnectionState().status === 'online'
+        if (isOnline && !wasOnline) {
+            clearOfflineSaleSessions()
+        } else if (!isOnline && wasOnline) {
+            getOrCreateOfflineSaleSessionId()
+        }
+        wasOnline = isOnline
+    })
+
+    return unsubscribe
+}
+
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
 function isProductWithStock(value: unknown, bakeryId: string): value is ProductWithStock {
@@ -336,6 +394,7 @@ export function queueSaleForOfflineSession(
     userId: string,
     products: ProductWithStock[],
     productIds: string[],
+    offlineOriginConfirmed = true,
 ): OfflineSaleQueueResult {
     if (!userId || sale.operatorUserId !== userId) {
         return { saved: false, reason: 'operator' }
@@ -360,7 +419,7 @@ export function queueSaleForOfflineSession(
         queued.id === sale.id || queued.idempotencyKey === sale.idempotencyKey,
     )
     if (existing) {
-        enqueueSale(sale)
+        enqueueSale({ ...sale, offlineSessionId: existing.offlineSessionId ?? null })
         return { saved: true }
     }
 
@@ -381,7 +440,12 @@ export function queueSaleForOfflineSession(
         return { saved: false, reason: 'stock' }
     }
 
-    enqueueSale(sale)
+    enqueueSale({
+        ...sale,
+        offlineSessionId: offlineOriginConfirmed
+            ? getOrCreateOfflineSaleSessionId()
+            : null,
+    })
     return { saved: true }
 }
 
