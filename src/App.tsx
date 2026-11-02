@@ -5,7 +5,10 @@ import { getConnectionState, isNetworkError, reportNetworkFailure, startConnecti
 import { useConnectionStatus } from './hooks/useConnectionStatus'
 import { startSalesSync } from './services/syncOfflineSales'
 import { startPdvHeartbeat } from './services/pdvHeartbeat'
-import { resetOfflineCashRegisterSession } from './services/offlinePdvCache'
+import {
+  resetOfflineCashRegisterSession,
+  startOfflineSaleSessionTracking,
+} from './services/offlinePdvCache'
 import {
   cacheOfflineAuthenticatedUser,
   restoreOfflineAuthenticatedUser,
@@ -314,7 +317,11 @@ function App() {
 
   useEffect(() => {
     const stopMonitor = startConnectionMonitor()
-    return () => stopMonitor()
+    const stopOfflineSaleSessions = startOfflineSaleSessionTracking()
+    return () => {
+      stopMonitor()
+      stopOfflineSaleSessions()
+    }
   }, [])
 
   useEffect(() => {

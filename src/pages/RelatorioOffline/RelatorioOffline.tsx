@@ -1,13 +1,17 @@
 import {
     BarChart3,
+    CalendarDays,
     Clock,
     Filter,
     History,
     LayoutDashboard,
     LogOut,
+    Package,
     RefreshCw,
     Settings,
     ShoppingCart,
+    Wifi,
+    WifiOff,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -36,6 +40,10 @@ import '../Dashboard/Dashborad.css'
 import './RelatorioOffline.css'
 
 const HISTORY_PAGE_SIZE = 10
+const offlineSalesCurrency = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+})
 
 function formatLastContact(value: string): string {
     const timestamp = Date.parse(value)
@@ -95,6 +103,7 @@ export default function RelatorioOffline() {
     const [historyDateFilter, setHistoryDateFilter] = useState('')
     const [historyBakeryFilter, setHistoryBakeryFilter] = useState('all')
     const [historyPage, setHistoryPage] = useState(1)
+    const [expandedOfflineSales, setExpandedOfflineSales] = useState<Set<string>>(() => new Set())
     const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0)
     const [episodeSyncError, setEpisodeSyncError] = useState('')
     const [historyResult, setHistoryResult] = useState<{
@@ -595,42 +604,143 @@ export default function RelatorioOffline() {
                                             className="offline-history-card"
                                             key={episode.id}
                                         >
-                                            <div className="offline-register-card-heading">
-                                                <div>
-                                                    <span className="offline-register-label">Padaria</span>
+                                            <header className="offline-history-header">
+                                                <div className="offline-history-identity">
+                                                    <span className="offline-history-eyebrow">Padaria</span>
                                                     <strong>{episode.bakeryName}</strong>
+                                                    <span className="offline-history-operator">
+                                                        Operador: {episode.operatorName}
+                                                    </span>
                                                 </div>
-                                            </div>
-                                            <dl className="offline-history-details">
-                                                <div>
-                                                    <dt>Operador</dt>
-                                                    <dd>{episode.operatorName}</dd>
+                                                <div className="offline-history-date">
+                                                    <CalendarDays size={15} aria-hidden="true" />
+                                                    <span>{formatOccurrenceDate(episode.estimatedStartedAt)}</span>
                                                 </div>
-                                                <div>
-                                                    <dt>Data da ocorrência</dt>
-                                                    <dd>{formatOccurrenceDate(episode.estimatedStartedAt)}</dd>
-                                                </div>
-                                                <div>
-                                                    <dt>Início estimado</dt>
-                                                    <dd>{formatLastContact(episode.estimatedStartedAt)}</dd>
-                                                </div>
-                                                <div>
-                                                    <dt>Término registrado</dt>
-                                                    <dd>
-                                                        {episode.endedAt
-                                                            ? formatLastContact(episode.endedAt)
-                                                            : 'Término não disponível'}
-                                                    </dd>
+                                            </header>
+                                            <div className="offline-history-timeline">
+                                                <div className="offline-history-timeline-events">
+                                                    <div className="offline-history-event offline-history-event--interrupted">
+                                                        <span className="offline-history-event-icon">
+                                                            <WifiOff size={16} aria-hidden="true" />
+                                                        </span>
+                                                        <div className="offline-history-event-copy">
+                                                            <strong>Comunicação interrompida</strong>
+                                                            <span>
+                                                                Início estimado · {formatLastContact(episode.estimatedStartedAt)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="offline-history-event offline-history-event--restored">
+                                                        <span className="offline-history-event-icon">
+                                                            <Wifi size={16} aria-hidden="true" />
+                                                        </span>
+                                                        <div className="offline-history-event-copy">
+                                                            <strong>Comunicação restabelecida</strong>
+                                                            <span>
+                                                                {episode.endedAt
+                                                                    ? formatLastContact(episode.endedAt)
+                                                                    : 'Horário não disponível'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div className="offline-history-duration">
-                                                    <dt>Tempo sem comunicação</dt>
-                                                    <dd>
+                                                    <span>Duração da ocorrência</span>
+                                                    <strong>
                                                         {completedDurationSeconds === null
                                                             ? 'Duração não disponível'
                                                             : formatElapsed(completedDurationSeconds * 1000)}
-                                                    </dd>
+                                                    </strong>
                                                 </div>
-                                            </dl>
+                                            </div>
+                                            <section
+                                                className="offline-history-sales"
+                                                aria-label="Vendas realizadas offline"
+                                            >
+                                                <h3>Vendas realizadas offline</h3>
+                                                {episode.offlineSales === null || episode.offlineSales.length === 0 ? (
+                                                    <p className="offline-history-sales-pending" role="status">
+                                                        Dados de vendas ainda não confirmados.
+                                                        Eles serão exibidos quando a associação e a sincronização puderem ser comprovadas.
+                                                    </p>
+                                                ) : (
+                                                    <>
+                                                        <dl className="offline-history-sales-summary">
+                                                            <div>
+                                                                <dt>Quantidade de vendas</dt>
+                                                                <dd>{episode.offlineSales.length}</dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt>Valor total</dt>
+                                                                <dd>
+                                                                    {offlineSalesCurrency.format(
+                                                                        episode.offlineSales.reduce(
+                                                                            (total, sale) => total + sale.total,
+                                                                            0,
+                                                                        ),
+                                                                    )}
+                                                                </dd>
+                                                            </div>
+                                                        </dl>
+                                                        <button
+                                                            className="offline-history-sales-toggle"
+                                                            type="button"
+                                                            aria-expanded={expandedOfflineSales.has(episode.id)}
+                                                            aria-controls={`offline-sales-${episode.id}`}
+                                                            onClick={() => {
+                                                                setExpandedOfflineSales((current) => {
+                                                                    const next = new Set(current)
+                                                                    if (next.has(episode.id)) {
+                                                                        next.delete(episode.id)
+                                                                    } else {
+                                                                        next.add(episode.id)
+                                                                    }
+                                                                    return next
+                                                                })
+                                                            }}
+                                                        >
+                                                            {expandedOfflineSales.has(episode.id)
+                                                                ? 'Ocultar vendas'
+                                                                : 'Ver vendas'}
+                                                        </button>
+                                                        <ul
+                                                            className="offline-history-sales-list"
+                                                            id={`offline-sales-${episode.id}`}
+                                                            hidden={!expandedOfflineSales.has(episode.id)}
+                                                        >
+                                                            {episode.offlineSales.map((sale, index) => (
+                                                                <li key={sale.id}>
+                                                                    <div className="offline-history-sale-details">
+                                                                        <strong>Venda {index + 1}</strong>
+                                                                        {sale.items.length > 0 ? (
+                                                                            <ul className="offline-history-sale-items">
+                                                                                {sale.items.map((item, itemIndex) => (
+                                                                                    <li key={`${sale.id}-${itemIndex}`}>
+                                                                                        <span className="offline-history-sale-item-name">
+                                                                                            <Package size={14} aria-hidden="true" />
+                                                                                            <span>{item.name}</span>
+                                                                                        </span>
+                                                                                        <span className="offline-history-sale-item-quantity">
+                                                                                            {item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}
+                                                                                        </span>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        ) : (
+                                                                            <span className="offline-history-sale-items-unavailable">
+                                                                                Produtos não disponíveis.
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <strong className="offline-history-sale-total">
+                                                                        {offlineSalesCurrency.format(sale.total)}
+                                                                    </strong>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </>
+                                                )}
+                                            </section>
                                         </article>
                                     )
                                 })}
