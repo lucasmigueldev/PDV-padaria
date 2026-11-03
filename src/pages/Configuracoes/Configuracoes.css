@@ -545,6 +545,55 @@
   accent-color: #2563eb;
 }
 
+.bakery-overtime-settings {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.bakery-overtime-settings .bakery-status-toggle {
+  min-height: 24px;
+}
+
+.bakery-overtime-settings .settings-field {
+  max-width: 220px;
+}
+
+.bakery-overtime-settings select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+}
+
+.bakery-overtime-settings select:focus {
+  border-color: #2563eb;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.bakery-overtime-settings select:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.bakery-overtime-settings > p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .user-form-error {
   margin-top: 18px;
   color: #dc2626;

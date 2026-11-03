@@ -69,11 +69,15 @@ const initialNewUserForm: NewUserForm = {
 type BakeryForm = {
   name: string
   active: boolean
+  cashRegisterMonitoringEnabled: boolean
+  cashRegisterDeadlineHour: string
 }
 
 const initialBakeryForm: BakeryForm = {
   name: '',
   active: true,
+  cashRegisterMonitoringEnabled: false,
+  cashRegisterDeadlineHour: '',
 }
 
 export default function Configuracoes() {
@@ -450,7 +454,14 @@ export default function Configuracoes() {
 
   function openEditBakeryModal(bakery: Bakery) {
     setEditingBakery(bakery)
-    setBakeryForm({ name: bakery.name, active: bakery.active })
+    setBakeryForm({
+      name: bakery.name,
+      active: bakery.active,
+      cashRegisterMonitoringEnabled: bakery.cashRegisterMonitoringEnabled,
+      cashRegisterDeadlineHour: bakery.cashRegisterDeadlineHour === null
+        ? ''
+        : String(bakery.cashRegisterDeadlineHour),
+    })
     setBakeryFormError('')
     setIsBakeryModalOpen(true)
   }
@@ -489,6 +500,15 @@ export default function Configuracoes() {
       return
     }
 
+    const deadlineHour = bakeryForm.cashRegisterDeadlineHour === ''
+      ? null
+      : Number(bakeryForm.cashRegisterDeadlineHour)
+    if (bakeryForm.cashRegisterMonitoringEnabled
+      && (deadlineHour === null || !Number.isInteger(deadlineHour) || deadlineHour < 0 || deadlineHour > 23)) {
+      setBakeryFormError('Selecione um horário limite válido entre 00h e 23h.')
+      return
+    }
+
     if (editingBakery?.active && !bakeryForm.active) {
       try {
         if (await getOpenCashRegister(editingBakery.id)) {
@@ -507,9 +527,15 @@ export default function Configuracoes() {
     setIsSavingBakery(true)
 
     try {
+      const bakeryData = {
+        name,
+        active: bakeryForm.active,
+        cashRegisterMonitoringEnabled: bakeryForm.cashRegisterMonitoringEnabled,
+        cashRegisterDeadlineHour: deadlineHour,
+      }
       const savedBakery = editingBakery
-        ? await updateBakery(editingBakery.id, { name, active: bakeryForm.active })
-        : await addBakery({ name, active: bakeryForm.active })
+        ? await updateBakery(editingBakery.id, bakeryData)
+        : await addBakery(bakeryData)
 
       setBakeries((currentBakeries) => editingBakery
         ? currentBakeries.map((bakery) => bakery.id === savedBakery.id ? savedBakery : bakery)
@@ -544,7 +570,7 @@ export default function Configuracoes() {
     }
 
     try {
-      await updateBakery(bakery.id, { name: bakery.name, active: false })
+      await updateBakery(bakery.id, { ...bakery, active: false })
       setBakeries((currentBakeries) =>
         currentBakeries.map((b) => (b.id === bakery.id ? { ...b, active: false } : b)),
       )
@@ -1076,6 +1102,46 @@ export default function Configuracoes() {
                     />
                     <span>Unidade ativa</span>
                   </label>
+                  <div className="bakery-overtime-settings">
+                    <label className="bakery-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={bakeryForm.cashRegisterMonitoringEnabled}
+                        onChange={(event) => {
+                          setBakeryForm((currentForm) => ({
+                            ...currentForm,
+                            cashRegisterMonitoringEnabled: event.target.checked,
+                          }))
+                          setBakeryFormError('')
+                        }}
+                      />
+                      <span>Monitorar caixas após o horário limite</span>
+                    </label>
+                    <div className="settings-field">
+                      <label htmlFor="bakery-cash-register-deadline">Horário limite (horas)</label>
+                      <select
+                        id="bakery-cash-register-deadline"
+                        value={bakeryForm.cashRegisterDeadlineHour}
+                        onChange={(event) => {
+                          setBakeryForm((currentForm) => ({
+                            ...currentForm,
+                            cashRegisterDeadlineHour: event.target.value,
+                          }))
+                          setBakeryFormError('')
+                        }}
+                        disabled={!bakeryForm.cashRegisterMonitoringEnabled}
+                        aria-invalid={Boolean(bakeryFormError && bakeryForm.cashRegisterMonitoringEnabled)}
+                      >
+                        <option value="">Selecione</option>
+                        {Array.from({ length: 24 }, (_, hour) => (
+                          <option key={hour} value={String(hour)}>
+                            {String(hour).padStart(2, '0')}h
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p>O limite é considerado no fuso de São Paulo; se o caixa abrir após esse horário, será usado o próximo dia.</p>
+                  </div>
                 </div>
 
                 {bakeryFormError && <p className="user-form-error" role="alert">{bakeryFormError}</p>}
