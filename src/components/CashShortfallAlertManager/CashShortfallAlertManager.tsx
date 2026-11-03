@@ -37,6 +37,8 @@ const ALERT_POLL_INTERVAL_MS = 60_000
 const ADMIN_ALERT_PATHS = new Set([
     '/dashboard',
     '/historico-fechamentos',
+    '/produtos',
+    '/caixas-pendentes',
     '/relatorios',
     '/relatorios-offline',
     '/configuracoes',
@@ -83,8 +85,13 @@ export default function CashShortfallAlertManager() {
     const { authenticatedUser, isAuthLoading } = useAuth()
     const {
         setAlertCount,
+        setAlerts: setContextOverdueAlerts,
+        setIsLoading: setOverdueLoading,
+        setError: setOverdueError,
         dismissedAlerts: dismissedOverdueAlerts,
         setDismissedAlerts: setDismissedOverdueAlerts,
+        requestedAlertId,
+        setRequestedAlertId,
     } = useOverdueCashRegisterAlertContext()
     const navigate = useNavigate()
     const location = useLocation()
@@ -99,9 +106,14 @@ export default function CashShortfallAlertManager() {
     const currentUserIdRef = useRef(authenticatedUser?.id)
     const canMonitorAlertsRef = useRef(false)
     const visibleAlert = alerts.find((alert) => !dismissedAlerts.has(alert.closureId)) ?? null
+    const requestedOverdueAlert = requestedAlertId
+        ? overdueAlerts.find((alert) => alert.cashRegisterId === requestedAlertId
+            && !dismissedOverdueAlerts.has(alert.cashRegisterId)) ?? null
+        : null
     const visibleOverdueAlert = visibleAlert
         ? null
-        : selectVisibleOverdueCashRegisterAlert(overdueAlerts, dismissedOverdueAlerts)
+        : requestedOverdueAlert
+            ?? selectVisibleOverdueCashRegisterAlert(overdueAlerts, dismissedOverdueAlerts)
     const isOwner = authenticatedUser?.role === 'owner'
     const userId = authenticatedUser?.id
     const isAdminArea = ADMIN_ALERT_PATHS.has(location.pathname)
@@ -114,6 +126,8 @@ export default function CashShortfallAlertManager() {
     const refreshAlerts = useCallback(async () => {
         if (isLoadingRef.current || !canMonitorAlerts) return
         isLoadingRef.current = true
+        setOverdueLoading(true)
+        setOverdueError(null)
         try {
             const pendingAlerts = await getPendingCashShortfallAlerts()
             if (currentUserIdRef.current === userId && canMonitorAlertsRef.current) {
@@ -126,22 +140,40 @@ export default function CashShortfallAlertManager() {
             const pendingOverdueAlerts = await getOverdueCashRegisterAlerts()
             if (currentUserIdRef.current === userId && canMonitorAlertsRef.current) {
                 setAlertCount(pendingOverdueAlerts.length)
+                setContextOverdueAlerts(pendingOverdueAlerts)
                 setOverdueAlerts((current) => areOverdueAlertsEqual(current, pendingOverdueAlerts)
                     ? current
                     : pendingOverdueAlerts)
             }
         } catch (error) {
             console.error('A consulta periódica de caixas atrasados falhou.', error)
+            if (currentUserIdRef.current === userId && canMonitorAlertsRef.current) {
+                setOverdueError(error instanceof Error
+                    ? error.message
+                    : 'Não foi possível carregar os caixas atrasados. Tente novamente.')
+            }
         } finally {
             isLoadingRef.current = false
+            setOverdueLoading(false)
         }
-    }, [canMonitorAlerts, setAlertCount, userId])
+    }, [
+        canMonitorAlerts,
+        setAlertCount,
+        setContextOverdueAlerts,
+        setOverdueError,
+        setOverdueLoading,
+        userId,
+    ])
 
     useEffect(() => {
         currentUserIdRef.current = userId
         if (!canMonitorAlerts) {
             isLoadingRef.current = false
             setAlertCount(0)
+            setContextOverdueAlerts([])
+            setOverdueError(null)
+            setOverdueLoading(false)
+            setRequestedAlertId(null)
             return
         }
 
@@ -162,7 +194,16 @@ export default function CashShortfallAlertManager() {
             window.clearInterval(intervalId)
             document.removeEventListener('visibilitychange', handleVisibilityChange)
         }
-    }, [canMonitorAlerts, refreshAlerts, setAlertCount, userId])
+    }, [
+        canMonitorAlerts,
+        refreshAlerts,
+        setAlertCount,
+        setContextOverdueAlerts,
+        setOverdueError,
+        setOverdueLoading,
+        setRequestedAlertId,
+        userId,
+    ])
 
     useEffect(() => {
         const frameId = window.requestAnimationFrame(() => {
@@ -193,13 +234,14 @@ export default function CashShortfallAlertManager() {
                     setDismissedAlerts((current) => new Set(current).add(alertToDismiss.closureId))
                 } else if (overdueAlertToDismiss) {
                     setDismissedOverdueAlerts((current) => new Set(current).add(overdueAlertToDismiss.cashRegisterId))
+                    setRequestedAlertId(null)
                 }
                 setConfirmationError('')
             }
         }
         document.addEventListener('keydown', handleKeyDown)
         return () => document.removeEventListener('keydown', handleKeyDown)
-    }, [setDismissedOverdueAlerts, visibleAlert, visibleOverdueAlert])
+    }, [setDismissedOverdueAlerts, setRequestedAlertId, visibleAlert, visibleOverdueAlert])
 
     if (!canMonitorAlerts || (!visibleAlert && !visibleOverdueAlert) || isPaused) return null
     const activeAlert = visibleAlert
@@ -214,6 +256,7 @@ export default function CashShortfallAlertManager() {
     function dismissOverdueTemporarily() {
         if (!activeOverdueAlert) return
         setDismissedOverdueAlerts((current) => new Set(current).add(activeOverdueAlert.cashRegisterId))
+        setRequestedAlertId(null)
     }
 
     async function confirmAwareness() {
