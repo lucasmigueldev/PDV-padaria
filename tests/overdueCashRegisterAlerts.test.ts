@@ -19,9 +19,57 @@ const manager = readFileSync(
     'utf8',
 )
 const dashboard = readFileSync(new URL('../src/pages/Dashboard/Dashboard.tsx', import.meta.url), 'utf8')
-const dashboardStyles = readFileSync(new URL('../src/pages/Dashboard/Dashborad.css', import.meta.url), 'utf8')
 const alertProvider = readFileSync(
     new URL('../src/contexts/OverdueCashRegisterAlertProvider.tsx', import.meta.url),
+    'utf8',
+)
+const pendingRegistersPage = readFileSync(
+    new URL('../src/pages/CaixasPendentes/CaixasPendentes.tsx', import.meta.url),
+    'utf8',
+)
+const pendingRegistersStyles = readFileSync(
+    new URL('../src/pages/CaixasPendentes/CaixasPendentes.css', import.meta.url),
+    'utf8',
+)
+const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const mobileNav = readFileSync(
+    new URL('../src/components/MobileBottomNav/MobileBottomNav.tsx', import.meta.url),
+    'utf8',
+)
+const mobileNavStyles = readFileSync(
+    new URL('../src/components/MobileBottomNav/MobileBottomNav.css', import.meta.url),
+    'utf8',
+)
+const dashboardStyles = readFileSync(new URL('../src/pages/Dashboard/Dashborad.css', import.meta.url), 'utf8')
+const pendingRegistersNav = readFileSync(
+    new URL('../src/components/PendingRegistersNavigationLink/PendingRegistersNavigationLink.tsx', import.meta.url),
+    'utf8',
+)
+const pendingRegistersNavStyles = readFileSync(
+    new URL('../src/components/PendingRegistersNavigationLink/PendingRegistersNavigationLink.css', import.meta.url),
+    'utf8',
+)
+const adminSidebar = readFileSync(
+    new URL('../src/components/AdminSidebar/AdminSidebar.tsx', import.meta.url),
+    'utf8',
+)
+const adminSidebarStyles = readFileSync(
+    new URL('../src/components/AdminSidebar/AdminSidebar.css', import.meta.url),
+    'utf8',
+)
+const adminPageHeader = readFileSync(
+    new URL('../src/components/AdminPageHeader/AdminPageHeader.tsx', import.meta.url),
+    'utf8',
+)
+const adminPageHeaderStyles = readFileSync(
+    new URL('../src/components/AdminPageHeader/AdminPageHeader.css', import.meta.url),
+    'utf8',
+)
+const products = readFileSync(new URL('../src/pages/Produtos/Produtos.tsx', import.meta.url), 'utf8')
+const reports = readFileSync(new URL('../src/pages/Relatorios/Relatorios.tsx', import.meta.url), 'utf8')
+const offlineReports = readFileSync(new URL('../src/pages/RelatorioOffline/RelatorioOffline.tsx', import.meta.url), 'utf8')
+const closureHistory = readFileSync(
+    new URL('../src/pages/HistoricoFechamentos/HistoricoFechamentos.tsx', import.meta.url),
     'utf8',
 )
 
@@ -153,14 +201,94 @@ test('dismissed alerts stay hidden until closed, and delay text is readable', ()
     assert.match(manager, /Este aviso não fecha o caixa/)
 })
 
-test('alerts wait for a resolved authorized admin session and can be reopened from the dashboard', () => {
+test('alerts wait for an authorized admin session and dashboard notice has no navigation action', () => {
     assert.match(manager, /const canMonitorAlerts = !isAuthLoading && isOwner && Boolean\(userId\) && isAdminArea/)
     assert.match(manager, /ADMIN_ALERT_PATHS\.has\(location\.pathname\)/)
     assert.match(manager, /if \(isLoadingRef\.current \|\| !canMonitorAlerts\) return/)
     assert.match(manager, /dismissedAlerts: dismissedOverdueAlerts/)
-    assert.match(alertProvider, /const openDetails = useCallback\(\(\) => setDismissedAlerts\(new Set\(\)\)/)
     assert.match(dashboard, /overdueAlertCount > 0/)
     assert.match(dashboard, /overdueAlertCount === 1 \? 'caixa atrasado' : 'caixas atrasados'/)
-    assert.match(dashboard, /onClick=\{openOverdueAlertDetails\}/)
-    assert.match(dashboardStyles, /@media \(max-width: 430px\)/)
+    assert.doesNotMatch(dashboard, /Acessar Caixas Pendentes|dashboard-overdue-notice-link/)
+    assert.doesNotMatch(dashboard.slice(dashboard.indexOf('dashboard-overdue-notice'), dashboard.indexOf('<div className="dashboard-filters">')),
+        /openDetails|Ver detalhes|<Link/)
+    assert.match(dashboardStyles, /dashboard-overdue-notice/)
+})
+
+test('pending registers page uses shared admin layout and reuses the shared alert list and modal', () => {
+    assert.match(app, /path="\/caixas-pendentes"[\s\S]+?RoleRoute allowedRole="owner"/)
+    assert.match(app, /RoleRoute allowedRole="owner" redirectTo="\/pdv" authenticatedUser=\{authenticatedUser\}/)
+    assert.match(manager, /'\/caixas-pendentes'/)
+    assert.match(adminSidebar, /PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(pendingRegistersPage, /useOverdueCashRegisterAlertContext\(\)/)
+    assert.match(pendingRegistersPage, /alerts\.map\(\(alert\)/)
+    assert.match(pendingRegistersPage, /openDetails\(alert\.cashRegisterId\)/)
+    assert.match(pendingRegistersPage, /formatOverdueDuration\(alert\.overdueSeconds\)/)
+    assert.match(pendingRegistersPage, /saoPauloDateTime\.format\(new Date\(alert\.openedAt\)\)/)
+    assert.match(pendingRegistersPage, /saoPauloDateTime\.format\(new Date\(alert\.deadlineAt\)\)/)
+    assert.match(alertProvider, /setRequestedAlertId\(cashRegisterId \?\? null\)/)
+    assert.match(manager, /requestedOverdueAlert/)
+    assert.match(manager, /setContextOverdueAlerts\(pendingOverdueAlerts\)/)
+    assert.match(manager, /ALERT_POLL_INTERVAL_MS = 60_000/)
+    assert.match(pendingRegistersPage, /<AdminSidebar user=\{authenticatedUser\} onLogout=\{handleLogout\} \/>/)
+    assert.match(dashboard, /className="dashboard-main ml-64 min-h-screen flex-1"/)
+    assert.match(dashboard, /className="dashboard-header flex items-center justify-between gap-6 bg-white px-10 py-7"/)
+    assert.match(pendingRegistersPage, /<AdminPageHeader/)
+    assert.match(adminSidebar, /location\.pathname === path/)
+    assert.match(adminSidebar, /PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(adminSidebar, /to="\/configuracoes"/)
+    assert.match(adminSidebarStyles, /\.admin-sidebar \{/)
+    assert.doesNotMatch(adminSidebarStyles, /(^|\n)\.sidebar\s*\{/)
+    assert.doesNotMatch(adminSidebarStyles, /(^|\n)\.(sidebar-logo|sidebar-menu|sidebar-link|logo-icon)\s*\{/)
+    assert.doesNotMatch(adminSidebarStyles, /\.dashboard-layout|\.admin-layout|\.dashboard-main/)
+    assert.match(adminSidebarStyles, /width: 250px/)
+    assert.match(adminSidebarStyles, /@media \(max-width: 767px\)/)
+    assert.match(adminPageHeader, /title: string/)
+    assert.match(adminPageHeaderStyles, /\.admin-page-brand \.logo-icon \{/)
+    assert.doesNotMatch(adminPageHeaderStyles, /(^|\n)\.logo-icon\s*\{/)
+    assert.match(pendingRegistersPage, /className="pending-registers-layout"/)
+    assert.match(pendingRegistersPage, /className="pending-registers-main"/)
+    assert.doesNotMatch(pendingRegistersPage, /pending-registers-back|<Link/)
+    assert.match(pendingRegistersPage, /isLoading && alerts\.length === 0/)
+    assert.match(pendingRegistersPage, /!isLoading && !error && alerts\.length === 0/)
+    assert.match(pendingRegistersPage, /role="alert"/)
+    for (const width of [360, 767, 1200]) {
+        assert.ok(pendingRegistersStyles.includes(`@media (max-width: ${width}px)`))
+    }
+    assert.match(pendingRegistersStyles, /overflow-wrap: anywhere/)
+    assert.match(pendingRegistersStyles, /width: min\(calc\(100% - 56px\), 1560px\)/)
+    assert.match(pendingRegistersStyles, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+    assert.match(pendingRegistersStyles, /\.pending-register-card:only-child/)
+    assert.match(pendingRegistersStyles, /width: min\(100%, 760px\)/)
+    assert.match(pendingRegistersStyles, /padding: 16px 0 calc\(96px \+ var\(--sab\)\)/)
+    assert.doesNotMatch(pendingRegistersPage, /encerrar|fechar caixa/i)
+})
+
+test('active mobile navigation exposes pending registers and its shared overdue count', () => {
+    assert.match(app, /<MobileBottomNav \/>/)
+    assert.match(mobileNav, /useOverdueCashRegisterAlertContext\(\)/)
+    assert.match(mobileNav, /path: '\/caixas-pendentes'/)
+    assert.match(mobileNav, /label: 'Caixas Pendentes'/)
+    assert.match(mobileNav, /accessibleLabel: 'Caixas Pendentes'/)
+    assert.match(mobileNav, /count: alertCount/)
+    assert.match(mobileNav, /item\.count > 0/)
+    assert.match(dashboard, /overdueAlertCount > 0/)
+    assert.match(mobileNavStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/)
+    assert.match(mobileNavStyles, /white-space: normal/)
+    assert.match(mobileNavStyles, /@media \(max-width: 360px\)/)
+})
+
+test('shared pending-register navigation link is present in administrative sidebars', () => {
+    assert.match(pendingRegistersNav, /to="\/caixas-pendentes"/)
+    assert.match(pendingRegistersNav, /location\.pathname === '\/caixas-pendentes'/)
+    assert.match(pendingRegistersNav, /aria-current=\{isActive \? 'page' : undefined\}/)
+    assert.match(pendingRegistersNav, /alertCount > 0/)
+    assert.match(pendingRegistersNavStyles, /pending-register-link-count/)
+    assert.match(dashboard, /<PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(reports, /<PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(offlineReports, /<PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(settings, /<PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(closureHistory, /<PendingRegistersNavigationLink className="sidebar-link"/)
+    assert.match(products, /<PendingRegistersNavigationLink className="products-nav-link"/)
+    assert.match(pendingRegistersNavStyles, /\.products-nav-link\.active/)
+    assert.match(pendingRegistersNavStyles, /\.products-nav-link \.pending-register-link-count \{\s*flex: 0 0 auto;/)
 })
