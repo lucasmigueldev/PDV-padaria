@@ -40,7 +40,7 @@ function getLoginErrorMessage(error: unknown): string {
 type PendingUnitSelection = {
   userId: string
   createdAt?: string
-  bakeries: Bakery[]
+  bakeries: Pick<Bakery, 'id' | 'name' | 'active'>[]
 }
 
 const Login = () => {
@@ -54,7 +54,7 @@ const Login = () => {
   const [pendingUnitSelection, setPendingUnitSelection] = useState<PendingUnitSelection | null>(null)
   const [selectedBakeryId, setSelectedBakeryId] = useState('')
   // Unidades do operador descobertas antes do login (blur do e-mail).
-  const [preLoginBakeries, setPreLoginBakeries] = useState<Bakery[]>([])
+  const [preLoginBakeries, setPreLoginBakeries] = useState<Pick<Bakery, 'id' | 'name' | 'active'>[]>([])
   const [preLoginBakeryId, setPreLoginBakeryId] = useState('')
   const emailRef = useRef('')
   const isSubmittingRef = useRef(false)

@@ -25,11 +25,19 @@ export async function getActiveBakeriesByIds(bakeryIds: string[]): Promise<Baker
 
     const { data, error } = await getSupabaseClient()
         .from('bakeries')
-        .select('id, name, active')
+        .select('id, name, active, cash_register_monitoring_enabled, cash_register_deadline_hour')
         .in('id', bakeryIds)
         .order('name')
 
     if (error) throw error
 
-    return (data ?? []).filter((bakery) => bakery.active)
+    return (data ?? []).filter((bakery) => bakery.active).map((bakery) => ({
+        id: bakery.id,
+        name: bakery.name,
+        active: bakery.active,
+        cashRegisterMonitoringEnabled: bakery.cash_register_monitoring_enabled,
+        cashRegisterDeadlineHour: bakery.cash_register_deadline_hour === null
+            ? null
+            : Number(bakery.cash_register_deadline_hour),
+    }))
 }

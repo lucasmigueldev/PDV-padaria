@@ -2,12 +2,14 @@ import { getSupabaseClient } from '../lib/supabaseClient'
 import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { Bakery } from '../types/Bakery'
 
-const bakeryFields = 'id, name, active'
+const bakeryFields = 'id, name, active, cash_register_monitoring_enabled, cash_register_deadline_hour'
 
 type BakeryRecord = {
     id: string
     name: string
     active: boolean
+    cash_register_monitoring_enabled: boolean
+    cash_register_deadline_hour: number | string | null
 }
 
 function throwBakeryError(error: { code?: string; message: string }, operation: 'carregar' | 'salvar'): never {
@@ -34,7 +36,22 @@ function throwBakeryError(error: { code?: string; message: string }, operation: 
 }
 
 function mapBakery(record: BakeryRecord): Bakery {
-    return { id: record.id, name: record.name, active: record.active }
+    const deadlineHour = record.cash_register_deadline_hour === null
+        ? null
+        : Number(record.cash_register_deadline_hour)
+    if (typeof record.cash_register_monitoring_enabled !== 'boolean'
+        || (record.cash_register_monitoring_enabled && deadlineHour === null)
+        || (deadlineHour !== null && (!Number.isInteger(deadlineHour) || deadlineHour < 0 || deadlineHour > 23))) {
+        throw new Error('O Supabase retornou uma configuração de horário limite inválida.')
+    }
+
+    return {
+        id: record.id,
+        name: record.name,
+        active: record.active,
+        cashRegisterMonitoringEnabled: record.cash_register_monitoring_enabled,
+        cashRegisterDeadlineHour: deadlineHour,
+    }
 }
 
 export async function getBakeries(): Promise<Bakery[]> {
@@ -56,7 +73,12 @@ export async function addBakery(bakery: Omit<Bakery, 'id'>): Promise<Bakery> {
     try {
         result = await getSupabaseClient()
             .from('bakeries')
-            .insert({ name, active: bakery.active })
+            .insert({
+                name,
+                active: bakery.active,
+                cash_register_monitoring_enabled: bakery.cashRegisterMonitoringEnabled,
+                cash_register_deadline_hour: bakery.cashRegisterDeadlineHour,
+            })
             .select(bakeryFields)
             .single()
     } catch (requestError) {
@@ -84,7 +106,12 @@ export async function updateBakery(id: string, bakery: Omit<Bakery, 'id'>): Prom
     try {
         result = await getSupabaseClient()
             .from('bakeries')
-            .update({ name, active: bakery.active })
+            .update({
+                name,
+                active: bakery.active,
+                cash_register_monitoring_enabled: bakery.cashRegisterMonitoringEnabled,
+                cash_register_deadline_hour: bakery.cashRegisterDeadlineHour,
+            })
             .eq('id', id)
             .select(bakeryFields)
             .maybeSingle()
