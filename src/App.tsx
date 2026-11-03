@@ -27,6 +27,7 @@ import RelatorioOffline from './pages/RelatorioOffline/RelatorioOffline'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
+import { OverdueCashRegisterAlertProvider } from './contexts/OverdueCashRegisterAlertProvider'
 import { BluetoothPrinterProvider } from './contexts/BluetoothPrinterContext'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt/PWAInstallPrompt'
 import { MobileBottomNav } from './components/MobileBottomNav/MobileBottomNav'
@@ -342,8 +343,9 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ authenticatedUser, isAuthLoading, authMessage, clearAuthMessage, setAuthenticatedUser }}>
-      <BluetoothPrinterProvider>
-        <BrowserRouter>
+      <OverdueCashRegisterAlertProvider key={`${authenticatedUser?.id ?? 'anonymous'}:${authenticatedUser?.role ?? 'none'}`}>
+        <BluetoothPrinterProvider>
+          <BrowserRouter>
         {authenticatedUser?.role === 'cashier' && (
           <CashierSessionMonitor
             user={authenticatedUser}
@@ -468,8 +470,9 @@ function App() {
         </Routes>
         <CashShortfallAlertManager key={`${authenticatedUser?.id ?? 'anonymous'}:${authenticatedUser?.role ?? 'none'}`} />
         <MobileBottomNav />
-        </BrowserRouter>
-      </BluetoothPrinterProvider>
+          </BrowserRouter>
+        </BluetoothPrinterProvider>
+      </OverdueCashRegisterAlertProvider>
     </AuthContext.Provider>
   )
 }

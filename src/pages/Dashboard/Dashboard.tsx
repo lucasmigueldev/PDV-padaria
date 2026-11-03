@@ -25,6 +25,7 @@ import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMen
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
+import { useOverdueCashRegisterAlertContext } from '../../contexts/OverdueCashRegisterAlertContext'
 import { usePdvHeartbeats, PDV_OFFLINE_THRESHOLD_MS } from '../../hooks/usePdvHeartbeats'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { WifiOff } from 'lucide-react'
@@ -89,6 +90,8 @@ function parseLocalDate(dateString: string): Date {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
+  const { alertCount: overdueAlertCount, openDetails: openOverdueAlertDetails } =
+    useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -427,6 +430,22 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+          )}
+          {isOwner && overdueAlertCount > 0 && (
+            <aside className="dashboard-overdue-notice" role="status" aria-live="polite">
+              <div className="dashboard-overdue-notice-copy">
+                <Clock3 size={19} aria-hidden="true" />
+                <p>
+                  <strong>
+                    {overdueAlertCount} {overdueAlertCount === 1 ? 'caixa atrasado' : 'caixas atrasados'}
+                  </strong>
+                  <span>Consulte os detalhes do monitoramento.</span>
+                </p>
+              </div>
+              <button type="button" onClick={openOverdueAlertDetails}>
+                Ver detalhes
+              </button>
+            </aside>
           )}
           <div className="dashboard-filters">
             <div className="dashboard-unit-filter">
