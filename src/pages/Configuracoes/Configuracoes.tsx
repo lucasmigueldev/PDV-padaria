@@ -18,6 +18,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom'
 
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import { getOpenCashRegister } from '../../services/operations'
 import {
@@ -599,6 +600,7 @@ export default function Configuracoes() {
           {!isOwner && <Link to="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></Link>}
           {!isOwner && <Link to="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
           {isOwner && <Link to="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></Link>}
         </nav>
 
@@ -647,6 +649,7 @@ export default function Configuracoes() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
           {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
             <span>Relatórios</span>

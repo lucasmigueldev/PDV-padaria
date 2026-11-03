@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import { useAuth } from '../../contexts/AuthContext'
 import { useBakeries } from '../../hooks/useBakeries'
 import { PDV_OFFLINE_THRESHOLD_MS, usePdvHeartbeats } from '../../hooks/usePdvHeartbeats'
@@ -353,6 +354,7 @@ export default function RelatorioOffline() {
                         <History size={19} aria-hidden="true" />
                         <span>Histórico de Fechamentos</span>
                     </Link>
+                    <PendingRegistersNavigationLink className="sidebar-link" />
                     <Link to="/relatorios" className="sidebar-link">
                         <BarChart3 size={19} aria-hidden="true" />
                         <span>Relatórios</span>

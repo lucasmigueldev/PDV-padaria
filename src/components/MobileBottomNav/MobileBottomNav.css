@@ -18,7 +18,7 @@
 
   .mobile-bottom-nav-inner {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     align-items: center;
     height: 60px;
     padding: 0 2px;
@@ -39,12 +39,14 @@
     font-size: 9px;
     font-weight: 500;
     line-height: 1.1;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: center;
     transition: color 0.15s ease, transform 0.1s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
   .mobile-bottom-nav-icon-wrap {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -58,6 +60,24 @@
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+  }
+
+  .mobile-bottom-nav-count {
+    position: absolute;
+    top: -4px;
+    right: -7px;
+    display: grid;
+    min-width: 16px;
+    height: 16px;
+    place-items: center;
+    padding: 0 3px;
+    border: 1px solid #ffffff;
+    border-radius: 999px;
+    background: #b91c1c;
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .mobile-bottom-nav-item:active {
@@ -93,6 +113,7 @@
 
 @media (max-width: 360px) {
   .mobile-bottom-nav-item {
+    font-size: 8px;
     letter-spacing: -0.15px;
   }
 }

@@ -52,8 +52,6 @@
   font-size: 11px;
 }
 
-/* LINKS DO MENU */
-
 .sidebar-menu {
   display: flex;
   flex-direction: column;
@@ -74,9 +72,7 @@
   font-size: 14px;
   text-decoration: none;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .sidebar-link:hover {
@@ -100,8 +96,6 @@
 .logout-button {
   text-align: left;
 }
-
-/* ÁREA PRINCIPAL */
 
 .dashboard-main {
   width: calc(100% - 250px);
@@ -235,24 +229,6 @@
 
 .dashboard-overdue-notice-copy span {
   color: #7c2d12;
-}
-
-.dashboard-overdue-notice button {
-  min-height: 40px;
-  flex: 0 0 auto;
-  padding: 8px 12px;
-  border: 1px solid #fdba74;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #9a3412;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.dashboard-overdue-notice button:hover {
-  background: #ffedd5;
 }
 
 .dashboard-unit-filter {
@@ -473,19 +449,6 @@
     overflow-x: hidden;
   }
 
-  @media (max-width: 430px) {
-    .dashboard-overdue-notice {
-      align-items: stretch;
-      flex-direction: column;
-      padding: 12px;
-    }
-
-    .dashboard-overdue-notice button {
-      width: 100%;
-      min-height: 44px;
-    }
-  }
-
   .sidebar {
     display: none;
   }
@@ -516,10 +479,7 @@
     display: none !important;
   }
 
-  .dashboard-header-row {
-    display: none !important;
-  }
-
+  .dashboard-header-row,
   .mobile-page-heading {
     display: none !important;
   }

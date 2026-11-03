@@ -15,6 +15,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom'
 
 import { getCashClosuresFromSupabase } from '../../data/cashClosures'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import type { CashClosure } from '../../types/CashClosure'
@@ -235,6 +236,7 @@ export default function HistoricoFechamentos() {
                         <History size={19} />
                         <span>Histórico de Fechamentos</span>
                     </Link>}
+                    {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
                     {isOwner && <Link to="/relatorios" className="sidebar-link">
                         <BarChart3 size={19} />
                         <span>Relatórios</span>
@@ -292,6 +294,7 @@ export default function HistoricoFechamentos() {
                         <History size={19} />
                         <span>Histórico de Fechamentos</span>
                     </Link>}
+                    {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
                     {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
                         <BarChart3 size={19} />
                         <span>Relatórios</span>

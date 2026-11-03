@@ -21,6 +21,7 @@ import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
 import AppTopbar from '../../components/AppTopbar/AppTopbar'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -316,6 +317,7 @@ export default function Produtos() {
                             <span className="products-sidebar-label">Administração</span>
                             <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Painel</span></Link>
                             <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
+                            <PendingRegistersNavigationLink className="products-nav-link" />
                             <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
                         </>
                     ) : (

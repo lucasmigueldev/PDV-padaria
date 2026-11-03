@@ -25,6 +25,7 @@ import HistoricoFechamentos from './pages/HistoricoFechamentos/HistoricoFechamen
 import Relatorios from './pages/Relatorios/Relatorios'
 import RelatorioOffline from './pages/RelatorioOffline/RelatorioOffline'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
+import CaixasPendentes from './pages/CaixasPendentes/CaixasPendentes'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from './contexts/AuthContext'
 import { OverdueCashRegisterAlertProvider } from './contexts/OverdueCashRegisterAlertProvider'
@@ -427,6 +428,17 @@ function App() {
             <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
               <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
                 <HistoricoFechamentos />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/caixas-pendentes"
+          element={
+            <ProtectedRoute authenticatedUser={authenticatedUser} isLoading={isAuthLoading}>
+              <RoleRoute allowedRole="owner" redirectTo="/pdv" authenticatedUser={authenticatedUser}>
+                <CaixasPendentes />
               </RoleRoute>
             </ProtectedRoute>
           }

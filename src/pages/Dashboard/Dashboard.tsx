@@ -22,6 +22,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { getSalesFromSupabase } from '../../data/sales'
 import { getOpenCashRegister } from '../../services/operations'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
@@ -90,8 +91,7 @@ function parseLocalDate(dateString: string): Date {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
-  const { alertCount: overdueAlertCount, openDetails: openOverdueAlertDetails } =
-    useOverdueCashRegisterAlertContext()
+  const { alertCount: overdueAlertCount } = useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -292,6 +292,7 @@ export default function Dashboard() {
             <span>Histórico de Fechamentos</span>
           </Link>}
 
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
           {isOwner && <Link to="/relatorios" className="sidebar-link">
             <BarChart3 size={19} />
             <span>Relatórios</span>
@@ -354,6 +355,8 @@ export default function Dashboard() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
 
           {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
@@ -439,12 +442,8 @@ export default function Dashboard() {
                   <strong>
                     {overdueAlertCount} {overdueAlertCount === 1 ? 'caixa atrasado' : 'caixas atrasados'}
                   </strong>
-                  <span>Consulte os detalhes do monitoramento.</span>
                 </p>
               </div>
-              <button type="button" onClick={openOverdueAlertDetails}>
-                Ver detalhes
-              </button>
             </aside>
           )}
           <div className="dashboard-filters">
