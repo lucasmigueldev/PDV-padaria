@@ -201,19 +201,15 @@ test('dismissed alerts stay hidden until closed, and delay text is readable', ()
     assert.match(manager, /um owner autorizado pode solicitar o encerramento administrativo/)
 })
 
-test('alerts wait for an authorized admin session and dashboard notice has no navigation action', () => {
+test('alerts are monitored by the global admin session and are not displayed on the dashboard', () => {
     assert.match(manager, /const canMonitorAlerts = !isAuthLoading && isOwner && Boolean\(userId\) && isAdminArea/)
     assert.match(manager, /ADMIN_ALERT_PATHS\.has\(location\.pathname\)/)
     assert.match(manager, /if \(isLoadingRef\.current \|\| !canMonitorAlerts\) return/)
     assert.match(manager, /dismissedAlerts: dismissedOverdueAlerts/)
-    assert.match(dashboard, /overdueAlertCount > 0/)
-    assert.match(dashboard, /overdueAlertCount === 1 \? 'caixa atrasado' : 'caixas atrasados'/)
-    assert.doesNotMatch(dashboard, /Acessar Caixas Pendentes|dashboard-overdue-notice-link/)
-    assert.doesNotMatch(dashboard.slice(dashboard.indexOf('dashboard-overdue-notice'), dashboard.indexOf('<div className="dashboard-filters">')),
-        /openDetails|Ver detalhes|<Link/)
+    assert.doesNotMatch(dashboard, /overdueAlertCount|dashboard-overdue-notice|caixas atrasados|caixa atrasado/)
     assert.doesNotMatch(dashboard, /PDV sem conexão|não respondeu na última verificação|WifiOff|offlineUnits/)
     assert.match(dashboard, /Vendas aguardando sincronização/)
-    assert.match(dashboardStyles, /dashboard-overdue-notice/)
+    assert.doesNotMatch(dashboardStyles, /dashboard-overdue-notice/)
 })
 
 test('pending registers page uses shared admin layout and reuses the shared alert list and modal', () => {
@@ -273,7 +269,6 @@ test('active mobile navigation exposes pending registers and its shared overdue 
     assert.match(mobileNav, /accessibleLabel: 'Caixas Pendentes'/)
     assert.match(mobileNav, /count: alertCount/)
     assert.match(mobileNav, /item\.count > 0/)
-    assert.match(dashboard, /overdueAlertCount > 0/)
     assert.match(mobileNavStyles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/)
     assert.match(mobileNavStyles, /white-space: normal/)
     assert.match(mobileNavStyles, /@media \(max-width: 360px\)/)

@@ -190,47 +190,6 @@
   padding: 24px 28px;
 }
 
-.dashboard-overdue-notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
-  background: #fff7ed;
-  color: #9a3412;
-}
-
-.dashboard-overdue-notice-copy {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-}
-
-.dashboard-overdue-notice-copy svg {
-  flex: 0 0 auto;
-}
-
-.dashboard-overdue-notice-copy p {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.dashboard-overdue-notice-copy strong {
-  overflow-wrap: anywhere;
-}
-
-.dashboard-overdue-notice-copy span {
-  color: #7c2d12;
-}
-
 .dashboard-unit-filter {
   display: flex;
   min-width: 200px;

@@ -26,7 +26,6 @@ import { PendingRegistersNavigationLink } from '../../components/PendingRegister
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
-import { useOverdueCashRegisterAlertContext } from '../../contexts/OverdueCashRegisterAlertContext'
 import { usePdvHeartbeats } from '../../hooks/usePdvHeartbeats'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { OfflineNotification } from '../../components/OfflineNotification/OfflineNotification'
@@ -90,7 +89,6 @@ function parseLocalDate(dateString: string): Date {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
-  const { alertCount: overdueAlertCount } = useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -413,18 +411,6 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-          )}
-          {isOwner && overdueAlertCount > 0 && (
-            <aside className="dashboard-overdue-notice" role="status" aria-live="polite">
-              <div className="dashboard-overdue-notice-copy">
-                <Clock3 size={19} aria-hidden="true" />
-                <p>
-                  <strong>
-                    {overdueAlertCount} {overdueAlertCount === 1 ? 'caixa atrasado' : 'caixas atrasados'}
-                  </strong>
-                </p>
-              </div>
-            </aside>
           )}
           <div className="dashboard-filters">
             <div className="dashboard-unit-filter">
