@@ -1,8 +1,9 @@
-import { syncQueuedOfflineSale } from './operations.ts'
+import { syncQueuedOfflineSale, type QueuedOfflineSaleSyncResult } from './operations.ts'
 import {
     getPendingSales,
     getQueueSnapshot,
     markSaleFailed,
+    markSaleQuarantined,
     markSaleSynced,
     subscribeQueue,
     type QueuedSale,
@@ -21,12 +22,13 @@ export interface SyncScope {
     bakeryId: string
 }
 
-export type SyncSale = (sale: QueuedSale) => Promise<string>
+export type SyncSale = (sale: QueuedSale) => Promise<QueuedOfflineSaleSyncResult>
 
 export interface SyncResult {
     synced: number
     failed: number
     remaining: number
+    quarantined?: number
 }
 
 let isSyncRunning = false
@@ -101,6 +103,7 @@ export async function syncPendingSales(
     updateSyncState({ isSyncing: true })
 
     let synced = 0
+    let quarantined = 0
     let failed = 0
     let stoppedByNetwork = false
     let stoppedByStorage = false
@@ -112,8 +115,9 @@ export async function syncPendingSales(
                 break
             }
 
+            let result: QueuedOfflineSaleSyncResult
             try {
-                await syncSale(sale)
+                result = await syncSale(sale)
             } catch (error) {
                 if (!isCurrent()) {
                     break
@@ -149,6 +153,19 @@ export async function syncPendingSales(
 
             if (!isCurrent()) {
                 break
+            }
+
+            if (typeof result !== 'string') {
+                try {
+                    markSaleQuarantined(sale.id, result.eventId)
+                } catch (storageError) {
+                    stoppedByStorage = true
+                    console.error('A venda foi confirmada em quarentena, mas o estado local não pôde ser persistido. A mesma chave será reutilizada na próxima tentativa.', storageError)
+                    break
+                }
+                quarantined++
+                reportNetworkSuccess()
+                continue
             }
 
             try {
@@ -189,7 +206,8 @@ export async function syncPendingSales(
         }
     }
 
-    return { synced, failed, remaining: getScopedPendingCount(scope) }
+    const result = { synced, failed, remaining: getScopedPendingCount(scope) }
+    return quarantined > 0 ? { ...result, quarantined } : result
 }
 
 export function startSalesSync(scope: SyncScope, syncSale?: SyncSale): () => void {

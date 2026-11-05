@@ -60,7 +60,9 @@ export function getUnresolvedSalesForCashRegister(
     sales: readonly QueuedSale[],
     cashRegisterId: string,
 ): QueuedSale[] {
-    return sales.filter((sale) => sale.cashRegisterId === cashRegisterId)
+    return sales.filter((sale) =>
+        sale.cashRegisterId === cashRegisterId && sale.status !== 'quarantined',
+    )
 }
 
 export function getCashRegisterCloseBlockMessage(

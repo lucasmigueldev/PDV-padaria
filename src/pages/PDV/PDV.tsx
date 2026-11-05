@@ -111,6 +111,11 @@ export default function PDV() {
         && sale.bakeryId === bakeryId
         && sale.status === 'failed',
     ).length
+    const quarantinedCount = queue.filter((sale) =>
+        sale.operatorUserId === authenticatedUser?.id
+        && sale.bakeryId === bakeryId
+        && sale.status === 'quarantined',
+    ).length
     const receiptBakeryName = bakeryId
         ? bakeries.find((bakery) => bakery.id === bakeryId)?.name ?? null
         : null
@@ -906,6 +911,12 @@ export default function PDV() {
                 <div className="pdv-offline-banner" role="alert">
                     <span>● Vendas com falha que precisam de revisão</span>
                     <span>{failedCount} venda(s) preservada(s) na fila</span>
+                </div>
+            )}
+            {quarantinedCount > 0 && (
+                <div className="pdv-offline-banner pdv-offline-banner--syncing" role="status">
+                    <span>● Vendas recebidas em quarentena</span>
+                    <span>{quarantinedCount} venda(s) aguardando análise; não contabilizadas como vendas concluídas</span>
                 </div>
             )}
             <aside className="pdv-sidebar">

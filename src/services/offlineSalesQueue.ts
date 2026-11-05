@@ -1,6 +1,6 @@
 import type { PaymentMethod } from '../types/Sale'
 
-export type QueuedSaleStatus = 'pending' | 'failed'
+export type QueuedSaleStatus = 'pending' | 'failed' | 'quarantined'
 
 export interface QueuedSaleItem {
     productId: string
@@ -19,6 +19,7 @@ export interface QueuedSale {
     bakeryId: string
     operatorUserId?: string
     remoteSaleId?: string
+    quarantineEventId?: string
     occurredAt: string
     paymentMethod: PaymentMethod
     receivedAmount: number | null
@@ -63,6 +64,7 @@ function isQueuedSale(value: unknown): value is QueuedSale {
         && typeof sale.bakeryId === 'string'
         && (sale.operatorUserId === undefined || typeof sale.operatorUserId === 'string')
         && (sale.remoteSaleId === undefined || typeof sale.remoteSaleId === 'string')
+        && (sale.quarantineEventId === undefined || typeof sale.quarantineEventId === 'string')
         && typeof sale.occurredAt === 'string'
         && Number.isFinite(Date.parse(sale.occurredAt))
         && (sale.paymentMethod === 'cash' || sale.paymentMethod === 'pix' || sale.paymentMethod === 'card')
@@ -85,7 +87,9 @@ function isQueuedSale(value: unknown): value is QueuedSale {
                 && Number.isSafeInteger(queuedItem.quantity)
                 && queuedItem.quantity > 0
         })
-        && (sale.status === 'pending' || sale.status === 'failed')
+        && (sale.status === 'pending' || sale.status === 'failed' || sale.status === 'quarantined')
+        && (sale.status !== 'quarantined'
+            || (typeof sale.quarantineEventId === 'string' && sale.quarantineEventId.length > 0))
         && (sale.errorMessage === undefined || typeof sale.errorMessage === 'string')
         && typeof sale.createdAt === 'string'
         && Number.isFinite(Date.parse(sale.createdAt))
@@ -204,6 +208,10 @@ export function getFailedSales(): QueuedSale[] {
     return initialize().filter((sale) => sale.status === 'failed')
 }
 
+export function getQuarantinedSales(): QueuedSale[] {
+    return initialize().filter((sale) => sale.status === 'quarantined')
+}
+
 export function getPendingSyncCount(): number {
     return getPendingSales().length
 }
@@ -245,7 +253,7 @@ export function enqueueSale(sale: QueuedSale): boolean {
 export function markSaleSynced(id: string): void {
     const current = initialize()
     const index = current.findIndex((sale) => sale.id === id)
-    if (index === -1) {
+    if (index === -1 || current[index]?.status === 'quarantined') {
         return
     }
     const next = current.slice()
@@ -255,7 +263,7 @@ export function markSaleSynced(id: string): void {
 
 export function markSaleFailed(id: string, errorMessage: string, remoteSaleId?: string): void {
     const current = initialize()
-    if (!current.some((sale) => sale.id === id)) {
+    if (!current.some((sale) => sale.id === id && sale.status !== 'quarantined')) {
         return
     }
     persist(current.map((sale) => {
@@ -270,9 +278,32 @@ export function markSaleFailed(id: string, errorMessage: string, remoteSaleId?: 
     }))
 }
 
+export function markSaleQuarantined(id: string, quarantineEventId: string): void {
+    const current = initialize()
+    const sale = current.find((item) => item.id === id)
+    if (!sale || sale.status === 'quarantined') {
+        return
+    }
+    if (!quarantineEventId) {
+        throw new Error('O servidor não confirmou o identificador do evento em quarentena.')
+    }
+
+    persist(current.map((item) => {
+        if (item.id !== id) return item
+        const quarantinedSale: QueuedSale = {
+            ...item,
+            status: 'quarantined',
+            quarantineEventId,
+        }
+        delete quarantinedSale.errorMessage
+        delete quarantinedSale.remoteSaleId
+        return quarantinedSale
+    }))
+}
+
 export function retryFailedSale(id: string): void {
     const current = initialize()
-    if (!current.some((sale) => sale.id === id)) {
+    if (!current.some((sale) => sale.id === id && sale.status === 'failed')) {
         return
     }
     persist(current.map((sale): QueuedSale => {

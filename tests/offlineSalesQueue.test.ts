@@ -47,7 +47,7 @@ async function importQueue() {
     return import(`../src/services/offlineSalesQueue.ts?instance=${++importId}`)
 }
 
-function createSale(id = 'sale-1', status: 'pending' | 'failed' = 'pending') {
+function createSale(id = 'sale-1', status: 'pending' | 'failed' | 'quarantined' = 'pending') {
     return {
         id,
         idempotencyKey: `key-${id}`,
@@ -173,6 +173,38 @@ test('does not report enqueue success or mutate memory when storage writes fail'
     assert.deepEqual(queue.getPendingSales(), [])
     assert.equal(storage.getItem(STORAGE_KEY), null)
     assert.equal(notifications, 0)
+})
+
+test('persists quarantine separately and does not retry or remove it as a financial sale', async () => {
+    const storage = createStorage()
+    const queue = await importQueue()
+    const sale = createSale()
+    queue.enqueueSale(sale)
+
+    queue.markSaleQuarantined(sale.id, 'quarantine-event-1')
+
+    const quarantined = { ...sale, status: 'quarantined', quarantineEventId: 'quarantine-event-1' }
+    assert.deepEqual(queue.getQueueSnapshot(), [quarantined])
+    assert.deepEqual(queue.getPendingSales(), [])
+    assert.deepEqual(queue.getFailedSales(), [])
+    assert.deepEqual(queue.getQuarantinedSales(), [quarantined])
+    assert.deepEqual(JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null'), [quarantined])
+
+    queue.retryFailedSale(sale.id)
+    queue.markSaleSynced(sale.id)
+    assert.deepEqual(queue.getQueueSnapshot(), [quarantined])
+})
+
+test('retains the original pending sale when persisting a confirmed quarantine fails', async () => {
+    const storage = createStorage()
+    const queue = await importQueue()
+    const sale = createSale()
+    queue.enqueueSale(sale)
+    storage.setFailWrites(true)
+
+    assert.throws(() => queue.markSaleQuarantined(sale.id, 'quarantine-event-1'))
+    assert.deepEqual(queue.getQueueSnapshot(), [sale])
+    assert.deepEqual(JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null'), [sale])
 })
 
 test('preserves invalid stored data and reports a controlled recovery error', async () => {

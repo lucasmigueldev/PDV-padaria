@@ -13,7 +13,7 @@ import { getConnectionState, reportNetworkFailure, reportNetworkSuccess } from '
 function createSale(
     id: string,
     cashRegisterId: string,
-    status: 'pending' | 'failed',
+    status: 'pending' | 'failed' | 'quarantined',
     operatorUserId?: string,
 ): QueuedSale {
     return {
@@ -63,6 +63,12 @@ test('blocks closure when local queue recovery failed and allows it after all sa
         /Não foi possível verificar todas as vendas locais/,
     )
     assert.equal(getCashRegisterCloseBlockMessage([], 'register-1', null), null)
+})
+
+test('does not treat a quarantined sale as a locally unresolved financial sale', () => {
+    const sale = createSale('quarantined', 'register-1', 'quarantined', 'operator-1')
+    assert.deepEqual(getUnresolvedSalesForCashRegister([sale], 'register-1'), [])
+    assert.equal(getCashRegisterCloseBlockMessage([sale], 'register-1', null), null)
 })
 
 test('does not send an opening or closing RPC when the connection is offline', async () => {

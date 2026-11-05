@@ -12,6 +12,14 @@ import {
     type CashRegisterRpcError,
 } from './cashRegisterSafety.ts'
 import {
+    CashRegisterNotOpenError,
+    isAdminCashRegisterClosureEnabled,
+    receiveLateOfflineSale,
+    getLateSaleRegisterStatus,
+    type LateSaleRegisterLookup,
+    type LateSaleRegisterStatus,
+} from './adminCashRegisterClosure.ts'
+import {
     assertOfflineSaleMatchesServer,
     OfflineSaleReconciliationPendingError,
 } from './offlineSaleReconciliation.ts'
@@ -21,6 +29,20 @@ import type { CashRegister } from '../types/CashRegister'
 import type { PaymentMethod, SaleItemSnapshot } from '../types/Sale'
 
 type SupabaseError = CashRegisterRpcError
+
+export interface LateSaleQuarantineResult {
+    kind: 'quarantined'
+    eventId: string
+}
+
+export type QueuedOfflineSaleSyncResult = string | LateSaleQuarantineResult
+
+export interface QueuedOfflineSaleSyncDependencies {
+    enabled?: boolean
+    syncNormally?: (sale: QueuedSale) => Promise<string>
+    lookupRegisterStatus?: LateSaleRegisterLookup
+    receiveLateSale?: (sale: QueuedSale) => Promise<string>
+}
 
 function getUnexpectedOperationError(error: unknown, operation: string): Error {
     console.error(`Falha inesperada ao ${operation}.`, error)
@@ -262,12 +284,16 @@ export async function createSaleWithItems(input: {
         )
     }
 
+    if (error?.code === '23514'
+        && /no open cash register exists for this bakery/i.test(error.message)) {
+        throw new CashRegisterNotOpenError(error)
+    }
     if (error) throwOperationError(error, 'registrar a venda')
     reportNetworkSuccess()
     return requireRpcId(data, 'registro da venda')
 }
 
-export async function syncQueuedOfflineSale(sale: QueuedSale): Promise<string> {
+async function syncNormallyQueuedOfflineSale(sale: QueuedSale): Promise<string> {
     const remoteSaleId = await createSaleWithItems({
         cashRegisterId: sale.cashRegisterId,
         paymentMethod: sale.paymentMethod,
@@ -334,6 +360,42 @@ export async function syncQueuedOfflineSale(sale: QueuedSale): Promise<string> {
     })
 
     return remoteSaleId
+}
+
+export async function syncQueuedOfflineSale(
+    sale: QueuedSale,
+    dependencies: QueuedOfflineSaleSyncDependencies = {},
+): Promise<QueuedOfflineSaleSyncResult> {
+    const syncNormally = dependencies.syncNormally ?? syncNormallyQueuedOfflineSale
+    try {
+        return await syncNormally(sale)
+    } catch (error) {
+        if (!(error instanceof CashRegisterNotOpenError)
+            || !(dependencies.enabled ?? isAdminCashRegisterClosureEnabled())) {
+            throw error
+        }
+
+        const lookupRegisterStatus = dependencies.lookupRegisterStatus ?? getLateSaleRegisterStatus
+        const registerStatus: LateSaleRegisterStatus = await lookupRegisterStatus(sale)
+        if (registerStatus === 'open') {
+            throw error
+        }
+        if (registerStatus !== 'closed') {
+            throw new OfflineSaleReconciliationPendingError(
+                'Não foi possível confirmar o fechamento do caixa no servidor. A venda permanece na fila local.',
+                error,
+            )
+        }
+
+        const receiveLateSale = dependencies.receiveLateSale
+            ?? ((queuedSale) => receiveLateOfflineSale(queuedSale, {
+                lookup: async () => registerStatus,
+            }))
+        return {
+            kind: 'quarantined',
+            eventId: await receiveLateSale(sale),
+        }
+    }
 }
 
 export async function closeCashRegister(
