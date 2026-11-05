@@ -211,6 +211,8 @@ test('alerts wait for an authorized admin session and dashboard notice has no na
     assert.doesNotMatch(dashboard, /Acessar Caixas Pendentes|dashboard-overdue-notice-link/)
     assert.doesNotMatch(dashboard.slice(dashboard.indexOf('dashboard-overdue-notice'), dashboard.indexOf('<div className="dashboard-filters">')),
         /openDetails|Ver detalhes|<Link/)
+    assert.doesNotMatch(dashboard, /PDV sem conexão|não respondeu na última verificação|WifiOff|offlineUnits/)
+    assert.match(dashboard, /Vendas aguardando sincronização/)
     assert.match(dashboardStyles, /dashboard-overdue-notice/)
 })
 
