@@ -15,6 +15,10 @@ import {
     selectVisibleOverdueCashRegisterAlert,
     type OverdueCashRegisterAlert,
 } from '../../services/overdueCashRegisterAlerts'
+import {
+    administrativelyCloseOverdueCashRegister,
+    isAdminCashRegisterClosureEnabled,
+} from '../../services/adminCashRegisterClosure'
 import './CashShortfallAlertManager.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -100,7 +104,13 @@ export default function CashShortfallAlertManager() {
     const [overdueAlerts, setOverdueAlerts] = useState<OverdueCashRegisterAlert[]>([])
     const [isConfirming, setIsConfirming] = useState(false)
     const [confirmationError, setConfirmationError] = useState('')
+    const [isAdminCloseFormOpen, setIsAdminCloseFormOpen] = useState(false)
+    const [adminCloseReason, setAdminCloseReason] = useState('')
+    const [isAdminClosing, setIsAdminClosing] = useState(false)
+    const [adminCloseError, setAdminCloseError] = useState('')
+    const [adminCloseSuccess, setAdminCloseSuccess] = useState('')
     const [isPaused, setIsPaused] = useState(false)
+    const adminCloseInFlightRef = useRef(false)
     const isLoadingRef = useRef(false)
     const shouldPauseUntilLeavingHistoryRef = useRef(false)
     const currentUserIdRef = useRef(authenticatedUser?.id)
@@ -115,6 +125,7 @@ export default function CashShortfallAlertManager() {
         : requestedOverdueAlert
             ?? selectVisibleOverdueCashRegisterAlert(overdueAlerts, dismissedOverdueAlerts)
     const isOwner = authenticatedUser?.role === 'owner'
+    const canAdministrativelyClose = isOwner && isAdminCashRegisterClosureEnabled()
     const userId = authenticatedUser?.id
     const isAdminArea = ADMIN_ALERT_PATHS.has(location.pathname)
     const canMonitorAlerts = !isAuthLoading && isOwner && Boolean(userId) && isAdminArea
@@ -229,6 +240,7 @@ export default function CashShortfallAlertManager() {
         const alertToDismiss = visibleAlert
         const overdueAlertToDismiss = visibleOverdueAlert
         function handleKeyDown(event: KeyboardEvent) {
+            if (adminCloseInFlightRef.current) return
             if (event.key === 'Escape') {
                 if (alertToDismiss) {
                     setDismissedAlerts((current) => new Set(current).add(alertToDismiss.closureId))
@@ -243,7 +255,7 @@ export default function CashShortfallAlertManager() {
         return () => document.removeEventListener('keydown', handleKeyDown)
     }, [setDismissedOverdueAlerts, setRequestedAlertId, visibleAlert, visibleOverdueAlert])
 
-    if (!canMonitorAlerts || (!visibleAlert && !visibleOverdueAlert) || isPaused) return null
+    if (!canMonitorAlerts || (!visibleAlert && !visibleOverdueAlert && !adminCloseSuccess) || isPaused) return null
     const activeAlert = visibleAlert
     const activeOverdueAlert = visibleOverdueAlert
 
@@ -254,9 +266,60 @@ export default function CashShortfallAlertManager() {
     }
 
     function dismissOverdueTemporarily() {
-        if (!activeOverdueAlert) return
+        if (!activeOverdueAlert || adminCloseInFlightRef.current) return
         setDismissedOverdueAlerts((current) => new Set(current).add(activeOverdueAlert.cashRegisterId))
         setRequestedAlertId(null)
+    }
+
+    function openAdminCloseForm() {
+        if (!activeOverdueAlert || !canAdministrativelyClose) return
+        setAdminCloseError('')
+        setAdminCloseSuccess('')
+        setAdminCloseReason('')
+        setIsAdminCloseFormOpen(true)
+    }
+
+    function cancelAdminCloseForm() {
+        if (adminCloseInFlightRef.current) return
+        setIsAdminCloseFormOpen(false)
+        setAdminCloseReason('')
+        setAdminCloseError('')
+    }
+
+    async function confirmAdministrativeClose() {
+        if (!activeOverdueAlert || !canAdministrativelyClose || adminCloseInFlightRef.current) return
+        const reason = adminCloseReason.trim()
+        if (!reason) {
+            setAdminCloseError('Informe o motivo do encerramento.')
+            return
+        }
+
+        adminCloseInFlightRef.current = true
+        setIsAdminClosing(true)
+        setAdminCloseError('')
+        try {
+            await administrativelyCloseOverdueCashRegister(activeOverdueAlert.cashRegisterId, reason)
+            const closedRegisterId = activeOverdueAlert.cashRegisterId
+            setAdminCloseSuccess('O caixa foi encerrado operacionalmente. A conferência financeira continua pendente; o dinheiro físico não foi conferido. Podem existir vendas offline ainda desconhecidas pelo servidor.')
+            setIsAdminCloseFormOpen(false)
+            setAdminCloseReason('')
+            setRequestedAlertId(null)
+            setDismissedOverdueAlerts((current) => new Set(current).add(closedRegisterId))
+            const remainingOverdueAlerts = overdueAlerts.filter(
+                (alert) => alert.cashRegisterId !== closedRegisterId,
+            )
+            setOverdueAlerts(remainingOverdueAlerts)
+            setContextOverdueAlerts(remainingOverdueAlerts)
+            setAlertCount(remainingOverdueAlerts.length)
+            await refreshAlerts()
+        } catch (error) {
+            setAdminCloseError(error instanceof Error
+                ? error.message
+                : 'Não foi possível confirmar o encerramento. Atualize os dados e tente novamente.')
+        } finally {
+            adminCloseInFlightRef.current = false
+            setIsAdminClosing(false)
+        }
     }
 
     async function confirmAwareness() {
@@ -302,8 +365,19 @@ export default function CashShortfallAlertManager() {
                 <button
                     className="cash-shortfall-close"
                     type="button"
-                    aria-label="Dispensar alerta temporariamente"
-                    onClick={activeAlert ? dismissTemporarily : dismissOverdueTemporarily}
+                    aria-label={adminCloseSuccess
+                        ? 'Concluir'
+                        : isAdminCloseFormOpen
+                            ? 'Cancelar encerramento administrativo'
+                            : 'Dispensar alerta temporariamente'}
+                    onClick={adminCloseSuccess
+                        ? () => setAdminCloseSuccess('')
+                        : isAdminCloseFormOpen
+                            ? cancelAdminCloseForm
+                            : activeAlert
+                                ? dismissTemporarily
+                                : dismissOverdueTemporarily}
+                    disabled={isAdminClosing}
                 >
                     <X size={20} aria-hidden="true" />
                 </button>
@@ -311,14 +385,20 @@ export default function CashShortfallAlertManager() {
                     <AlertTriangle size={24} aria-hidden="true" />
                 </div>
                 <h2 id="cash-shortfall-title">
-                    {activeAlert ? 'Falta identificada no caixa' : 'Caixa aberto após o horário limite'}
+                    {adminCloseSuccess
+                        ? 'Encerramento operacional registrado'
+                        : activeAlert
+                            ? 'Falta identificada no caixa'
+                            : 'Caixa aberto após o horário limite'}
                 </h2>
                 <p id="cash-shortfall-description" className="cash-shortfall-description">
-                    {activeAlert
+                    {adminCloseSuccess
+                        ? adminCloseSuccess
+                        : activeAlert
                         ? 'Um fechamento apresentou uma diferença no valor informado.'
-                        : 'Contate o operador para sincronizar eventuais vendas pendentes e fechar o caixa pelo fluxo normal.'}
+                        : 'O operador pode fechar o caixa pelo fluxo normal. Se você for um owner autorizado e o prazo já tiver vencido, também pode solicitar o encerramento administrativo; a conferência financeira continuará pendente.'}
                 </p>
-                {activeAlert ? (
+                {adminCloseSuccess ? null : activeAlert ? (
                     <>
                         <div className="cash-shortfall-amount">
                             <span>Valor da falta</span>
@@ -379,11 +459,22 @@ export default function CashShortfallAlertManager() {
                             </div>
                         </dl>
                         <p className="cash-shortfall-disclaimer cash-overdue-disclaimer">
-                            Este aviso não fecha o caixa. Contate o operador para sincronizar eventuais vendas pendentes antes do fechamento.
+                            Prefira o fechamento normal pelo operador para sincronizar vendas offline. Se isso não for possível, um owner autorizado pode solicitar o encerramento administrativo; vendas offline ainda podem chegar depois e a conferência financeira continuará pendente.
                         </p>
                     </>
                 ) : null}
-                {activeAlert && (
+                {adminCloseSuccess && (
+                    <div className="cash-shortfall-actions">
+                        <button
+                            className="cash-shortfall-confirm"
+                            type="button"
+                            onClick={() => setAdminCloseSuccess('')}
+                        >
+                            Concluir
+                        </button>
+                    </div>
+                )}
+                {activeAlert && !adminCloseSuccess && (
                     <>
                         {confirmationError && (
                             <p className="cash-shortfall-error" role="alert">{confirmationError}</p>
@@ -407,16 +498,70 @@ export default function CashShortfallAlertManager() {
                         </div>
                     </>
                 )}
-                {activeOverdueAlert && (
-                    <div className="cash-shortfall-actions">
-                        <button
-                            className="cash-shortfall-confirm"
-                            type="button"
-                            onClick={dismissOverdueTemporarily}
-                        >
-                            Entendi
-                        </button>
-                    </div>
+                {activeOverdueAlert && !adminCloseSuccess && (
+                    <>
+                        {!isAdminCloseFormOpen && (
+                            <div className="cash-shortfall-actions">
+                                {canAdministrativelyClose && (
+                                    <button
+                                        className="cash-shortfall-admin-close"
+                                        type="button"
+                                        onClick={openAdminCloseForm}
+                                    >
+                                        Encerrar caixa
+                                    </button>
+                                )}
+                                <button
+                                    className="cash-shortfall-confirm"
+                                    type="button"
+                                    onClick={dismissOverdueTemporarily}
+                                >
+                                    Entendi
+                                </button>
+                            </div>
+                        )}
+                        {isAdminCloseFormOpen && (
+                            <div className="cash-shortfall-admin-close-form">
+                                <p className="cash-shortfall-disclaimer cash-overdue-disclaimer">
+                                    Este encerramento é apenas operacional: o dinheiro físico não será conferido e a conferência financeira ficará pendente. Podem existir vendas offline no dispositivo do operador que ainda não chegaram ao servidor.
+                                </p>
+                                <label htmlFor="admin-cash-register-close-reason">Motivo do encerramento</label>
+                                <textarea
+                                    id="admin-cash-register-close-reason"
+                                    value={adminCloseReason}
+                                    onChange={(event) => setAdminCloseReason(event.target.value.slice(0, 500))}
+                                    maxLength={500}
+                                    rows={3}
+                                    required
+                                    disabled={isAdminClosing}
+                                />
+                                {adminCloseError && (
+                                    <p className="cash-shortfall-error" role="alert">{adminCloseError}</p>
+                                )}
+                                <div className="cash-shortfall-actions">
+                                    <button
+                                        className="cash-shortfall-view"
+                                        type="button"
+                                        onClick={cancelAdminCloseForm}
+                                        disabled={isAdminClosing}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        className="cash-shortfall-admin-close"
+                                        type="button"
+                                        onClick={() => void confirmAdministrativeClose()}
+                                        disabled={isAdminClosing || !adminCloseReason.trim()}
+                                    >
+                                        {isAdminClosing ? 'Encerrando...' : 'Confirmar encerramento administrativo'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {adminCloseError && !isAdminCloseFormOpen && (
+                            <p className="cash-shortfall-error" role="alert">{adminCloseError}</p>
+                        )}
+                    </>
                 )}
             </section>
         </div>

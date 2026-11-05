@@ -189,6 +189,102 @@
     background: #dbeafe;
 }
 
+.pending-register-card-actions,
+.pending-register-close-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.pending-register-card-footer .pending-register-admin-close-button {
+    border-color: #b91c1c;
+    background: #b91c1c;
+    color: #fff;
+}
+
+.pending-register-card-footer .pending-register-admin-close-button:hover:not(:disabled) {
+    border-color: #991b1b;
+    background: #991b1b;
+}
+
+.pending-register-card-footer button:disabled,
+.pending-register-close-actions button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.pending-register-close-confirmation {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #fed7aa;
+    border-radius: 9px;
+    background: #fffaf5;
+    color: #334155;
+    font-size: 12px;
+}
+
+.pending-register-close-confirmation > p {
+    margin: 0;
+    color: #78350f;
+    line-height: 1.5;
+}
+
+.pending-register-close-confirmation > label {
+    font-weight: 700;
+}
+
+.pending-register-close-confirmation textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 13px;
+    resize: vertical;
+}
+
+.pending-register-close-actions button {
+    min-height: 36px;
+    padding: 7px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pending-register-close-actions .pending-register-admin-close-button {
+    border-color: #b91c1c;
+    background: #b91c1c;
+    color: #fff;
+}
+
+.pending-register-close-error {
+    margin: 0;
+    color: #b91c1c;
+}
+
+.pending-registers-success {
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    background: #f0fdf4;
+    color: #166534;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 .pending-registers-error,
 .pending-registers-state,
 .pending-registers-empty {
@@ -236,6 +332,326 @@
     font-size: 15px;
 }
 
+.pending-admin-registers {
+    padding-top: 8px;
+}
+
+.pending-admin-registers .pending-registers-content-heading {
+    flex-wrap: wrap;
+}
+
+.pending-admin-refresh {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.pending-admin-refresh:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.pending-admin-status {
+    flex: 0 1 auto;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 650;
+    text-align: right;
+}
+
+.pending-admin-late-notice {
+    border-color: #fecaca;
+    background: #fff7f7;
+}
+
+.pending-admin-late-notice .pending-registers-notice-icon {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.pending-admin-late-notice .pending-registers-notice-copy strong,
+.pending-admin-late-notice .pending-registers-notice-copy p {
+    color: #991b1b;
+}
+
+.pending-admin-details {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #edf0f4;
+}
+
+.pending-admin-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    margin: 0;
+}
+
+.pending-admin-facts > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pending-admin-facts dt {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pending-admin-facts dd {
+    margin: 0;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.pending-admin-snapshot,
+.pending-admin-preview {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #f8fbff;
+    color: #334155;
+    font-size: 12px;
+}
+
+.pending-admin-snapshot strong,
+.pending-admin-preview strong {
+    color: #1e3a8a;
+}
+
+.pending-admin-snapshot p {
+    margin: 2px 0 0;
+    color: #475569;
+    line-height: 1.45;
+}
+
+.pending-admin-sales,
+.pending-admin-review,
+.pending-admin-reconciliation {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pending-admin-sales h4,
+.pending-admin-review h4,
+.pending-admin-reconciliation h4 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 14px;
+}
+
+.pending-admin-sale {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.pending-admin-sale > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    color: #64748b;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+
+.pending-admin-sale > div strong {
+    color: #1e293b;
+    font-size: 13px;
+}
+
+.pending-admin-sale button,
+.pending-admin-submit,
+.pending-admin-reject,
+.pending-admin-cancel {
+    min-height: 38px;
+    flex: 0 0 auto;
+    padding: 8px 11px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pending-admin-sale button,
+.pending-admin-submit {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.pending-admin-submit:hover:not(:disabled) {
+    background: #1e40af;
+}
+
+.pending-admin-reject {
+    border-color: #fecaca;
+    background: #fff7f7;
+    color: #b91c1c;
+}
+
+.pending-admin-reject:hover:not(:disabled) {
+    background: #fee2e2;
+}
+
+.pending-admin-cancel {
+    border-color: #cbd5e1;
+    background: #fff;
+    color: #334155;
+}
+
+.pending-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.pending-admin-actions button:disabled,
+.pending-admin-submit:disabled,
+.pending-admin-reject:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.pending-admin-honesty {
+    margin: 0;
+    padding: 10px 12px;
+    border-left: 3px solid #d97706;
+    border-radius: 0 8px 8px 0;
+    background: #fffbeb;
+    color: #78350f;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.pending-admin-review > p {
+    margin: 0;
+    color: #475569;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.pending-admin-review code {
+    overflow-wrap: anywhere;
+    color: #334155;
+}
+
+.pending-admin-items {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pending-admin-items li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #475569;
+    font-size: 11px;
+}
+
+.pending-admin-items li span:first-child {
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.pending-admin-form {
+    display: grid;
+    gap: 8px;
+}
+
+.pending-admin-form > label:not(.pending-admin-checkbox) {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pending-admin-form textarea,
+.pending-admin-form input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    font: inherit;
+    font-size: 13px;
+}
+
+.pending-admin-form textarea {
+    resize: vertical;
+}
+
+.pending-admin-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.pending-admin-checkbox input {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.pending-admin-success {
+    display: flex;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid #bbf7d0;
+    border-radius: 9px;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.pending-admin-success > div {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.pending-admin-success svg {
+    flex: 0 0 auto;
+}
+
 @media (max-width: 767px) {
     .pending-registers-content {
         width: calc(100% - 24px);
@@ -274,6 +690,52 @@
         margin-left: auto;
         padding: 8px 11px;
         font-size: 13px;
+    }
+
+    .pending-register-card-actions {
+        width: 100%;
+    }
+
+    .pending-register-card-actions button {
+        flex: 1 1 auto;
+        margin-left: 0;
+    }
+
+    .pending-register-close-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pending-register-close-actions button {
+        width: 100%;
+    }
+
+    .pending-admin-refresh {
+        margin-left: 0;
+    }
+
+    .pending-admin-facts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .pending-admin-sale {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .pending-admin-sale button {
+        width: 100%;
+    }
+
+    .pending-admin-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pending-admin-actions button,
+    .pending-admin-form > button {
+        width: 100%;
     }
 }
 

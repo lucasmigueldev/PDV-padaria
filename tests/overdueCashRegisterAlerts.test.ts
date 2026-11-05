@@ -197,8 +197,8 @@ test('dismissed alerts stay hidden until closed, and delay text is readable', ()
     assert.match(manager, /getOverdueCashRegisterAlerts\(\)/)
     assert.match(manager, /setAlertCount\(pendingOverdueAlerts\.length\)/)
     assert.match(manager, /getPendingCashShortfallAlerts\(\)/)
-    assert.match(manager, /Contate o operador para sincronizar eventuais vendas pendentes/)
-    assert.match(manager, /Este aviso não fecha o caixa/)
+    assert.match(manager, /O operador pode fechar o caixa pelo fluxo normal/)
+    assert.match(manager, /um owner autorizado pode solicitar o encerramento administrativo/)
 })
 
 test('alerts wait for an authorized admin session and dashboard notice has no navigation action', () => {
@@ -223,8 +223,8 @@ test('pending registers page uses shared admin layout and reuses the shared aler
     assert.match(pendingRegistersPage, /alerts\.map\(\(alert\)/)
     assert.match(pendingRegistersPage, /openDetails\(alert\.cashRegisterId\)/)
     assert.match(pendingRegistersPage, /formatOverdueDuration\(alert\.overdueSeconds\)/)
-    assert.match(pendingRegistersPage, /saoPauloDateTime\.format\(new Date\(alert\.openedAt\)\)/)
-    assert.match(pendingRegistersPage, /saoPauloDateTime\.format\(new Date\(alert\.deadlineAt\)\)/)
+    assert.match(pendingRegistersPage, /saoPauloTime\.format\(new Date\(alert\.openedAt\)\)/)
+    assert.match(pendingRegistersPage, /saoPauloTime\.format\(new Date\(alert\.deadlineAt\)\)/)
     assert.match(alertProvider, /setRequestedAlertId\(cashRegisterId \?\? null\)/)
     assert.match(manager, /requestedOverdueAlert/)
     assert.match(manager, /setContextOverdueAlerts\(pendingOverdueAlerts\)/)
@@ -251,16 +251,16 @@ test('pending registers page uses shared admin layout and reuses the shared aler
     assert.match(pendingRegistersPage, /isLoading && alerts\.length === 0/)
     assert.match(pendingRegistersPage, /!isLoading && !error && alerts\.length === 0/)
     assert.match(pendingRegistersPage, /role="alert"/)
-    for (const width of [360, 767, 1200]) {
+    for (const width of [360, 767]) {
         assert.ok(pendingRegistersStyles.includes(`@media (max-width: ${width}px)`))
     }
     assert.match(pendingRegistersStyles, /overflow-wrap: anywhere/)
-    assert.match(pendingRegistersStyles, /width: min\(calc\(100% - 56px\), 1560px\)/)
-    assert.match(pendingRegistersStyles, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
-    assert.match(pendingRegistersStyles, /\.pending-register-card:only-child/)
-    assert.match(pendingRegistersStyles, /width: min\(100%, 760px\)/)
+    assert.match(pendingRegistersStyles, /width: min\(calc\(100% - 56px\), 960px\)/)
+    assert.match(pendingRegistersStyles, /\.pending-registers-list \{\s*display: grid;\s*gap: 10px;/)
+    assert.match(pendingRegistersStyles, /\.pending-register-card \{/)
+    assert.match(pendingRegistersStyles, /width: min\(100%, 560px\)/)
     assert.match(pendingRegistersStyles, /padding: 16px 0 calc\(96px \+ var\(--sab\)\)/)
-    assert.doesNotMatch(pendingRegistersPage, /encerrar|fechar caixa/i)
+    assert.match(pendingRegistersPage, /canReviewAdminClosures && \([\s\S]*?Encerrar caixa/)
 })
 
 test('active mobile navigation exposes pending registers and its shared overdue count', () => {

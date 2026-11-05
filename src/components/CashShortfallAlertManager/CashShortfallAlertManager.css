@@ -162,6 +162,45 @@
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
+.cash-shortfall-admin-close-form {
+    display: grid;
+    gap: 10px;
+}
+
+.cash-shortfall-admin-close-form label {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.cash-shortfall-admin-close-form textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.cash-shortfall-admin-close {
+    border-color: #b45309 !important;
+    background: #b45309;
+    color: #ffffff;
+}
+
+.cash-shortfall-admin-close:hover:not(:disabled) {
+    background: #92400e;
+}
+
+.cash-shortfall-admin-close:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .cash-shortfall-view {
     border-color: #cbd5e1 !important;
     background: #ffffff;
