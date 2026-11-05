@@ -50,7 +50,8 @@ function formatDateTime(date: string): string {
     return `${formatDate(date)} às ${formatTime(date)}`
 }
 
-function formatDifference(value: number): string {
+function formatDifference(value: number | null): string {
+    if (value === null) return 'Conferência pendente'
     if (value > 0) return `+ ${currency.format(value)}`
     if (value < 0) return `- ${currency.format(Math.abs(value))}`
     return currency.format(0)
@@ -60,7 +61,8 @@ function sortByMostRecent(firstClosure: CashClosure, secondClosure: CashClosure)
     return new Date(secondClosure.closedAt).getTime() - new Date(firstClosure.closedAt).getTime()
 }
 
-function getClosureStatus(difference: number): string {
+function getClosureStatus(difference: number | null): string {
+    if (difference === null) return 'Conferência pendente'
     if (difference === 0) return 'Caixa conferido'
     if (difference > 0) return 'Caixa com sobra'
     return 'Caixa com falta'
@@ -153,7 +155,7 @@ export default function HistoricoFechamentos() {
             setIsLoadingClosures(true)
             setClosuresLoadError('')
             try {
-                const loadedClosures = await getCashClosuresFromSupabase()
+                const loadedClosures = await getCashClosuresFromSupabase(isOwner)
                 if (active) setClosures(loadedClosures.sort(sortByMostRecent))
             } catch (error: unknown) {
                 if (!active) return
@@ -171,7 +173,7 @@ export default function HistoricoFechamentos() {
         return () => {
             active = false
         }
-    }, [])
+    }, [isOwner])
 
     useEffect(() => {
         const state = location.state as { focusClosureId?: unknown } | null
@@ -430,11 +432,13 @@ export default function HistoricoFechamentos() {
                         <section className="fechamento-history-list" aria-label="Lista de caixas fechados">
                             {paginatedClosures.map((closure) => {
                                 const isExpanded = expandedClosureId === closure.id
-                                const differenceStatus = closure.differenceAmount === 0
-                                    ? 'balanced'
-                                    : closure.differenceAmount > 0
-                                        ? 'surplus'
-                                        : 'shortage'
+                                const differenceStatus = closure.differenceAmount === null
+                                    ? 'pending'
+                                    : closure.differenceAmount === 0
+                                        ? 'balanced'
+                                        : closure.differenceAmount > 0
+                                            ? 'surplus'
+                                            : 'shortage'
 
                                 return (
                                     <article
@@ -451,7 +455,11 @@ export default function HistoricoFechamentos() {
                                             onClick={() => setExpandedClosureId(isExpanded ? null : closure.id)}
                                         >
                                             <div className="fechamento-history-card-date">
-                                                <span>Fechamento</span>
+                                                <span>
+                                                    {closure.closureType === 'administrative'
+                                                        ? 'Encerramento administrativo'
+                                                        : 'Fechamento normal'}
+                                                </span>
                                                 <h2>{formatDate(closure.closedAt)}</h2>
                                                 <p>
                                                     {formatTime(closure.openedAt)} – {formatTime(closure.closedAt)}
@@ -460,7 +468,11 @@ export default function HistoricoFechamentos() {
                                             <div className="fechamento-history-card-figures">
                                                 <div className="fechamento-history-card-figure">
                                                     <span>Valor esperado</span>
-                                                    <strong>{currency.format(closure.expectedAmount)}</strong>
+                                                    <strong>
+                                                        {closure.expectedAmount === null
+                                                            ? 'Não disponível'
+                                                            : currency.format(closure.expectedAmount)}
+                                                    </strong>
                                                 </div>
                                                 <div className={`fechamento-history-card-badge ${differenceStatus}`}>
                                                     <span>{getClosureStatus(closure.differenceAmount)}</span>
@@ -489,25 +501,67 @@ export default function HistoricoFechamentos() {
                                                         <span>Valor inicial</span>
                                                         <strong>{currency.format(closure.initialAmount)}</strong>
                                                     </div>
-                                                    <div>
-                                                        <span>Vendas em dinheiro</span>
-                                                        <strong>{currency.format(closure.cashSalesAmount)}</strong>
-                                                    </div>
-                                                    <div>
-                                                        <span>Valor esperado</span>
-                                                        <strong>{currency.format(closure.expectedAmount)}</strong>
-                                                    </div>
-                                                    <div>
-                                                        <span>Valor contado</span>
-                                                        <strong>{currency.format(closure.countedAmount)}</strong>
-                                                    </div>
+                                                    {closure.cashSalesAmount !== null && (
+                                                        <div>
+                                                            <span>Vendas em dinheiro</span>
+                                                            <strong>{currency.format(closure.cashSalesAmount)}</strong>
+                                                        </div>
+                                                    )}
+                                                    {closure.expectedAmount !== null && (
+                                                        <div>
+                                                            <span>Valor esperado</span>
+                                                            <strong>{currency.format(closure.expectedAmount)}</strong>
+                                                        </div>
+                                                    )}
+                                                    {closure.countedAmount !== null && (
+                                                        <div>
+                                                            <span>Valor contado</span>
+                                                            <strong>{currency.format(closure.countedAmount)}</strong>
+                                                        </div>
+                                                    )}
+                                                    {closure.closureType === 'administrative' && (
+                                                        <>
+                                                            <div>
+                                                                <span>Estado da conferência</span>
+                                                                <strong>
+                                                                    {closure.reconciliationStatus === 'reconciled'
+                                                                        ? 'Conferência registrada'
+                                                                        : 'Aguardando conferência'}
+                                                                </strong>
+                                                            </div>
+                                                            {closure.administratorName && (
+                                                                <div>
+                                                                    <span>Administrador responsável</span>
+                                                                    <strong>{closure.administratorName}</strong>
+                                                                </div>
+                                                            )}
+                                                            {closure.administrativeCloseReason && (
+                                                                <div>
+                                                                    <span>Justificativa do encerramento</span>
+                                                                    <strong>{closure.administrativeCloseReason}</strong>
+                                                                </div>
+                                                            )}
+                                                            {closure.reconciledAt && (
+                                                                <div>
+                                                                    <span>Data da conferência</span>
+                                                                    <strong>{formatDateTime(closure.reconciledAt)}</strong>
+                                                                </div>
+                                                            )}
+                                                            {closure.reconciliationReason && (
+                                                                <div>
+                                                                    <span>Justificativa da conferência</span>
+                                                                    <strong>{closure.reconciliationReason}</strong>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </div>
                                                 <div className="fechamento-history-panel-difference">
                                                     <span>Situação do caixa</span>
                                                     <strong className={differenceStatus}>
-                                                        {getClosureStatus(closure.differenceAmount)}
-                                                        {' · '}
-                                                        {formatDifference(closure.differenceAmount)}
+                                                        {closure.differenceAmount === null
+                                                            ? getClosureStatus(null)
+                                                            : `${getClosureStatus(closure.differenceAmount)} · ${formatDifference(closure.differenceAmount)}`}
                                                     </strong>
                                                 </div>
                                             </div>
