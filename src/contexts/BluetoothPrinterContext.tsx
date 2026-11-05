@@ -10,6 +10,7 @@ import {
 import {
     connectBluetoothPrinter,
     printReceiptViaBluetooth,
+    printBufferViaBluetooth,
     type PrinterDevice,
     type ReceiptData,
 } from '../services/thermalPrinter'
@@ -29,6 +30,7 @@ export interface BluetoothPrinterContextValue {
     connect: () => Promise<void>
     disconnect: () => void
     print: (data: ReceiptData) => Promise<void>
+    printBuffer: (buffer: Uint8Array) => Promise<void>
 }
 
 function getPrinterErrorMessage(error: unknown, fallback: string): string {
@@ -148,6 +150,35 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
         }
     }, [])
 
+    const printBuffer = useCallback(async (buffer: Uint8Array) => {
+        if (!printerRef.current) {
+            setErrorMessage('Nenhuma impressora conectada. Conecte antes de imprimir.')
+            return
+        }
+
+        if (!printerRef.current.server.connected) {
+            setStatus('disconnected')
+            setDeviceName(null)
+            printerRef.current = null
+            setErrorMessage('A impressora foi desconectada. Reconecte e tente novamente.')
+            return
+        }
+
+        setStatus('printing')
+        setErrorMessage(null)
+
+        try {
+            await printBufferViaBluetooth(printerRef.current.characteristic, buffer)
+            setStatus('connected')
+        } catch (error) {
+            setStatus('error')
+            setErrorMessage(getPrinterErrorMessage(
+                error,
+                'Não foi possível enviar o comprovante à impressora. Verifique a conexão e tente novamente.',
+            ))
+        }
+    }, [])
+
     return (
         <BluetoothPrinterContext.Provider
             value={{
@@ -158,6 +189,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
                 connect,
                 disconnect,
                 print,
+                printBuffer,
             }}
         >
             {children}

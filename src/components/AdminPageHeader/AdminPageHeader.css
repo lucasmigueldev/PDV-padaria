@@ -1,0 +1,153 @@
+.admin-page-header {
+    display: flex;
+    min-height: 72px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 28px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.admin-page-header-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.admin-page-heading {
+    min-width: 0;
+}
+
+.admin-page-overline {
+    display: block;
+    margin-bottom: 2px;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.admin-page-heading h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.admin-page-heading p {
+    margin: 2px 0 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.admin-page-desktop-profile {
+    display: flex;
+    width: max-content;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.admin-page-mobile-topbar {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .admin-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 28px;
+    }
+}
+
+@media (max-width: 767px) {
+    .admin-page-header {
+        min-height: 0;
+        align-items: stretch;
+        gap: 12px;
+        padding: calc(10px + var(--sat)) 16px 14px;
+    }
+
+    .admin-page-mobile-topbar {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .admin-page-brand {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+        color: #1d4ed8;
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .admin-page-brand > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-page-brand .logo-icon {
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        border-radius: 9px;
+    }
+
+    .admin-page-brand .logo-icon svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    .admin-page-mobile-topbar .user-profile-menu {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        margin-left: auto;
+    }
+
+    .admin-page-mobile-topbar .user-profile-trigger {
+        gap: 8px;
+        padding: 3px 6px;
+    }
+
+    .admin-page-mobile-topbar .user-profile-trigger-copy strong {
+        max-width: 38vw;
+        overflow: hidden;
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-page-header-row {
+        align-items: flex-start;
+    }
+
+    .admin-page-heading h1 {
+        font-size: 21px;
+    }
+
+    .admin-page-heading p {
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .admin-page-desktop-profile {
+        display: none;
+    }
+}
+
+@media (max-width: 360px) {
+    .admin-page-header {
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+}

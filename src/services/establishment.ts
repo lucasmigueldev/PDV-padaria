@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { useConnectionStatus } from '../hooks/useConnectionStatus'
 
 const STORAGE_KEY = 'pdv_establishment_name'
 const DEFAULT_NAME = 'PDV360'
@@ -76,9 +77,12 @@ export async function saveEstablishmentName(name: string): Promise<string> {
 }
 
 export function useEstablishmentName() {
+    const connection = useConnectionStatus()
     const [establishmentName, setEstablishmentName] = useState<string>(getEstablishmentNameSync)
 
     useEffect(() => {
+        if (connection.status === 'offline') return
+
         let isMounted = true
 
         void fetchEstablishmentName().then((name) => {
@@ -104,7 +108,7 @@ export function useEstablishmentName() {
             isMounted = false
             window.removeEventListener('establishment-name-changed', handleNameChange)
         }
-    }, [])
+    }, [connection.status])
 
     return establishmentName
 }

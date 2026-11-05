@@ -18,6 +18,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom'
 
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import PixQrCode from '../../components/PixQrCode/PixQrCode'
 import { getOpenCashRegister } from '../../services/operations'
 import {
@@ -69,11 +70,15 @@ const initialNewUserForm: NewUserForm = {
 type BakeryForm = {
   name: string
   active: boolean
+  cashRegisterMonitoringEnabled: boolean
+  cashRegisterDeadlineHour: string
 }
 
 const initialBakeryForm: BakeryForm = {
   name: '',
   active: true,
+  cashRegisterMonitoringEnabled: false,
+  cashRegisterDeadlineHour: '',
 }
 
 export default function Configuracoes() {
@@ -341,7 +346,7 @@ export default function Configuracoes() {
         setEditingOperator(null)
         setOperatorEditForm({ name: '', email: '', password: '', bakeryId: '' })
         setUserFormError('')
-        setUserSuccessMessage('Operador atualizado com sucesso.')
+        setUserSuccessMessage('Operador atualizado com sucesso. As sessões abertas do operador foram encerradas e ele precisará entrar novamente.')
         setUserManagementError('')
       } catch (error) {
         setUserFormError(error instanceof Error ? error.message : 'Não foi possível atualizar o operador.')
@@ -423,7 +428,7 @@ export default function Configuracoes() {
     if (operator.role !== 'cashier' || isManagingOperator) return
 
     const confirmed = window.confirm(
-      `Desativar o operador ${operator.name}? O histórico de vendas e caixas será preservado.`,
+      `Desativar o operador ${operator.name}? O histórico de vendas e caixas será preservado e as sessões abertas do operador serão encerradas.`,
     )
     if (!confirmed) return
 
@@ -433,7 +438,7 @@ export default function Configuracoes() {
     try {
       await deactivateAdminUser(operator.id)
       setUsers((currentUsers) => currentUsers.filter((user) => user.id !== operator.id))
-      setUserSuccessMessage('Operador desativado. O histórico foi preservado.')
+      setUserSuccessMessage('Operador desativado. O histórico foi preservado e as sessões do operador foram encerradas.')
     } catch (error) {
       setUserManagementError(error instanceof Error ? error.message : 'Não foi possível desativar o operador.')
     } finally {
@@ -450,7 +455,14 @@ export default function Configuracoes() {
 
   function openEditBakeryModal(bakery: Bakery) {
     setEditingBakery(bakery)
-    setBakeryForm({ name: bakery.name, active: bakery.active })
+    setBakeryForm({
+      name: bakery.name,
+      active: bakery.active,
+      cashRegisterMonitoringEnabled: bakery.cashRegisterMonitoringEnabled,
+      cashRegisterDeadlineHour: bakery.cashRegisterDeadlineHour === null
+        ? ''
+        : String(bakery.cashRegisterDeadlineHour),
+    })
     setBakeryFormError('')
     setIsBakeryModalOpen(true)
   }
@@ -489,6 +501,15 @@ export default function Configuracoes() {
       return
     }
 
+    const deadlineHour = bakeryForm.cashRegisterDeadlineHour === ''
+      ? null
+      : Number(bakeryForm.cashRegisterDeadlineHour)
+    if (bakeryForm.cashRegisterMonitoringEnabled
+      && (deadlineHour === null || !Number.isInteger(deadlineHour) || deadlineHour < 0 || deadlineHour > 23)) {
+      setBakeryFormError('Selecione um horário limite válido entre 00h e 23h.')
+      return
+    }
+
     if (editingBakery?.active && !bakeryForm.active) {
       try {
         if (await getOpenCashRegister(editingBakery.id)) {
@@ -507,9 +528,15 @@ export default function Configuracoes() {
     setIsSavingBakery(true)
 
     try {
+      const bakeryData = {
+        name,
+        active: bakeryForm.active,
+        cashRegisterMonitoringEnabled: bakeryForm.cashRegisterMonitoringEnabled,
+        cashRegisterDeadlineHour: deadlineHour,
+      }
       const savedBakery = editingBakery
-        ? await updateBakery(editingBakery.id, { name, active: bakeryForm.active })
-        : await addBakery({ name, active: bakeryForm.active })
+        ? await updateBakery(editingBakery.id, bakeryData)
+        : await addBakery(bakeryData)
 
       setBakeries((currentBakeries) => editingBakery
         ? currentBakeries.map((bakery) => bakery.id === savedBakery.id ? savedBakery : bakery)
@@ -544,7 +571,7 @@ export default function Configuracoes() {
     }
 
     try {
-      await updateBakery(bakery.id, { name: bakery.name, active: false })
+      await updateBakery(bakery.id, { ...bakery, active: false })
       setBakeries((currentBakeries) =>
         currentBakeries.map((b) => (b.id === bakery.id ? { ...b, active: false } : b)),
       )
@@ -573,6 +600,7 @@ export default function Configuracoes() {
           {!isOwner && <Link to="/fechamento" className="sidebar-link"><Calculator size={19} /><span>Fechamento</span></Link>}
           {!isOwner && <Link to="/produtos" className="sidebar-link"><Package size={19} /><span>Produtos</span></Link>}
           {isOwner && <Link to="/historico-fechamentos" className="sidebar-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
           {isOwner && <Link to="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></Link>}
         </nav>
 
@@ -621,6 +649,7 @@ export default function Configuracoes() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
           {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
             <span>Relatórios</span>
@@ -1076,6 +1105,46 @@ export default function Configuracoes() {
                     />
                     <span>Unidade ativa</span>
                   </label>
+                  <div className="bakery-overtime-settings">
+                    <label className="bakery-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={bakeryForm.cashRegisterMonitoringEnabled}
+                        onChange={(event) => {
+                          setBakeryForm((currentForm) => ({
+                            ...currentForm,
+                            cashRegisterMonitoringEnabled: event.target.checked,
+                          }))
+                          setBakeryFormError('')
+                        }}
+                      />
+                      <span>Monitorar caixas após o horário limite</span>
+                    </label>
+                    <div className="settings-field">
+                      <label htmlFor="bakery-cash-register-deadline">Horário limite (horas)</label>
+                      <select
+                        id="bakery-cash-register-deadline"
+                        value={bakeryForm.cashRegisterDeadlineHour}
+                        onChange={(event) => {
+                          setBakeryForm((currentForm) => ({
+                            ...currentForm,
+                            cashRegisterDeadlineHour: event.target.value,
+                          }))
+                          setBakeryFormError('')
+                        }}
+                        disabled={!bakeryForm.cashRegisterMonitoringEnabled}
+                        aria-invalid={Boolean(bakeryFormError && bakeryForm.cashRegisterMonitoringEnabled)}
+                      >
+                        <option value="">Selecione</option>
+                        {Array.from({ length: 24 }, (_, hour) => (
+                          <option key={hour} value={String(hour)}>
+                            {String(hour).padStart(2, '0')}h
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p>O limite é considerado no fuso de São Paulo; se o caixa abrir após esse horário, será usado o próximo dia.</p>
+                  </div>
                 </div>
 
                 {bakeryFormError && <p className="user-form-error" role="alert">{bakeryFormError}</p>}

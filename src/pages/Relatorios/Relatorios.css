@@ -264,6 +264,16 @@
   color: #475569;
 }
 
+.reports-offline-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  margin-bottom: 16px;
+  text-decoration: none;
+}
+
 .reports-secondary-button:hover:not(:disabled) {
   border-color: #94a3b8;
   background: #f8fafc;
@@ -539,6 +549,10 @@
 @media (max-width: 767px) {
   .reports-layout {
     overflow-x: hidden;
+  }
+
+  .reports-offline-link {
+    display: none;
   }
 
   .reports-content {

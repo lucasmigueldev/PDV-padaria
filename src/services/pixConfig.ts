@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSupabaseClient } from '../lib/supabaseClient'
+import { useConnectionStatus } from '../hooks/useConnectionStatus'
 
 const STORAGE_KEY_GLOBAL = 'pdv_pix_key_global'
 const LEGACY_STORAGE_KEY = 'pdv_pix_key'
@@ -161,9 +162,12 @@ export async function deletePixKey(bakeryId?: string | null): Promise<void> {
 }
 
 export function usePixKey(bakeryId?: string | null) {
+  const connection = useConnectionStatus()
   const [pixKey, setPixKey] = useState<string>(() => getPixKeySync(bakeryId))
 
   useEffect(() => {
+    if (connection.status === 'offline') return
+
     let isMounted = true
 
     void fetchPixKey(bakeryId).then((key) => {
@@ -190,7 +194,7 @@ export function usePixKey(bakeryId?: string | null) {
       isMounted = false
       window.removeEventListener('pix-key-changed', handleKeyChange)
     }
-  }, [bakeryId])
+  }, [bakeryId, connection.status])
 
   return pixKey
 }

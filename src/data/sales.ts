@@ -2,9 +2,44 @@ import { getSupabaseClient } from '../lib/supabaseClient'
 import { isNetworkError, reportNetworkFailure } from '../services/connection'
 import type { PaymentMethod, Sale } from '../types/Sale'
 
+/**
+ * Soma das vendas pagas em dinheiro de um caixa (sessão).
+ *
+ * O mesmo cálculo é feito pelo servidor em `close_cash_register`, mas aqui
+ * precisamos do valor antes/depois do fechamento para compor o comprovante.
+ * A política de leitura permite que o caixaier consulte as vendas da própria
+ * unidade.
+ */
+export async function getCashSalesTotalForRegister(cashRegisterId: string): Promise<number> {
+    try {
+        const { data, error } = await getSupabaseClient()
+            .from('sales')
+            .select('total')
+            .eq('cash_register_id', cashRegisterId)
+            .eq('payment_method', 'cash')
+
+        if (error) {
+            console.error('Erro ao calcular as vendas em dinheiro do caixa.', error)
+            return 0
+        }
+
+        return ((data ?? []) as Array<{ total: number | string }>).reduce(
+            (sum, sale) => sum + Number(sale.total ?? 0),
+            0,
+        )
+    } catch (error) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
+        }
+        console.error('Falha ao calcular as vendas em dinheiro do caixa.', error)
+        return 0
+    }
+}
+
 type SaleRow = {
     id: string
     date: string
+    occurred_at: string
     bakery_id: string
     total: number | string
     payment_method: PaymentMethod
@@ -26,8 +61,8 @@ export async function getSalesFromSupabase(): Promise<Sale[]> {
     try {
         const result = await getSupabaseClient()
             .from('sales')
-            .select('id, date, bakery_id, total, payment_method, received_amount, change_amount, sale_items(id, product_id, name, barcode, price, quantity, subtotal)')
-            .order('date', { ascending: false })
+            .select('id, date, occurred_at, bakery_id, total, payment_method, received_amount, change_amount, sale_items(id, product_id, name, barcode, price, quantity, subtotal)')
+            .order('occurred_at', { ascending: false })
         data = result.data
         const { error } = result
 
@@ -58,7 +93,8 @@ export async function getSalesFromSupabase(): Promise<Sale[]> {
 
     return ((data ?? []) as SaleRow[]).map((sale) => ({
         id: sale.id,
-        date: sale.date,
+        date: sale.occurred_at,
+        syncedAt: sale.date,
         bakeryId: sale.bakery_id,
         total: Number(sale.total),
         paymentMethod: sale.payment_method,

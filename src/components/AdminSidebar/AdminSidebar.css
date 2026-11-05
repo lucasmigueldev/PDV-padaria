@@ -1,0 +1,128 @@
+.admin-sidebar {
+    position: fixed;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: 250px;
+    height: 100vh;
+    flex-direction: column;
+    padding: 24px 16px;
+    border-right: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.admin-sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 40px;
+    padding: 0 10px;
+}
+
+.admin-sidebar .logo-icon {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.admin-sidebar-logo strong {
+    display: block;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.admin-sidebar-logo span {
+    display: block;
+    margin-top: 3px;
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+.admin-sidebar-menu,
+.admin-sidebar .sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-sidebar .sidebar-link {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #6b7280;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.admin-sidebar .sidebar-link > svg {
+    flex: 0 0 auto;
+}
+
+.admin-sidebar .sidebar-link:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.admin-sidebar .sidebar-link.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.admin-sidebar .sidebar-bottom {
+    margin-top: auto;
+}
+
+.admin-sidebar .logout-button {
+    text-align: left;
+}
+
+.pending-registers-layout {
+    min-height: 100vh;
+    background: #f5f6f8;
+}
+
+.pending-registers-main {
+    width: calc(100% - 250px);
+    min-height: 100vh;
+    margin-left: 250px;
+}
+
+@media (max-width: 900px) {
+    .admin-sidebar {
+        width: 220px;
+    }
+
+    .pending-registers-main {
+        width: calc(100% - 220px);
+        margin-left: 220px;
+    }
+}
+
+@media (max-width: 767px) {
+    .admin-sidebar {
+        display: none;
+    }
+
+    .pending-registers-main {
+        width: 100%;
+        margin-left: 0;
+    }
+}

@@ -1,5 +1,9 @@
-import { getSupabaseClient } from '../lib/supabaseClient'
-import { isNetworkError, reportNetworkFailure } from '../services/connection'
+import { getSupabaseClient } from '../lib/supabaseClient.ts'
+import { isNetworkError, reportNetworkFailure } from '../services/connection.ts'
+import {
+    listAdminClosedCashRegisters,
+    type AdminClosedCashRegister,
+} from '../services/adminCashRegisterReview.ts'
 import type { CashClosure } from '../types/CashClosure'
 
 type ClosureRow = {
@@ -19,9 +23,41 @@ type RegisterRow = {
     initial_amount: number | string
 }
 
-export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
+export function mergeCashClosureHistory(
+    normalClosures: CashClosure[],
+    administrativeClosures: AdminClosedCashRegister[],
+): CashClosure[] {
+    const administrativeRegisterIds = new Set(
+        administrativeClosures.map((closure) => closure.cashRegisterId),
+    )
+
+    return [
+        ...normalClosures.filter((closure) => !administrativeRegisterIds.has(closure.cashRegisterId)),
+        ...administrativeClosures.map((closure): CashClosure => ({
+            id: `administrative-${closure.cashRegisterId}`,
+            cashRegisterId: closure.cashRegisterId,
+            bakeryId: closure.bakeryId,
+            closureType: 'administrative',
+            reconciliationStatus: closure.reconciliation ? 'reconciled' : 'pending',
+            openedAt: closure.openedAt,
+            initialAmount: closure.initialAmount,
+            closedAt: closure.closedAt,
+            countedAmount: closure.reconciliation?.countedAmount ?? null,
+            expectedAmount: closure.reconciliation?.expectedAmount ?? null,
+            differenceAmount: closure.reconciliation?.differenceAmount ?? null,
+            cashSalesAmount: null,
+            administrativeCloseReason: closure.closeReason,
+            reconciliationReason: closure.reconciliation?.reason ?? null,
+            administratorName: closure.administratorName,
+            reconciledAt: closure.reconciliation?.reconciledAt ?? null,
+        })),
+    ]
+}
+
+export async function getCashClosuresFromSupabase(isOwner: boolean): Promise<CashClosure[]> {
     let closures: ClosureRow[]
     let registersById: Map<string, RegisterRow>
+    let administrativeClosures: AdminClosedCashRegister[]
 
     try {
         const client = getSupabaseClient()
@@ -42,25 +78,31 @@ export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
         }
 
         closures = (closureRows ?? []) as ClosureRow[]
-        if (closures.length === 0) return []
-
         const registerIds = [...new Set(closures.map((closure) => closure.cash_register_id))]
-        const { data: registerRows, error: registersError } = await client
-            .from('cash_registers')
-            .select('id, opened_at, initial_amount')
-            .in('id', registerIds)
+        if (registerIds.length > 0) {
+            const { data: registerRows, error: registersError } = await client
+                .from('cash_registers')
+                .select('id, opened_at, initial_amount')
+                .in('id', registerIds)
 
-        if (registersError) {
-            console.error('Erro ao carregar os dados dos caixas fechados.', registersError)
-            if (registersError.code === '42501') {
-                throw new Error('Seu acesso não permite consultar os dados dos caixas. Solicite ajuda ao proprietário.')
+            if (registersError) {
+                console.error('Erro ao carregar os dados dos caixas fechados.', registersError)
+                if (registersError.code === '42501') {
+                    throw new Error('Seu acesso não permite consultar os dados dos caixas. Solicite ajuda ao proprietário.')
+                }
+                throw new Error('Não foi possível carregar os dados dos caixas fechados. Atualize a tela e tente novamente.')
             }
-            throw new Error('Não foi possível carregar os dados dos caixas fechados. Atualize a tela e tente novamente.')
+
+            registersById = new Map(
+                ((registerRows ?? []) as RegisterRow[]).map((register) => [register.id, register]),
+            )
+        } else {
+            registersById = new Map()
         }
 
-        registersById = new Map(
-            ((registerRows ?? []) as RegisterRow[]).map((register) => [register.id, register]),
-        )
+        administrativeClosures = isOwner
+            ? await listAdminClosedCashRegisters({ isOwner })
+            : []
     } catch (error) {
         if (isNetworkError(error)) {
             reportNetworkFailure()
@@ -76,7 +118,7 @@ export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
         throw new Error('Não foi possível carregar o histórico de fechamentos. Atualize a tela e tente novamente.', { cause: error })
     }
 
-    return closures.map((closure) => {
+    const normalClosures = closures.map((closure) => {
         const register = registersById.get(closure.cash_register_id)
         if (!register) {
             const error = new Error('Não foi possível carregar todos os dados deste fechamento. Atualize o histórico e tente novamente.')
@@ -89,7 +131,10 @@ export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
 
         return {
             id: closure.id,
+            cashRegisterId: closure.cash_register_id,
             bakeryId: closure.bakery_id,
+            closureType: 'normal' as const,
+            reconciliationStatus: 'reconciled' as const,
             openedAt: register.opened_at,
             initialAmount: Number(register.initial_amount),
             closedAt: closure.closed_at,
@@ -99,4 +144,6 @@ export async function getCashClosuresFromSupabase(): Promise<CashClosure[]> {
             cashSalesAmount: Number(closure.cash_sales_amount),
         }
     })
+
+    return mergeCashClosureHistory(normalClosures, administrativeClosures)
 }

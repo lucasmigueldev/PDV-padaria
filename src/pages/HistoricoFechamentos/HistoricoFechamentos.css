@@ -339,6 +339,14 @@
     color: #c2410c;
 }
 
+.fechamento-history-card-badge.pending {
+    background: #fff7ed;
+}
+
+.fechamento-history-card-badge.pending strong {
+    color: #9a3412;
+}
+
 .fechamento-history-card-chevron {
     flex-shrink: 0;
     color: #94a3b8;
@@ -407,6 +415,10 @@
 
 .fechamento-history-panel-difference strong.shortage {
     color: #c2410c;
+}
+
+.fechamento-history-panel-difference strong.pending {
+    color: #9a3412;
 }
 
 .fechamento-history-card-panel {

@@ -3,4 +3,5 @@ export interface CashRegister {
     bakeryId: string
     openedAt: string
     initialAmount: number
+    operatorName: string | null
 }

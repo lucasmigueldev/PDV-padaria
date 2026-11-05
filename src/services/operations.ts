@@ -1,12 +1,47 @@
-import { getSupabaseClient } from '../lib/supabaseClient'
-import { isNetworkError, reportNetworkFailure } from './connection'
+import { getSupabaseClient } from '../lib/supabaseClient.ts'
+import { isNetworkError, reportNetworkFailure, reportNetworkSuccess } from './connection.ts'
+import {
+    applyConfirmedSaleToCachedStock,
+    invalidateRememberedCashRegister,
+    rememberConfirmedOpenCashRegister,
+} from './offlinePdvCache.ts'
+import {
+    assertCashRegisterConnectionAvailable,
+    CashRegisterOperationOutcomeUnknownError,
+    executeCashRegisterRpc,
+    type CashRegisterRpcError,
+} from './cashRegisterSafety.ts'
+import {
+    CashRegisterNotOpenError,
+    isAdminCashRegisterClosureEnabled,
+    receiveLateOfflineSale,
+    getLateSaleRegisterStatus,
+    type LateSaleRegisterLookup,
+    type LateSaleRegisterStatus,
+} from './adminCashRegisterClosure.ts'
+import {
+    assertOfflineSaleMatchesServer,
+    OfflineSaleReconciliationPendingError,
+} from './offlineSaleReconciliation.ts'
+import type { QueuedSale } from './offlineSalesQueue.ts'
 
 import type { CashRegister } from '../types/CashRegister'
 import type { PaymentMethod, SaleItemSnapshot } from '../types/Sale'
 
-type SupabaseError = {
-    code?: string
-    message: string
+type SupabaseError = CashRegisterRpcError
+
+export interface LateSaleQuarantineResult {
+    kind: 'quarantined'
+    eventId: string
+}
+
+export type QueuedOfflineSaleSyncResult = string | LateSaleQuarantineResult
+
+export interface QueuedOfflineSaleSyncDependencies {
+    enabled?: boolean
+    syncNormally?: (sale: QueuedSale) => Promise<string>
+    lookupRegisterStatus?: LateSaleRegisterLookup
+    receiveLateSale?: (sale: QueuedSale) => Promise<string>
 }
 
 function getUnexpectedOperationError(error: unknown, operation: string): Error {
@@ -89,51 +124,73 @@ function requireRpcId(data: unknown, operation: string): string {
     return data
 }
 
-export async function getOpenCashRegister(bakeryId: string): Promise<CashRegister | null> {
+function requireCashRegisterRpcId(data: unknown, operation: 'abertura' | 'fechamento'): string {
+    if (typeof data !== 'string' || !data) {
+        throw new CashRegisterOperationOutcomeUnknownError(
+            `Não foi possível confirmar o resultado da ${operation} do caixa. Consulte o estado atual no servidor antes de tentar novamente.`,
+        )
+    }
+    return data
+}
+
+export async function getOpenCashRegister(bakeryId: string, operatorUserId?: string): Promise<CashRegister | null> {
     const client = getSupabaseClient()
     let result
     try {
         result = await client
             .from('cash_registers')
-            .select('id, bakery_id, opened_at, initial_amount')
+            .select('id, bakery_id, opened_at, initial_amount, opened_by, users!cash_registers_opened_by_fkey(name)')
             .eq('bakery_id', bakeryId)
             .eq('status', 'open')
             .maybeSingle()
     } catch (error) {
+        if (isNetworkError(error)) {
+            reportNetworkFailure()
+            throw new Error('Não foi possível conectar ao sistema para consultar o caixa aberto.', { cause: error })
+        }
         throw getUnexpectedOperationError(error, 'carregar o caixa aberto')
     }
     const { data, error } = result
 
     if (error) throwOperationError(error, 'carregar o caixa aberto')
-    if (!data) return null
+    reportNetworkSuccess()
+    if (!data) {
+        if (operatorUserId) {
+            invalidateRememberedCashRegister(bakeryId, operatorUserId)
+        }
+        return null
+    }
 
-    return {
+    const operatorName = data.users && !Array.isArray(data.users)
+        ? (data.users as { name: string }).name
+        : null
+
+    const register: CashRegister = {
         id: data.id,
         bakeryId: data.bakery_id,
         openedAt: data.opened_at,
         initialAmount: Number(data.initial_amount),
+        operatorName,
     }
+    if (operatorUserId) {
+        rememberConfirmedOpenCashRegister(bakeryId, operatorUserId, register)
+    }
+    return register
 }
 
-export async function openCashRegister(initialAmount: number): Promise<CashRegister> {
+export async function openCashRegister(initialAmount: number, operatorUserId?: string): Promise<CashRegister> {
+    assertCashRegisterConnectionAvailable('abrir')
     const client = getSupabaseClient()
-    let result
-    try {
-        result = await client.rpc('open_cash_register', {
+    const data = await executeCashRegisterRpc(
+        'abrir',
+        async () => await client.rpc('open_cash_register', {
             p_initial_amount: initialAmount,
-        })
-    } catch (requestError) {
-        if (isNetworkError(requestError)) {
-            reportNetworkFailure()
-        }
-        console.error('Não foi possível confirmar o resultado da abertura do caixa.', requestError)
-        throw new Error('Não foi possível confirmar se o caixa foi aberto. Atualize os dados do caixa antes de tentar novamente.', { cause: requestError })
-    }
-    const { data, error } = result
+        }),
+        (error) => throwOperationError(error, 'abrir o caixa'),
+        'Não foi possível confirmar se o caixa foi aberto. Consulte o estado atual no servidor antes de tentar novamente.',
+    )
 
-    if (error) throwOperationError(error, 'abrir o caixa')
-
-    const id = requireRpcId(data, 'abertura do caixa')
+    const id = requireCashRegisterRpcId(data, 'abertura')
     let registerResult
     try {
         registerResult = await client
@@ -143,21 +200,43 @@ export async function openCashRegister(initialAmount: number): Promise<CashRegis
             .single()
     } catch (loadError) {
         console.error('O caixa foi aberto, mas não foi possível carregar os dados do registro.', loadError)
-        throw new Error('O caixa foi aberto, mas não foi possível carregar seus dados. Atualize a tela antes de tentar novamente.', { cause: loadError })
+        if (isNetworkError(loadError)) {
+            reportNetworkFailure()
+        }
+        throw new CashRegisterOperationOutcomeUnknownError(
+            'A abertura foi aceita, mas não foi possível carregar o estado completo do caixa. Consulte o servidor antes de tentar novamente.',
+            loadError,
+        )
     }
     const { data: register, error: loadError } = registerResult
 
     if (loadError) {
         console.error('O caixa foi aberto, mas não foi possível carregar os dados do registro.', loadError)
-        throw new Error('O caixa foi aberto, mas não foi possível carregar seus dados. Atualize a tela antes de tentar novamente.')
+        if (isNetworkError(loadError)) {
+            reportNetworkFailure()
+        }
+        throw new CashRegisterOperationOutcomeUnknownError(
+            'A abertura foi aceita, mas não foi possível carregar o estado completo do caixa. Consulte o servidor antes de tentar novamente.',
+            loadError,
+        )
+    }
+    if (!register) {
+        throw new CashRegisterOperationOutcomeUnknownError(
+            'A abertura foi aceita, mas o caixa não pôde ser localizado. Consulte o servidor antes de tentar novamente.',
+        )
     }
 
-    return {
+    const cashRegister: CashRegister = {
         id: register.id,
         bakeryId: register.bakery_id,
         openedAt: register.opened_at,
         initialAmount: Number(register.initial_amount),
+        operatorName: null,
     }
+    if (operatorUserId) {
+        rememberConfirmedOpenCashRegister(cashRegister.bakeryId, operatorUserId, cashRegister)
+    }
+    return cashRegister
 }
 
 export async function createSaleWithItems(input: {
@@ -168,6 +247,7 @@ export async function createSaleWithItems(input: {
     items: Pick<SaleItemSnapshot, 'productId' | 'quantity'>[]
     idempotencyKey: string
     occurredAt?: string | null
+    offlineSessionId?: string | null
 }): Promise<string> {
     let client: ReturnType<typeof getSupabaseClient>
     try {
@@ -190,6 +270,8 @@ export async function createSaleWithItems(input: {
                 quantity: item.quantity,
             })),
             p_idempotency_key: input.idempotencyKey,
+            p_occurred_at: input.occurredAt ?? null,
+            p_offline_session_id: input.offlineSessionId ?? null,
         }))
     } catch (requestError) {
         if (isNetworkError(requestError)) {
@@ -202,29 +284,149 @@ export async function createSaleWithItems(input: {
         )
     }
 
+    if (error?.code === '23514'
+        && /no open cash register exists for this bakery/i.test(error.message)) {
+        throw new CashRegisterNotOpenError(error)
+    }
     if (error) throwOperationError(error, 'registrar a venda')
+    reportNetworkSuccess()
     return requireRpcId(data, 'registro da venda')
 }
 
-export async function closeCashRegister(cashRegisterId: string, countedAmount: number): Promise<string> {
-    const client = getSupabaseClient()
+async function syncNormallyQueuedOfflineSale(sale: QueuedSale): Promise<string> {
+    const remoteSaleId = await createSaleWithItems({
+        cashRegisterId: sale.cashRegisterId,
+        paymentMethod: sale.paymentMethod,
+        receivedAmount: sale.receivedAmount,
+        changeAmount: sale.changeAmount,
+        items: sale.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        idempotencyKey: sale.idempotencyKey,
+        occurredAt: sale.occurredAt,
+        offlineSessionId: sale.offlineSessionId ?? null,
+    })
+
     let result
     try {
-        result = await client.rpc('close_cash_register', {
-            p_cash_register_id: cashRegisterId,
-            p_counted_amount: countedAmount,
-        })
-    } catch (requestError) {
-        if (isNetworkError(requestError)) {
+        result = await getSupabaseClient()
+            .from('sales')
+            .select('total, occurred_at, sale_items(product_id, price, quantity, subtotal)')
+            .eq('id', remoteSaleId)
+            .maybeSingle()
+    } catch (error) {
+        if (isNetworkError(error)) {
             reportNetworkFailure()
         }
-        console.error('Não foi possível confirmar o resultado do fechamento do caixa.', requestError)
-        throw new Error('Não foi possível confirmar se o caixa foi fechado. Consulte o histórico de fechamentos antes de tentar novamente.', { cause: requestError })
+        throw new OfflineSaleReconciliationPendingError(
+            'O servidor aceitou a venda, mas não foi possível confirmar os valores registrados. Ela continua pendente para reconciliação.',
+            error,
+        )
     }
-    const { data, error } = result
 
-    if (error) throwOperationError(error, 'fechar o caixa')
-    return requireRpcId(data, 'fechamento do caixa')
+    if (result.error || !result.data) {
+        if (result.error && isNetworkError(result.error)) {
+            reportNetworkFailure()
+        }
+        throw new OfflineSaleReconciliationPendingError(
+            'O servidor aceitou a venda, mas não foi possível carregar seus valores registrados. Ela continua pendente para reconciliação.',
+            result.error ?? new Error('A venda não foi encontrada após o registro.'),
+        )
+    }
+
+    const serverSale = result.data as {
+        total: number | string
+        occurred_at: string
+        sale_items: {
+            product_id: string | null
+            price: number | string
+            quantity: number
+            subtotal: number | string
+        }[]
+    }
+    if (!applyConfirmedSaleToCachedStock(sale)) {
+        throw new OfflineSaleReconciliationPendingError(
+            'O servidor aceitou a venda, mas a estimativa local de estoque não pôde ser atualizada. Ela continua pendente para reconciliação.',
+        )
+    }
+
+    assertOfflineSaleMatchesServer(sale, remoteSaleId, {
+        total: serverSale.total,
+        occurredAt: serverSale.occurred_at,
+        items: serverSale.sale_items.map((item) => ({
+            productId: item.product_id,
+            price: item.price,
+            quantity: item.quantity,
+            subtotal: item.subtotal,
+        })),
+    })
+
+    return remoteSaleId
+}
+
+export async function syncQueuedOfflineSale(
+    sale: QueuedSale,
+    dependencies: QueuedOfflineSaleSyncDependencies = {},
+): Promise<QueuedOfflineSaleSyncResult> {
+    const syncNormally = dependencies.syncNormally ?? syncNormallyQueuedOfflineSale
+    try {
+        return await syncNormally(sale)
+    } catch (error) {
+        if (!(error instanceof CashRegisterNotOpenError)
+            || !(dependencies.enabled ?? isAdminCashRegisterClosureEnabled())) {
+            throw error
+        }
+
+        const lookupRegisterStatus = dependencies.lookupRegisterStatus ?? getLateSaleRegisterStatus
+        const registerStatus: LateSaleRegisterStatus = await lookupRegisterStatus(sale)
+        if (registerStatus === 'open') {
+            throw error
+        }
+        if (registerStatus !== 'closed') {
+            throw new OfflineSaleReconciliationPendingError(
+                'Não foi possível confirmar o fechamento do caixa no servidor. A venda permanece na fila local.',
+                error,
+            )
+        }
+
+        const receiveLateSale = dependencies.receiveLateSale
+            ?? ((queuedSale) => receiveLateOfflineSale(queuedSale, {
+                lookup: async () => registerStatus,
+            }))
+        return {
+            kind: 'quarantined',
+            eventId: await receiveLateSale(sale),
+        }
+    }
+}
+
+export async function closeCashRegister(
+    cashRegisterId: string,
+    countedAmount: number,
+    bakeryId?: string,
+    operatorUserId?: string,
+): Promise<string> {
+    assertCashRegisterConnectionAvailable('fechar')
+    const client = getSupabaseClient()
+    try {
+        const data = await executeCashRegisterRpc(
+            'fechar',
+            async () => await client.rpc('close_cash_register', {
+                p_cash_register_id: cashRegisterId,
+                p_counted_amount: countedAmount,
+            }),
+            (error) => throwOperationError(error, 'fechar o caixa'),
+            'Não foi possível confirmar se o caixa foi fechado. Consulte o estado atual no servidor antes de tentar novamente.',
+        )
+        const closureId = requireCashRegisterRpcId(data, 'fechamento')
+        if (bakeryId && operatorUserId) {
+            invalidateRememberedCashRegister(bakeryId, operatorUserId)
+        }
+        return closureId
+    } catch (error) {
+        if (error instanceof CashRegisterOperationOutcomeUnknownError && bakeryId && operatorUserId) {
+            invalidateRememberedCashRegister(bakeryId, operatorUserId)
+        }
+        throw error
+    }
 }
 
 export async function setProductStock(

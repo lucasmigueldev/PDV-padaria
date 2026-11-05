@@ -17,40 +17,67 @@
   }
 
   .mobile-bottom-nav-inner {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     align-items: center;
-    justify-content: space-around;
     height: 60px;
-    padding: 0 4px;
+    padding: 0 2px;
     max-width: 500px;
     margin: 0 auto;
   }
 
   .mobile-bottom-nav-item {
     display: flex;
+    min-width: 0;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    flex: 1;
-    min-width: 0;
+    gap: 2px;
     height: 100%;
     color: #64748b;
     text-decoration: none;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 500;
+    line-height: 1.1;
+    white-space: normal;
+    text-align: center;
     transition: color 0.15s ease, transform 0.1s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
   .mobile-bottom-nav-icon-wrap {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 10px;
     transition: all 0.2s ease;
+  }
+
+  .mobile-bottom-nav-icon-wrap svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .mobile-bottom-nav-count {
+    position: absolute;
+    top: -4px;
+    right: -7px;
+    display: grid;
+    min-width: 16px;
+    height: 16px;
+    place-items: center;
+    padding: 0 3px;
+    border: 1px solid #ffffff;
+    border-radius: 999px;
+    background: #b91c1c;
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .mobile-bottom-nav-item:active {
@@ -65,5 +92,28 @@
   .mobile-bottom-nav-item.is-active .mobile-bottom-nav-icon-wrap {
     background: #eff6ff;
     color: #1f5daa;
+  }
+}
+
+@media (min-width: 361px) and (max-width: 767px) {
+  .mobile-bottom-nav-item {
+    font-size: 10px;
+  }
+
+  .mobile-bottom-nav-icon-wrap {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mobile-bottom-nav-icon-wrap svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .mobile-bottom-nav-item {
+    font-size: 8px;
+    letter-spacing: -0.15px;
   }
 }

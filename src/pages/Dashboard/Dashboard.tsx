@@ -14,7 +14,6 @@ import {
   Settings,
   ShoppingCart,
   UserRound,
-  Wallet,
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -23,9 +22,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import { getSalesFromSupabase } from '../../data/sales'
 import { getOpenCashRegister } from '../../services/operations'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
+import { useOverdueCashRegisterAlertContext } from '../../contexts/OverdueCashRegisterAlertContext'
 import { usePdvHeartbeats, PDV_OFFLINE_THRESHOLD_MS } from '../../hooks/usePdvHeartbeats'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { WifiOff } from 'lucide-react'
@@ -90,6 +91,7 @@ function parseLocalDate(dateString: string): Date {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
+  const { alertCount: overdueAlertCount } = useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -149,7 +151,6 @@ export default function Dashboard() {
           month: '2-digit',
           year: 'numeric',
         })
-  const isCashRegisterOpen = cashRegister !== null
   const openingTime = cashRegister
     ? new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(cashRegister.openedAt))
     : '-'
@@ -291,6 +292,7 @@ export default function Dashboard() {
             <span>Histórico de Fechamentos</span>
           </Link>}
 
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
           {isOwner && <Link to="/relatorios" className="sidebar-link">
             <BarChart3 size={19} />
             <span>Relatórios</span>
@@ -307,15 +309,9 @@ export default function Dashboard() {
             type="button"
             onClick={handleLogout}
             className="sidebar-link logout-button"
-          >
-            <LogOut size={19} />
-            <span>Sair</span>
-          </button>
+          />
         </div>
       </aside>
-
-      <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
-
       <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
         <div className="mobile-drawer-header">
           <div className="sidebar-logo">
@@ -359,6 +355,8 @@ export default function Dashboard() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
 
           {isOwner && <Link to="/relatorios" className="sidebar-link" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
@@ -435,6 +433,18 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+          )}
+          {isOwner && overdueAlertCount > 0 && (
+            <aside className="dashboard-overdue-notice" role="status" aria-live="polite">
+              <div className="dashboard-overdue-notice-copy">
+                <Clock3 size={19} aria-hidden="true" />
+                <p>
+                  <strong>
+                    {overdueAlertCount} {overdueAlertCount === 1 ? 'caixa atrasado' : 'caixas atrasados'}
+                  </strong>
+                </p>
+              </div>
+            </aside>
           )}
           <div className="dashboard-filters">
             <div className="dashboard-unit-filter">
@@ -554,16 +564,14 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard-panels-grid grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 pt-8 shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-5 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Formas de pagamento</h2>
-                  <p className="mt-1 text-xs text-slate-500">Distribuição das vendas de hoje</p>
+                  <p className="mt-1 text-xs text-slate-500">Distribuição das vendas de {selectedDateLabel}</p>
                 </div>
-                <Wallet className="text-slate-400" size={20} />
               </div>
-
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
@@ -576,7 +584,6 @@ export default function Dashboard() {
                     <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${cashPercentage * 100}%` }} />
                   </div>
                 </div>
-
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
@@ -589,7 +596,6 @@ export default function Dashboard() {
                     <div className="h-2 rounded-full bg-blue-500" style={{ width: `${cardPercentage * 100}%` }} />
                   </div>
                 </div>
-
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-700">
@@ -609,54 +615,51 @@ export default function Dashboard() {
               <div className="mb-5 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">Informações do caixa</h2>
-                  <p className="mt-1 text-xs text-slate-500">Resumo do caixa em operação</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {bakeryFilter === 'all' ? 'Selecione uma unidade para ver o status do caixa' : 'Resumo do caixa em operação'}
+                  </p>
                 </div>
                 <Calculator className="text-slate-400" size={20} />
               </div>
 
-              <div className="divide-y divide-slate-100">
-                <div className="flex items-center justify-between py-2.5 first:pt-0">
-                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                      <span className={`h-2 w-2 rounded-full ${isCashRegisterOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                    </span>
-                    Status do caixa
-                  </span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCashRegisterOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                    {isCashRegisterOpen ? 'Caixa aberto' : 'Caixa fechado'}
-                  </span>
+              {bakeryFilter === 'all' ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-6 text-center text-slate-400">
+                  <Calculator size={32} className="opacity-30" />
+                  <p className="text-sm">Filtre por uma unidade específica para visualizar o status do caixa.</p>
                 </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  <div className="flex items-center justify-between py-2.5 first:pt-0">
+                    <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                        <UserRound size={15} />
+                      </span>
+                      Operador responsável
+                    </span>
+                    <strong className="text-xs sm:text-sm text-slate-900">{cashRegister?.operatorName ?? 'Não identificado'}</strong>
+                  </div>
 
-                <div className="flex items-center justify-between py-2.5">
-                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <UserRound size={15} />
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                        <Clock3 size={15} />
+                      </span>
+                      Horário de abertura
                     </span>
-                    Operador responsável
-                  </span>
-                  <strong className="text-xs sm:text-sm text-slate-900">{authenticatedUser?.name ?? 'Conta indisponível'}</strong>
-                </div>
+                    <strong className="text-xs sm:text-sm text-slate-900">{openingTime}</strong>
+                  </div>
 
-                <div className="flex items-center justify-between py-2.5">
-                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                      <Clock3 size={15} />
+                  <div className="flex items-center justify-between py-2.5 pb-0">
+                    <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                        <Banknote size={15} />
+                      </span>
+                      Saldo inicial
                     </span>
-                    Horário de abertura
-                  </span>
-                  <strong className="text-xs sm:text-sm text-slate-900">{openingTime}</strong>
+                    <strong className="text-xs sm:text-sm text-slate-900">{cashRegister ? currency.format(cashRegister.initialAmount) : '-'}</strong>
+                  </div>
                 </div>
-
-                <div className="flex items-center justify-between py-2.5 pb-0">
-                  <span className="flex items-center gap-3 text-xs sm:text-sm text-slate-500">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                      <Banknote size={15} />
-                    </span>
-                    Saldo inicial
-                  </span>
-                  <strong className="text-xs sm:text-sm text-slate-900">{cashRegister ? currency.format(cashRegister.initialAmount) : '-'}</strong>
-                </div>
-              </div>
+              )}
             </section>
           </div>
         </section>

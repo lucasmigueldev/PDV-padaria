@@ -5,7 +5,6 @@ import {
     Edit3,
     History,
     LayoutDashboard,
-    Package,
     Plus,
     Receipt,
     Search,
@@ -22,6 +21,7 @@ import { useBakeries } from '../../hooks/useBakeries'
 import { useAuth } from '../../contexts/AuthContext'
 import { logoutAndRedirect } from '../../utils/auth'
 import AppTopbar from '../../components/AppTopbar/AppTopbar'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import './Produtos.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -317,22 +317,23 @@ export default function Produtos() {
                             <span className="products-sidebar-label">Administração</span>
                             <Link to="/dashboard" className="products-nav-link"><LayoutDashboard size={19} /><span>Painel</span></Link>
                             <Link to="/historico-fechamentos" className="products-nav-link"><History size={19} /><span>Histórico de Fechamentos</span></Link>
+                            <PendingRegistersNavigationLink className="products-nav-link" />
                             <Link to="/relatorios" className="products-nav-link"><BarChart3 size={19} /><span>Relatórios</span></Link>
                         </>
                     ) : (
                         <>
+                            <Link to="/pdv" className="products-shortcut-link">
+                                <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
+                            </Link>
                             <span className="products-sidebar-label">Operação</span>
                             <Link to="/produtos" className="products-shortcut-link active" aria-current="page">
-                                <Package size={20} /><span>Produtos</span><kbd>F2</kbd>
+                                <span>Produtos</span><kbd>F2</kbd>
                             </Link>
                             <Link to="/fechamento" className="products-shortcut-link">
                                 <Receipt size={20} /><span>Fechamento</span><kbd>F3</kbd>
                             </Link>
                             <Link to="/historico-vendas" className="products-shortcut-link">
                                 <History size={20} /><span>Histórico de Vendas</span>
-                            </Link>
-                            <Link to="/pdv" className="products-shortcut-link">
-                                <ShoppingCart size={20} /><span>Voltar ao PDV</span><kbd>F4</kbd>
                             </Link>
                         </>
                     )}
@@ -346,7 +347,6 @@ export default function Produtos() {
             <main className="products-main">
                 <header className="products-page-heading">
                     <div>
-                        <span>CATÁLOGO OPERACIONAL</span>
                         <h1>Produtos</h1>
                         <p>Gerenciamento do catálogo de produtos</p>
                     </div>
@@ -404,7 +404,6 @@ export default function Produtos() {
                     <section className="products-table-panel">
                         <div className="products-section-heading">
                             <div><h2>Produtos cadastrados</h2><p>{filteredProducts.length} produto(s) encontrado(s)</p></div>
-                            <Package size={21} aria-hidden="true" />
                         </div>
                         <div className="products-table-wrapper">
                             {productsLoadError && <div className="products-empty-state" role="alert">{productsLoadError}</div>}
@@ -419,8 +418,8 @@ export default function Produtos() {
                                             <td>{product.stock}</td>
                                             {!isOwner && (
                                                 <td><div className="products-actions">
-                                                    <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} />Editar</button>
-                                                    <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} />Excluir</button>
+                                                    <button type="button" className="products-action-button" onClick={() => openEditProduct(product)}><Edit3 size={16} /></button>
+                                                    <button type="button" className="products-action-button products-delete-button" onClick={() => requestProductDeletion(product)}><Trash2 size={16} /></button>
                                                 </div></td>
                                             )}
                                         </tr>

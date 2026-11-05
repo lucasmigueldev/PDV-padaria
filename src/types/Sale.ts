@@ -12,6 +12,7 @@ export interface SaleItemSnapshot {
 export interface Sale {
     id: string
     date: string
+    syncedAt?: string
     items: SaleItemSnapshot[]
     total: number
     paymentMethod: PaymentMethod

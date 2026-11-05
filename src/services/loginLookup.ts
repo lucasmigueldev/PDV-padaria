@@ -3,7 +3,7 @@ import type { Bakery } from '../types/Bakery'
 
 export type LoginLookupResult = {
     role: 'owner' | 'cashier' | null
-    bakeries: Bakery[]
+    bakeries: Pick<Bakery, 'id' | 'name' | 'active'>[]
 }
 
 type LoginLookupResponse = {

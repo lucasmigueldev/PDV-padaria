@@ -1,0 +1,284 @@
+.cash-shortfall-overlay {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow-y: auto;
+    padding: 20px;
+    background: rgb(15 23 42 / 48%);
+    backdrop-filter: blur(3px);
+}
+
+.cash-shortfall-dialog {
+    position: relative;
+    display: grid;
+    gap: 16px;
+    width: min(100%, 480px);
+    max-height: min(90vh, 760px);
+    overflow-y: auto;
+    padding: 30px;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+}
+
+.cash-shortfall-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.cash-shortfall-close:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.cash-shortfall-icon {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border: 1px solid #fecaca;
+    border-radius: 15px;
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.cash-shortfall-dialog h2 {
+    margin: 0;
+    padding-right: 28px;
+    color: #172033;
+    font-size: 22px;
+    line-height: 1.25;
+}
+
+.cash-shortfall-description {
+    margin: -8px 0 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.cash-shortfall-amount {
+    display: grid;
+    gap: 4px;
+    padding: 16px 18px;
+    border: 1px solid #fee2e2;
+    border-radius: 14px;
+    background: #fff7f7;
+}
+
+.cash-shortfall-amount span {
+    color: #991b1b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.cash-shortfall-amount strong {
+    color: #b91c1c;
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.cash-shortfall-values,
+.cash-shortfall-context {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.cash-shortfall-values > div,
+.cash-shortfall-context > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.cash-overdue-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cash-shortfall-values dt,
+.cash-shortfall-context dt {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.cash-shortfall-values dd,
+.cash-shortfall-context dd {
+    margin: 0;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.cash-shortfall-disclaimer {
+    margin: 0;
+    padding: 10px 12px;
+    border-left: 3px solid #cbd5e1;
+    border-radius: 0 8px 8px 0;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.cash-shortfall-error {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.cash-shortfall-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 2px;
+}
+
+.cash-shortfall-actions button {
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cash-shortfall-admin-close-form {
+    display: grid;
+    gap: 10px;
+}
+
+.cash-shortfall-admin-close-form label {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.cash-shortfall-admin-close-form textarea {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    color: #1e293b;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.cash-shortfall-admin-close {
+    border-color: #b45309 !important;
+    background: #b45309;
+    color: #ffffff;
+}
+
+.cash-shortfall-admin-close:hover:not(:disabled) {
+    background: #92400e;
+}
+
+.cash-shortfall-admin-close:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.cash-shortfall-view {
+    border-color: #cbd5e1 !important;
+    background: #ffffff;
+    color: #334155;
+}
+
+.cash-shortfall-view:hover {
+    background: #f8fafc;
+}
+
+.cash-shortfall-confirm {
+    background: #1d4ed8;
+    color: #ffffff;
+}
+
+.cash-shortfall-confirm:hover:not(:disabled) {
+    background: #1e40af;
+}
+
+.cash-shortfall-confirm:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+@media (max-width: 520px) {
+    .cash-shortfall-overlay {
+        align-items: center;
+        padding: 10px;
+    }
+
+    .cash-shortfall-dialog {
+        width: 100%;
+        min-width: 0;
+        max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px);
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+        box-sizing: border-box;
+        padding: 22px 18px 18px;
+        border-radius: 16px;
+    }
+
+    .cash-shortfall-dialog h2 {
+        padding-right: 32px;
+        font-size: 19px;
+        overflow-wrap: anywhere;
+    }
+
+    .cash-shortfall-amount strong {
+        font-size: 24px;
+        overflow-wrap: anywhere;
+    }
+
+    .cash-shortfall-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cash-shortfall-actions button {
+        width: 100%;
+        min-width: 0;
+        padding-inline: 12px;
+    }
+}
+
+@media (max-width: 350px) {
+    .cash-shortfall-dialog {
+        gap: 12px;
+        padding: 18px 14px 14px;
+    }
+
+    .cash-shortfall-values {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .cash-overdue-context {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+}

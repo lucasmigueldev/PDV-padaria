@@ -1,4 +1,4 @@
-import { getEnv } from '../lib/env'
+import { getEnv } from '../lib/env.ts'
 
 export type ConnectionStatus = 'online' | 'offline'
 
@@ -9,7 +9,7 @@ export interface ConnectionState {
 
 const env = getEnv()
 
-const state: ConnectionState = {
+let state: ConnectionState = {
     status: (typeof navigator !== 'undefined' && navigator.onLine) ? 'online' : 'offline',
     lastConfirmedAt: null,
 }
@@ -31,8 +31,7 @@ function setState(next: Partial<ConnectionState>): void {
     if (updated.status === state.status && updated.lastConfirmedAt === state.lastConfirmedAt) {
         return
     }
-    state.status = updated.status
-    state.lastConfirmedAt = updated.lastConfirmedAt
+    state = updated
     emit()
 }
 
@@ -61,7 +60,11 @@ export function reportNetworkSuccess(): void {
  */
 export function isNetworkError(error: unknown): boolean {
     if (error instanceof TypeError) {
-        return true
+        const message = error.message ?? ''
+        if (/failed to fetch|fetch failed|networkerror|load failed|network request failed/i.test(message)) {
+            return true
+        }
+        return error.cause !== undefined && isNetworkError(error.cause)
     }
     if (error instanceof Error) {
         const message = error.message ?? ''
@@ -89,6 +92,8 @@ const pingTimeoutMs = 3000
 const pingIntervalMs = 30000
 
 let pingTimer: number | null = null
+let connectivityRevision = 0
+let pingRequestId = 0
 
 function getSupabaseUrl(): string | null {
     if (typeof window === 'undefined') {
@@ -130,15 +135,26 @@ async function pingSupabase(): Promise<boolean> {
 }
 
 function handleOnline(): void {
+    connectivityRevision++
     void runConnectivityCheck()
 }
 
 function handleOffline(): void {
+    connectivityRevision++
     setState({ status: 'offline' })
 }
 
 async function runConnectivityCheck(): Promise<void> {
+    const revision = connectivityRevision
+    const requestId = ++pingRequestId
     const reachable = await pingSupabase()
+    if (revision !== connectivityRevision || requestId !== pingRequestId) {
+        return
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        reportNetworkFailure()
+        return
+    }
     if (reachable) {
         reportNetworkSuccess()
     } else {

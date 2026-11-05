@@ -1,14 +1,34 @@
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 import { useConnectionStatus } from '../../hooks/useConnectionStatus'
-import { useOfflineQueue } from '../../hooks/useOfflineQueue'
+import { useOfflineQueue, useOfflineQueueError } from '../../hooks/useOfflineQueue'
 import { useSyncStatus } from '../../hooks/useSyncStatus'
 import './ConnectionStatusBadge.css'
 
 export default function ConnectionStatusBadge() {
+    const { authenticatedUser } = useAuth()
     const connection = useConnectionStatus()
     const syncState = useSyncStatus()
     const queue = useOfflineQueue()
-    const pendingCount = queue.filter((sale) => sale.status === 'pending').length
+    const queueError = useOfflineQueueError()
+    const pendingCount = queue.filter((sale) =>
+        sale.operatorUserId === authenticatedUser?.id
+        && sale.bakeryId === authenticatedUser?.activeBakeryId
+        && sale.status === 'pending',
+    ).length
+
+    if (queueError) {
+        return (
+            <span
+                className="connection-badge offline"
+                role="alert"
+                title={queueError.message}
+            >
+                <WifiOff size={14} aria-hidden="true" />
+                <span>Falha ao carregar fila</span>
+            </span>
+        )
+    }
 
     if (connection.status === 'offline') {
         return (

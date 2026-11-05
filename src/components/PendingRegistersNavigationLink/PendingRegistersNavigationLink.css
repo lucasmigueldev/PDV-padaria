@@ -1,0 +1,26 @@
+.pending-register-link-count {
+    display: inline-flex;
+    min-width: 21px;
+    height: 21px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.products-nav-link.active {
+    background: #2b5da1;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.products-nav-link .pending-register-link-count {
+    flex: 0 0 auto;
+}

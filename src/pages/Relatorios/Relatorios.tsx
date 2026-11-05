@@ -20,6 +20,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { getProductsFromSupabase } from '../../data/products'
 import { getSalesFromSupabase } from '../../data/sales'
 import { UserProfileMenu } from '../../components/UserProfileMenu/UserProfileMenu'
+import { PendingRegistersNavigationLink } from '../../components/PendingRegistersNavigationLink/PendingRegistersNavigationLink'
 import { useBakeries } from '../../hooks/useBakeries'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useAuth } from '../../contexts/AuthContext'
@@ -316,6 +317,7 @@ export default function Relatorios() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" />}
           {isOwner && <Link to="/relatorios" className="sidebar-link active">
             <BarChart3 size={19} />
             <span>Relatórios</span>
@@ -377,6 +379,7 @@ export default function Relatorios() {
             <History size={19} />
             <span>Histórico de Fechamentos</span>
           </Link>}
+          {isOwner && <PendingRegistersNavigationLink className="sidebar-link" onClick={closeMobileMenu} />}
           {isOwner && <Link to="/relatorios" className="sidebar-link active" onClick={closeMobileMenu}>
             <BarChart3 size={19} />
             <span>Relatórios</span>
@@ -425,6 +428,12 @@ export default function Relatorios() {
         <section className="dashboard-content reports-content p-10">
           {reportLoadError && <p role="alert" className="mb-4 text-red-700">{reportLoadError}</p>}
           {isLoadingReportData && <p role="status" className="mb-4">Carregando dados do relatório...</p>}
+          {isOwner && (
+            <Link to="/relatorios-offline" className="reports-secondary-button reports-offline-link">
+              <Clock size={18} aria-hidden="true" />
+              Fora do ar
+            </Link>
+          )}
           <section className="reports-section reports-summary" aria-labelledby="sales-indicators-title">
             <div className="reports-section-heading reports-section-heading-compact">
               <div>
