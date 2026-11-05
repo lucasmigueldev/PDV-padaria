@@ -538,6 +538,7 @@ export default function Fechamento() {
                     </Link>
                     <Link to="/historico-vendas" className="fechamento-shortcut">
                         <History size={19} /><span>Histórico de Vendas</span>
+                        <kbd>F6</kbd>
                     </Link>
                 </nav>}
 

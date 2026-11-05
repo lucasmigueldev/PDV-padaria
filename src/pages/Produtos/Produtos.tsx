@@ -334,6 +334,7 @@ export default function Produtos() {
                             </Link>
                             <Link to="/historico-vendas" className="products-shortcut-link">
                                 <History size={20} /><span>Histórico de Vendas</span>
+                                <kbd>F6</kbd>
                             </Link>
                         </>
                     )}
