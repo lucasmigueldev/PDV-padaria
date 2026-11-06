@@ -1,43 +1,27 @@
-import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   BarChart3,
   Calculator,
   ClipboardList,
   Clock,
   LayoutDashboard,
-  LogOut,
-  Settings,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useOverdueCashRegisterAlertContext } from '../../contexts/OverdueCashRegisterAlertContext'
-import { logoutAndRedirect } from '../../utils/auth'
-import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import './MobileBottomNav.css'
 
 export function MobileBottomNav() {
   const { authenticatedUser } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
   const { alertCount } = useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   // Só exibir para administradores logados em rotas administrativas
   if (!authenticatedUser || !isOwner) return null
 
   // Ocultar se estiver em tela de login
   if (location.pathname === '/login' || location.pathname === '/') return null
-
-  function handleLogoutClick() {
-    setConfirmOpen(true)
-  }
-
-  function handleConfirmLogout() {
-    setConfirmOpen(false)
-    void logoutAndRedirect(navigate)
-  }
 
   const navItems: {
     label: string
@@ -77,12 +61,6 @@ export function MobileBottomNav() {
       path: '/relatorios-offline',
       icon: Clock,
     },
-    {
-      label: 'Ajustes',
-      accessibleLabel: 'Ajustes',
-      path: '/configuracoes',
-      icon: Settings,
-    },
   ]
 
   return (
@@ -116,28 +94,8 @@ export function MobileBottomNav() {
             )
           })}
 
-          <button
-            type="button"
-            onClick={handleLogoutClick}
-            className="mobile-bottom-nav-item mobile-bottom-nav-logout"
-          >
-            <div className="mobile-bottom-nav-icon-wrap">
-              <LogOut size={20} />
-            </div>
-            <span>Sair</span>
-          </button>
         </div>
       </nav>
-
-      <ConfirmDialog
-        isOpen={confirmOpen}
-        title="Sair do sistema"
-        message="Tem certeza que deseja encerrar a sua sessão?"
-        onConfirm={handleConfirmLogout}
-        onCancel={() => setConfirmOpen(false)}
-        confirmText="Sair"
-        cancelText="Cancelar"
-      />
     </>
   )
 }
