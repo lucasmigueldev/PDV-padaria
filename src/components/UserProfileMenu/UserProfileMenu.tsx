@@ -1,15 +1,17 @@
-import { UserRound } from 'lucide-react'
+import { ChevronDown, LogOut, Settings, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { AuthenticatedUser } from '../../services/auth'
 import './UserProfileMenu.css'
 
 interface UserProfileMenuProps {
     user: AuthenticatedUser | null
     isLoading?: boolean
+    onLogout?: () => void
 }
 
 const roleLabels: Record<AuthenticatedUser['role'], string> = {
-    owner: 'Proprietário',
+    owner: 'Administrador',
     cashier: 'Operador de caixa',
 }
 
@@ -17,7 +19,7 @@ const createdAtFormatter = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'long',
 })
 
-export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProps) {
+export function UserProfileMenu({ user, isLoading = false, onLogout }: UserProfileMenuProps) {
     const [isOpen, setIsOpen] = useState(false)
     const rootRef = useRef<HTMLDivElement>(null)
     const name = typeof user?.name === 'string' ? user.name.trim() : ''
@@ -50,7 +52,7 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
             <button
                 type="button"
                 className="user-profile-trigger"
-                aria-haspopup="dialog"
+                aria-haspopup="menu"
                 aria-expanded={isOpen}
                 onClick={() => setIsOpen((open) => !open)}
             >
@@ -58,6 +60,7 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
                 <span className="user-profile-trigger-copy">
                     <strong>{displayName}</strong>
                 </span>
+                <ChevronDown size={16} aria-hidden="true" />
             </button>
 
             {isOpen && (
@@ -71,6 +74,21 @@ export function UserProfileMenu({ user, isLoading = false }: UserProfileMenuProp
                         <span>Perfil da conta</span>
                         {isLoading && <span role="status">Carregando...</span>}
                     </div>
+                    {user?.role === 'owner' && (
+                        <div className="user-profile-actions" role="menu" aria-label="Opções da conta">
+                            <Link role="menuitem" to="/configuracoes" className="user-profile-action" onClick={() => setIsOpen(false)}>
+                                <Settings size={17} aria-hidden="true" />
+                                <span>Configurações</span>
+                            </Link>
+                            <button role="menuitem" type="button" className="user-profile-action" onClick={() => {
+                                setIsOpen(false)
+                                onLogout?.()
+                            }}>
+                                <LogOut size={17} aria-hidden="true" />
+                                <span>Sair</span>
+                            </button>
+                        </div>
+                    )}
                     {user ? (
                         <dl className="user-profile-details">
                             <div>

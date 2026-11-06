@@ -1,13 +1,4 @@
-import {
-    BarChart3,
-    Calculator,
-    History,
-    LayoutDashboard,
-    LogOut,
-    Package,
-    Settings,
-    ShoppingCart,
-} from 'lucide-react'
+import { BarChart3, Calculator, History, LayoutDashboard, Package, ShoppingCart } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 import type { AuthenticatedUser } from '../../services/auth'
@@ -19,7 +10,7 @@ interface AdminSidebarProps {
     onLogout: () => void
 }
 
-export function AdminSidebar({ user, onLogout }: AdminSidebarProps) {
+export function AdminSidebar({ user }: AdminSidebarProps) {
     const location = useLocation()
     const isOwner = user?.role === 'owner'
 
@@ -74,18 +65,6 @@ export function AdminSidebar({ user, onLogout }: AdminSidebarProps) {
                 )}
             </nav>
 
-            <div className="sidebar-bottom">
-                {isOwner && (
-                    <Link to="/configuracoes" className={linkClass('/configuracoes')}>
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </Link>
-                )}
-                <button type="button" onClick={onLogout} className="sidebar-link logout-button">
-                    <LogOut size={19} />
-                    <span>Sair</span>
-                </button>
-            </div>
         </aside>
     )
 }

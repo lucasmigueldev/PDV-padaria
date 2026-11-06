@@ -45,8 +45,7 @@
     font-size: 11px;
 }
 
-.admin-sidebar-menu,
-.admin-sidebar .sidebar-bottom {
+.admin-sidebar-menu {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -84,14 +83,6 @@
     background: #eff6ff;
     color: #2563eb;
     font-weight: 600;
-}
-
-.admin-sidebar .sidebar-bottom {
-    margin-top: auto;
-}
-
-.admin-sidebar .logout-button {
-    text-align: left;
 }
 
 .pending-registers-layout {

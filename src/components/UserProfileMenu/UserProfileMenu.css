@@ -81,6 +81,35 @@
   margin: 14px 0 0;
 }
 
+.user-profile-actions {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.user-profile-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-profile-action:hover,
+.user-profile-action:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
 .user-profile-details > div {
   min-width: 0;
 }

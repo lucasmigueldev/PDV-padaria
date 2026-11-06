@@ -5,10 +5,8 @@ import {
   Calculator,
   History,
   LayoutDashboard,
-  LogOut,
   Package,
   Pencil,
-  Settings,
   ShoppingCart,
   Store,
   Trash2,
@@ -604,10 +602,6 @@ export default function Configuracoes() {
           {isOwner && <Link to="/relatorios" className="sidebar-link"><BarChart3 size={19} /><span>Relatórios</span></Link>}
         </nav>
 
-        <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          {isOwner && <Link to="/configuracoes" className="sidebar-link active"><Settings size={19} /><span>Configurações</span></Link>}
-          <button type="button" onClick={handleLogout} className="sidebar-link logout-button"><LogOut size={19} /><span>Sair</span></button>
-        </div>
       </aside>
 
       <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
@@ -656,16 +650,6 @@ export default function Configuracoes() {
           </Link>}
         </nav>
 
-        <div className="mobile-drawer-bottom">
-          {isOwner && <Link to="/configuracoes" className="sidebar-link active" onClick={closeMobileMenu}>
-            <Settings size={19} />
-            <span>Configurações</span>
-          </Link>}
-          <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-            <LogOut size={19} />
-            <span>Sair</span>
-          </button>
-        </div>
       </aside>
 
       <main className="dashboard-main ml-64 min-h-screen flex-1">
@@ -677,7 +661,7 @@ export default function Configuracoes() {
               </div>
               <span>PDV360</span>
             </div>
-            <UserProfileMenu user={authenticatedUser} />
+            <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
           </div>
           <div className="dashboard-header-row">
             <div className="mobile-page-heading">
@@ -686,7 +670,7 @@ export default function Configuracoes() {
               <p>Gerencie usuários e unidades do sistema.</p>
             </div>
             <div className="desktop-user-profile">
-              <UserProfileMenu user={authenticatedUser} />
+              <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
             </div>
           </div>
         </header>

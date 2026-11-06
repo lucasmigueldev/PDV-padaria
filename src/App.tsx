@@ -74,14 +74,20 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
   children: React.ReactNode
   authenticatedUser: AuthenticatedUser | null
 }) {
+  return authenticatedUser?.role === allowedRole ? children : <Navigate to={redirectTo} replace />
+}
+
+function CashierKeyboardShortcuts({ authenticatedUser }: {
+  authenticatedUser: AuthenticatedUser | null
+}) {
   const navigate = useNavigate()
-  const hasCashierAccess = authenticatedUser?.role === 'cashier'
+  const isCashier = authenticatedUser?.role === 'cashier'
 
   useEffect(() => {
-    if (allowedRole !== 'cashier' || !hasCashierAccess) return
+    if (!isCashier) return
 
     function handleCashierShortcut(event: KeyboardEvent) {
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat) return
       if (document.querySelector('[role="dialog"]')) return
 
       const targetByKey: Record<string, string> = {
@@ -94,7 +100,6 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
 
       if (!target) return
       if (
-        event.key === 'F6' &&
         event.target instanceof HTMLElement &&
         (event.target.isContentEditable ||
           event.target instanceof HTMLInputElement ||
@@ -108,9 +113,9 @@ function RoleRoute({ allowedRole, redirectTo, children, authenticatedUser }: {
 
     document.addEventListener('keydown', handleCashierShortcut)
     return () => document.removeEventListener('keydown', handleCashierShortcut)
-  }, [allowedRole, hasCashierAccess, navigate])
+  }, [isCashier, navigate])
 
-  return authenticatedUser?.role === allowedRole ? children : <Navigate to={redirectTo} replace />
+  return null
 }
 
 function CashierSessionMonitor({ user, onUnavailable }: {
@@ -353,6 +358,7 @@ function App() {
             onUnavailable={handleCashierUnavailable}
           />
         )}
+          <CashierKeyboardShortcuts authenticatedUser={authenticatedUser} />
           <OfflineCashierRedirect authenticatedUser={authenticatedUser} />
           <PWAInstallPrompt />
         <Routes>

@@ -5,10 +5,8 @@ import {
     Filter,
     History,
     LayoutDashboard,
-    LogOut,
     Package,
     RefreshCw,
-    Settings,
     ShoppingCart,
     Wifi,
     WifiOff,
@@ -365,16 +363,6 @@ export default function RelatorioOffline() {
                     </Link>
                 </nav>
 
-                <div className="sidebar-bottom">
-                    <Link to="/configuracoes" className="sidebar-link">
-                        <Settings size={19} aria-hidden="true" />
-                        <span>Configurações</span>
-                    </Link>
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} aria-hidden="true" />
-                        <span>Sair</span>
-                    </button>
-                </div>
             </aside>
 
             <main className="dashboard-main relatorio-offline-main">
@@ -386,7 +374,7 @@ export default function RelatorioOffline() {
                             </div>
                             <span>PDV360</span>
                         </div>
-                        <UserProfileMenu user={authenticatedUser} />
+                        <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
                     </div>
                     <div className="dashboard-header-row">
                         <div className="mobile-page-heading">
@@ -395,7 +383,7 @@ export default function RelatorioOffline() {
                             <p>Acompanhe caixas que estão sem comunicação.</p>
                         </div>
                         <div className="desktop-user-profile">
-                            <UserProfileMenu user={authenticatedUser} />
+                            <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
                         </div>
                     </div>
                 </header>

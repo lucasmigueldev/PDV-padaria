@@ -4,9 +4,7 @@ import {
     ChevronDown,
     History,
     LayoutDashboard,
-    LogOut,
     Package,
-    Settings,
     ShoppingCart,
     X,
 } from 'lucide-react'
@@ -245,16 +243,6 @@ export default function HistoricoFechamentos() {
                     </Link>}
                 </nav>
 
-                <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-                    {isOwner && <Link to="/configuracoes" className="sidebar-link">
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </Link>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} />
-                        <span>Sair</span>
-                    </button>
-                </div>
             </aside>
 
             <div className={`mobile-menu-overlay${isMobileMenuOpen ? ' is-open' : ''}`} onClick={closeMobileMenu} />
@@ -303,16 +291,6 @@ export default function HistoricoFechamentos() {
                     </Link>}
                 </nav>
 
-                <div className="mobile-drawer-bottom">
-                    {isOwner && <Link to="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
-                        <Settings size={19} />
-                        <span>Configurações</span>
-                    </Link>}
-                    <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-                        <LogOut size={19} />
-                        <span>Sair</span>
-                    </button>
-                </div>
             </aside>
 
             <main className="dashboard-main ml-64 min-h-screen flex-1">
@@ -324,7 +302,7 @@ export default function HistoricoFechamentos() {
                             </div>
                             <span>PDV360</span>
                         </div>
-                        <UserProfileMenu user={authenticatedUser} />
+                        <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
                     </div>
                     <div className="dashboard-header-row">
                         <div className="mobile-page-heading">
@@ -333,7 +311,7 @@ export default function HistoricoFechamentos() {
                             <p>Consulte as sessões de caixa já encerradas.</p>
                         </div>
                         <div className="desktop-user-profile">
-                            <UserProfileMenu user={authenticatedUser} />
+                            <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
                         </div>
                     </div>
                 </header>

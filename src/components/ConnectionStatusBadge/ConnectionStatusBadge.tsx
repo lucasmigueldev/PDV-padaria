@@ -16,6 +16,11 @@ export default function ConnectionStatusBadge() {
         && sale.bakeryId === authenticatedUser?.activeBakeryId
         && sale.status === 'pending',
     ).length
+    const failedCount = queue.filter((sale) =>
+        sale.operatorUserId === authenticatedUser?.id
+        && sale.bakeryId === authenticatedUser?.activeBakeryId
+        && sale.status === 'failed',
+    ).length
 
     if (queueError) {
         return (
@@ -30,6 +35,19 @@ export default function ConnectionStatusBadge() {
         )
     }
 
+    if (failedCount > 0) {
+        return (
+            <span
+                className="connection-badge failed"
+                role="alert"
+                title={`${failedCount} venda(s) com falha aguardando revisão.`}
+            >
+                <WifiOff size={14} aria-hidden="true" />
+                <span>Falha na sincronização ({failedCount})</span>
+            </span>
+        )
+    }
+
     if (connection.status === 'offline') {
         return (
             <span
@@ -40,7 +58,7 @@ export default function ConnectionStatusBadge() {
                 <WifiOff size={14} aria-hidden="true" />
                 <span>
                     Sem conexão
-                    {pendingCount > 0 ? ` (${pendingCount})` : ''}
+                    {pendingCount > 0 ? ` • ${pendingCount} pendente${pendingCount === 1 ? '' : 's'}` : ''}
                 </span>
             </span>
         )
@@ -52,7 +70,7 @@ export default function ConnectionStatusBadge() {
                 <RefreshCw size={14} className="connection-badge-spin" aria-hidden="true" />
                 <span>
                     Sincronizando
-                    {pendingCount > 0 ? ` (${pendingCount})` : ''}
+                    {pendingCount > 0 ? ` • ${pendingCount} pendente${pendingCount === 1 ? '' : 's'}` : ''}
                 </span>
             </span>
         )
@@ -62,15 +80,9 @@ export default function ConnectionStatusBadge() {
         return (
             <span className="connection-badge pending" role="status" title="Vendas aguardando sincronização.">
                 <Wifi size={14} aria-hidden="true" />
-                <span>{pendingCount} pendente(s)</span>
+                <span>{pendingCount} venda{pendingCount === 1 ? '' : 's'} pendente{pendingCount === 1 ? '' : 's'}</span>
             </span>
         )
     }
-
-    return (
-        <span className="connection-badge online" role="status" title="Conectado ao sistema.">
-            <Wifi size={14} aria-hidden="true" />
-            <span>Online</span>
-        </span>
-    )
+    return null
 }

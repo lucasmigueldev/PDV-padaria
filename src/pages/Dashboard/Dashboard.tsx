@@ -8,10 +8,8 @@ import {
   Clock3,
   History,
   LayoutDashboard,
-  LogOut,
   Package,
   QrCode,
-  Settings,
   ShoppingCart,
   UserRound,
   X,
@@ -26,10 +24,8 @@ import { PendingRegistersNavigationLink } from '../../components/PendingRegister
 import { useBakeries } from '../../hooks/useBakeries'
 import { useEstablishmentName } from '../../services/establishment'
 import { useAuth } from '../../contexts/AuthContext'
-import { useOverdueCashRegisterAlertContext } from '../../contexts/OverdueCashRegisterAlertContext'
-import { usePdvHeartbeats, PDV_OFFLINE_THRESHOLD_MS } from '../../hooks/usePdvHeartbeats'
+import { usePdvHeartbeats } from '../../hooks/usePdvHeartbeats'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
-import { WifiOff } from 'lucide-react'
 import { OfflineNotification } from '../../components/OfflineNotification/OfflineNotification'
 import type { PaymentMethod, Sale } from '../../types/Sale'
 import { logoutAndRedirect } from '../../utils/auth'
@@ -91,7 +87,6 @@ function parseLocalDate(dateString: string): Date {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { authenticatedUser } = useAuth()
-  const { alertCount: overdueAlertCount } = useOverdueCashRegisterAlertContext()
   const isOwner = authenticatedUser?.role === 'owner'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [bakeryFilter, setBakeryFilter] = useState('all')
@@ -106,13 +101,6 @@ export default function Dashboard() {
   const { bakeries } = useBakeries()
   const activeBakeries = bakeries.filter((bakery) => bakery.active)
   const { heartbeats } = usePdvHeartbeats(isOwner)
-  const offlineUnits = activeBakeries.filter((bakery) => {
-    const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
-    if (!heartbeat) return false
-    // Date.now() is needed here to check PDV offline status. The value only needs to be refreshed when heartbeats change (every 30s via polling).
-    // eslint-disable-next-line react-hooks/purity
-    return Date.now() - new Date(heartbeat.lastSeenAt).getTime() > PDV_OFFLINE_THRESHOLD_MS
-  })
   const pendingUnits = activeBakeries.filter((bakery) => {
     const heartbeat = heartbeats.find((item) => item.bakeryId === bakery.id)
     return (heartbeat?.pendingSales ?? 0) > 0
@@ -299,18 +287,6 @@ export default function Dashboard() {
           </Link>}
         </nav>
 
-        <div className="sidebar-bottom mt-auto flex flex-col gap-2">
-          {isOwner && <Link to="/configuracoes" className="sidebar-link">
-            <Settings size={19} />
-            <span>Configurações</span>
-          </Link>}
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="sidebar-link logout-button"
-          />
-        </div>
       </aside>
       <aside className={`mobile-drawer${isMobileMenuOpen ? ' is-open' : ''}`} aria-hidden={!isMobileMenuOpen}>
         <div className="mobile-drawer-header">
@@ -364,17 +340,6 @@ export default function Dashboard() {
           </Link>}
         </nav>
 
-        <div className="mobile-drawer-bottom">
-          {isOwner && <Link to="/configuracoes" className="sidebar-link" onClick={closeMobileMenu}>
-            <Settings size={19} />
-            <span>Configurações</span>
-          </Link>}
-
-          <button type="button" onClick={handleLogout} className="sidebar-link logout-button">
-            <LogOut size={19} />
-            <span>Sair</span>
-          </button>
-        </div>
       </aside>
 
       <OfflineNotification />
@@ -389,7 +354,7 @@ export default function Dashboard() {
               <span>{establishmentName}</span>
             </div>
 
-            <UserProfileMenu user={authenticatedUser} />
+            <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
           </div>
 
           <div className="dashboard-header-row">
@@ -400,7 +365,7 @@ export default function Dashboard() {
             </div>
 
             <div className="desktop-user-profile">
-              <UserProfileMenu user={authenticatedUser} />
+              <UserProfileMenu user={authenticatedUser} onLogout={handleLogout} />
             </div>
           </div>
         </header>
@@ -408,19 +373,7 @@ export default function Dashboard() {
         <section className="dashboard-content p-10">
           {loadError && <p role="alert" className="mb-4 text-red-700">{loadError}</p>}
           {isLoading && <p role="status" className="mb-4">Carregando dados operacionais...</p>}
-          {isOwner && offlineUnits.length > 0 && (
-            <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800" role="alert">
-              <WifiOff size={20} aria-hidden="true" />
-              <div>
-                <strong>PDV sem conexão</strong>
-                <p className="text-sm">
-                  {offlineUnits.map((bakery) => bakery.name).join(', ')} não respondeu na última verificação.
-                  Os valores exibidos abaixo podem estar desatualizados.
-                </p>
-              </div>
-            </div>
-          )}
-          {isOwner && pendingUnits.length > 0 && offlineUnits.length === 0 && (
+          {isOwner && pendingUnits.length > 0 && (
             <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800" role="status">
               <Clock3 size={20} aria-hidden="true" />
               <div>
@@ -433,18 +386,6 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-          )}
-          {isOwner && overdueAlertCount > 0 && (
-            <aside className="dashboard-overdue-notice" role="status" aria-live="polite">
-              <div className="dashboard-overdue-notice-copy">
-                <Clock3 size={19} aria-hidden="true" />
-                <p>
-                  <strong>
-                    {overdueAlertCount} {overdueAlertCount === 1 ? 'caixa atrasado' : 'caixas atrasados'}
-                  </strong>
-                </p>
-              </div>
-            </aside>
           )}
           <div className="dashboard-filters">
             <div className="dashboard-unit-filter">

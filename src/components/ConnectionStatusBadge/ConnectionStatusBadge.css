@@ -14,24 +14,29 @@
     flex: 0 0 auto;
 }
 
-.connection-badge-online {
+.connection-badge.online {
     background: #dcfce7;
     color: #166534;
 }
 
-.connection-badge-offline {
+.connection-badge.offline {
     background: #fef2f2;
     color: #991b1b;
 }
 
-.connection-badge-syncing {
+.connection-badge.syncing {
     background: #fef3c7;
     color: #92400e;
 }
 
-.connection-badge-pending {
+.connection-badge.pending {
     background: #fef3c7;
     color: #92400e;
+}
+
+.connection-badge.failed {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .connection-badge-spin {
