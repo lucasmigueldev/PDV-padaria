@@ -10,6 +10,7 @@ interface AdminPageHeaderProps {
     overline: string
     establishmentName: string
     user: AuthenticatedUser | null
+    onLogout: () => void
 }
 
 export function AdminPageHeader({
@@ -18,6 +19,7 @@ export function AdminPageHeader({
     overline,
     establishmentName,
     user,
+    onLogout,
 }: AdminPageHeaderProps) {
     return (
         <header className="admin-page-header">
@@ -28,7 +30,7 @@ export function AdminPageHeader({
                     </div>
                     <span>{establishmentName}</span>
                 </div>
-                <UserProfileMenu user={user} />
+                <UserProfileMenu user={user} onLogout={onLogout} />
             </div>
 
             <div className="admin-page-header-row">
@@ -38,7 +40,7 @@ export function AdminPageHeader({
                     <p>{description}</p>
                 </div>
                 <div className="admin-page-desktop-profile">
-                    <UserProfileMenu user={user} />
+                    <UserProfileMenu user={user} onLogout={onLogout} />
                 </div>
             </div>
         </header>

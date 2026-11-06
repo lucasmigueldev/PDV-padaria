@@ -619,6 +619,7 @@ export default function CaixasPendentes() {
                     overline="MONITORAMENTO"
                     establishmentName={establishmentName}
                     user={authenticatedUser}
+                    onLogout={handleLogout}
                 />
 
                 <section className="pending-registers-content" aria-label="Lista de caixas atrasados">
