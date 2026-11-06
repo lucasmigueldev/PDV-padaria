@@ -101,16 +101,6 @@ export default function PDV() {
     const bluetooth = useBluetoothPrinter()
     const connection = useConnectionStatus()
     const queue = useOfflineQueue()
-    const pendingCount = queue.filter((sale) =>
-        sale.operatorUserId === authenticatedUser?.id
-        && sale.bakeryId === bakeryId
-        && sale.status === 'pending',
-    ).length
-    const failedCount = queue.filter((sale) =>
-        sale.operatorUserId === authenticatedUser?.id
-        && sale.bakeryId === bakeryId
-        && sale.status === 'failed',
-    ).length
     const quarantinedCount = queue.filter((sale) =>
         sale.operatorUserId === authenticatedUser?.id
         && sale.bakeryId === bakeryId
@@ -895,24 +885,6 @@ export default function PDV() {
                 showPrinter
                 onPixKeyDisplay={openPixKeyDisplay}
             />
-            {pendingCount > 0 && connection.status === 'offline' && (
-                <div className="pdv-offline-banner">
-                    <span>● Sem conexão</span>
-                    <span>{pendingCount} venda(ões) aguardando sincronização</span>
-                </div>
-            )}
-            {pendingCount > 0 && connection.status === 'online' && (
-                <div className="pdv-offline-banner pdv-offline-banner--syncing">
-                    <span>● Sincronizando vendas pendentes...</span>
-                    <span>{pendingCount} venda(ões) na fila</span>
-                </div>
-            )}
-            {failedCount > 0 && (
-                <div className="pdv-offline-banner" role="alert">
-                    <span>● Vendas com falha que precisam de revisão</span>
-                    <span>{failedCount} venda(s) preservada(s) na fila</span>
-                </div>
-            )}
             {quarantinedCount > 0 && (
                 <div className="pdv-offline-banner pdv-offline-banner--syncing" role="status">
                     <span>● Vendas recebidas em quarentena</span>

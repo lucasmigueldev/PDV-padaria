@@ -31,6 +31,33 @@
     min-width: 0;
 }
 
+.app-topbar .connection-badge {
+    max-width: 220px;
+    min-height: 28px;
+    overflow: hidden;
+}
+
+.app-topbar .connection-badge > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+    .app-topbar {
+        gap: 8px;
+        padding-inline: 12px;
+    }
+
+    .app-topbar-right {
+        gap: 6px;
+    }
+
+    .app-topbar .connection-badge {
+        max-width: 145px;
+        padding-inline: 6px;
+    }
+}
+
 .app-topbar-session {
     display: flex;
     align-items: center;
